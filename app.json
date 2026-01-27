@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Tailor Craft",
+    "slug": "tailor-craft",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "expo-video",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "com.rogojang77.tailorcraft"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rogojang77.tailorcraft",
+      "buildNumber": "1",
+      "supportsTablet": true
+    }
+  }
+}

@@ -1,0 +1,39 @@
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+index 0000000..1111111 100644
+--- a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+@@ -86,7 +86,7 @@
+     self.shouldPreferUpdatesInterfaceSourceUrl = NO;
+ 
+     self.dependencyProvider = [RCTAppDependencyProvider new];
+-    self.reactNativeFactory = [[EXDevLauncherReactNativeFactory alloc] initWithDelegate:self releaseLevel:[self getReactNativeReleaseLevel]];
++    self.reactNativeFactory = [[EXDevLauncherReactNativeFactory alloc] initWithDelegate:self];
+   }
+   return self;
+ }
+@@ -721,25 +721,6 @@
+   return appVersion;
+ }
+ 
+--(RCTReleaseLevel)getReactNativeReleaseLevel
+-{
+-//  @TODO: Read this value from the main react-native factory instance on 0.82
+-  NSString *releaseLevelString = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ReactNativeReleaseLevel"];
+-  RCTReleaseLevel releaseLevel = Stable;
+-  if ([releaseLevelString isKindOfClass:[NSString class]]) {
+-    NSString *lower = [releaseLevelString lowercaseString];
+-    if ([lower isEqualToString:@"canary"]) {
+-      releaseLevel = Canary;
+-    } else if ([lower isEqualToString:@"experimental"]) {
+-      releaseLevel = Experimental;
+-    } else if ([lower isEqualToString:@"stable"]) {
+-      releaseLevel = Stable;
+-    }
+-  }
+-
+-  return releaseLevel;
+-}
+-
+ -(void)copyToClipboard:(NSString *)content {
+ #if !TARGET_OS_TV
+   UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
