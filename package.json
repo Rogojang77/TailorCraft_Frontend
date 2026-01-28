@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
+    "build:ios:local": "PATH=\"$(pwd)/bin:$PATH\" eas build --local --platform ios",
     "lint": "expo lint",
     "android": "expo run:android",
     "ios": "expo run:ios",

@@ -69,6 +69,19 @@ npm run android
 - `npm run ios` - Run on iOS
 - `npm run lint` - Run ESLint
 - `npm run build:web` - Build for web
+- `npm run build:ios:local` - Run EAS iOS build locally (requires `bundle install` first)
+
+## Local iOS builds (EAS)
+
+EAS local iOS builds require Fastlane in your PATH. This project provides it via Bundler:
+
+1. Install Ruby dependencies: `bundle install`
+2. Run the local iOS build: `npm run build:ios:local`
+
+Alternatively, install Fastlane globally and use `eas build --local --platform ios` directly:
+
+- **macOS:** `brew install fastlane`
+- **Or:** `gem install fastlane`
 
 ## Backend Repository
 

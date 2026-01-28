@@ -37,6 +37,12 @@
       "bundleIdentifier": "com.rogojang77.tailorcraft",
       "buildNumber": "1",
       "supportsTablet": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9db59b61-0052-43cb-aa09-90f9d2547c0c"
+      }
     }
   }
 }
