@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Phone, Calendar, Package, Trash2 } from 'lucide-react-native';
+import React, { memo, useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Colors, Typography, Spacing, BorderRadius, Shadows, AccentPalette } from '@/constants/design';
+import { Button } from '@/components/ui/Button';
 
 interface Client {
   id: string;
@@ -16,120 +17,92 @@ interface ClientListItemProps {
   onDelete?: () => void;
 }
 
+// Generate consistent color from client ID using global accent palette
+function getClientColor(clientId: string): string {
+  let hash = 0;
+  for (let i = 0; i < clientId.length; i++) {
+    hash = clientId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AccentPalette[Math.abs(hash) % AccentPalette.length];
+}
+
 // Memoized component to prevent unnecessary re-renders in lists
 // This reduces memory churn when scrolling through large lists
 export const ClientListItem = memo(function ClientListItem({ client, onPress, onDelete }: ClientListItemProps) {
+  const avatarColor = useMemo(() => getClientColor(client.id), [client.id]);
+  
+  const initials = useMemo(() => {
+    return client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }, [client.name]);
+
+  // Format metadata: "Phone · X orders · Last: Date"
+  const metadata = useMemo(() => {
+    const parts: string[] = [];
+    if (client.phone) parts.push(client.phone);
+    if (client.totalOrders > 0) {
+      parts.push(`${client.totalOrders} ${client.totalOrders === 1 ? 'comandă' : 'comenzi'}`);
+    }
+    if (client.lastOrder && client.lastOrder !== '—') {
+      parts.push(`Ultima: ${client.lastOrder}`);
+    }
+    return parts.join(' · ');
+  }, [client.phone, client.totalOrders, client.lastOrder]);
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.touchable} onPress={onPress} onLongPress={onDelete}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {client.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-          </Text>
-        </View>
-        
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.name}>{client.name}</Text>
-          </View>
-          
-          <View style={styles.details}>
-            <View style={styles.detail}>
-              <Phone size={14} color="#6B7280" />
-              <Text style={styles.detailText}>{client.phone}</Text>
-            </View>
-            
-            <View style={styles.detail}>
-              <Package size={14} color="#6B7280" />
-              <Text style={styles.detailText}>{client.totalOrders} comenzi</Text>
-            </View>
-            
-            <View style={styles.detail}>
-              <Calendar size={14} color="#6B7280" />
-              <Text style={styles.detailText}>Ultima: {client.lastOrder}</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-      {onDelete ? (
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={onDelete}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Trash2 size={18} color="#F43F5E" strokeWidth={2.5} />
-        </TouchableOpacity>
-      ) : null}
-    </View>
+    <Button
+      variant="ghost"
+      style={styles.container}
+      onPress={onPress}
+      onLongPress={onDelete}
+    >
+      <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+        <Text style={styles.avatarText}>{initials}</Text>
+      </View>
+      
+      <View style={styles.content}>
+        <Text style={styles.name} numberOfLines={1}>{client.name}</Text>
+        <Text style={styles.metadata} numberOfLines={1}>{metadata || '—'}</Text>
+      </View>
+    </Button>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
     alignItems: 'center',
-  },
-  touchable: {
-    flex: 1,
-    flexDirection: 'row',
-    padding: 16,
-  },
-  deleteBtn: {
-    width: 48,
-    height: '100%',
-    minHeight: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+    ...Shadows.sm,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#D4AF37',
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: Spacing.md,
   },
   avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...Typography.bodyBold,
+    fontSize: 14,
+    color: Colors.textInverse,
   },
   content: {
     flex: 1,
     minWidth: 0,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
   name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    flex: 1,
+    ...Typography.bodyBold,
+    marginBottom: Spacing.xs,
   },
-  details: {
-    gap: 4,
-  },
-  detail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 6,
+  metadata: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
 });

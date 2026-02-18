@@ -1,766 +1,465 @@
+/**
+ * Tailor Specification PDF Service
+ * Stable for iOS + Android (Expo)
+ */
+
+import { getUnitDisplay } from '@/constants/units';
+import { File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
+import {
+  getSnapshotEntriesInDefinitionOrder,
+  getSnapshotDisplayLabel,
+  type SnapshotDefinitionRef,
+} from '@/utils/snapshotDisplay';
 
-interface OrderData {
+/* ============================= */
+/*            TYPES              */
+/* ============================= */
+
+/** Per-garment measurement definitions for correct labels, order, and select option resolution in PDF. */
+export type PDFMeasurementDefinition = SnapshotDefinitionRef & {
+  inputType?: string;
+  options?: string[];
+};
+
+export interface PDFOrderData {
   id: string;
+  orderNumber?: string;
+
   clientName: string;
   clientPhone: string;
   clientEmail?: string;
+
   orderDate: string;
-  pickupDate: string;
-  total: number;
-  advance: number;
-  paymentMethod: string;
-  jacket?: {
-    chest: string;
-    waist: string;
-    hips: string;
-    frontLength: string;
-    backLength: string;
-    shoulderToShoulder: string;
-    sleeveLength: string;
-    backWidth: string;
-    lapelType: string;
-    model: string;
-    size: string;
-    materialCode: string;
-    observations: string;
-  };
-  vest?: {
-    chest: string;
-    waist: string;
-    hips: string;
-    frontLength: string;
-    backLength: string;
-    model: string;
-    lining: string;
-    buttons: string;
-    materialCode: string;
-    observations: string;
-  };
-  pants?: {
-    size: string;
-    model: string;
-    waist: string;
-    hips: string;
-    upperLeg: string;
-    knee: string;
-    hem: string;
-    frontCircumference: string;
-    backCircumference: string;
-    interiorLength: string;
-    exteriorLength: string;
-    materialCode: string;
-    observations: string;
-  };
+  deliveryDate?: string;
+
+  notes?: string;
+
+  measurements?: Record<string, Record<string, string>> | null;
+
+  /** When set, PDF uses definition order, API labels (diacritics), and resolves select options. */
+  measurementDefinitionsByGarment?: Record<string, PDFMeasurementDefinition[]> | null;
+
+  total?: number;
+  advance?: number;
 }
 
-interface CompanyData {
+export interface PDFCompanyData {
   name: string;
-  owner: string;
+  owner?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  logo?: string; // base64 string
+}
+
+export type GarmentDisplayNames = Record<string, string>;
+
+/** Translated labels for the PDF (from i18n). When provided, PDF uses them instead of hardcoded English. */
+export interface PDFLabels {
+  orderNumber: string;
+  orderDate: string;
+  deliveryDate: string;
+  client: string;
   phone: string;
   email: string;
-  address: string;
-  logo?: string;
+  specialInstructions: string;
+  generatedOn: string;
+  /** e.g. "Order {{number}}" — used for share dialog title. */
+  shareDialogTitle?: string;
 }
 
-const generatePDFHTML = (orderData: OrderData, companyData: CompanyData): string => {
-  const remaining = orderData.total - orderData.advance;
-  
-  return `
-    <!DOCTYPE html>
-    <html lang="ro">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Fișă de Comandă ${orderData.id} - ${orderData.clientName}</title>
-      <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          line-height: 1.4;
-          color: #1F2937;
-          background: #FFFFFF;
-          font-size: 13px;
-        }
-        
-        .document {
-          max-width: 210mm;
-          margin: 0 auto;
-          padding: 15mm;
-          background: white;
-          min-height: 297mm;
-        }
-        
-        .header {
-          margin-bottom: 20px;
-          padding-bottom: 15px;
-          border-bottom: 3px solid #D4AF37;
-        }
-        
-        .company-name {
-          font-size: 20px;
-          font-weight: 700;
-          margin-bottom: 6px;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-        
-        .company-details {
-          font-size: 11px;
-          color: #6B7280;
-          line-height: 1.6;
-        }
-        
-        .document-title {
-          text-align: center;
-          font-size: 22px;
-          font-weight: 700;
-          margin-bottom: 6px;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-        
-        .document-subtitle {
-          text-align: center;
-          font-size: 12px;
-          color: #6B7280;
-          margin-bottom: 20px;
-          font-weight: 500;
-        }
-        
-        .section {
-          margin-bottom: 18px;
-        }
-        
-        .section-title {
-          font-size: 15px;
-          font-weight: 700;
-          margin-bottom: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-          border-bottom: 2px solid #E5E7EB;
-          padding-bottom: 6px;
-        }
-        
-        .info-item {
-          margin-bottom: 4px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-        
-        .info-label {
-          font-weight: 500;
-          color: #6B7280;
-          display: inline-block;
-          min-width: 110px;
-        }
-        
-        .info-value {
-          color: #1F2937;
-        }
-        
-        .measurement-item {
-          margin-bottom: 3px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-        
-        .measurement-label {
-          font-weight: 500;
-          color: #6B7280;
-          display: inline-block;
-          min-width: 130px;
-        }
-        
-        .measurement-value {
-          color: #1F2937;
-        }
-        
-        .style-item {
-          margin-bottom: 3px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-        
-        .style-label {
-          font-weight: 500;
-          color: #6B7280;
-          display: inline-block;
-          min-width: 110px;
-        }
-        
-        .style-value {
-          color: #1F2937;
-        }
-        
-        .observations {
-          margin-top: 10px;
-          padding: 8px 0;
-        }
-        
-        .observations-title {
-          font-size: 12px;
-          font-weight: 600;
-          margin-bottom: 6px;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-        }
-        
-        .observations-text {
-          font-size: 12px;
-          color: #6B7280;
-          line-height: 1.5;
-        }
-        
-        .payment-item {
-          margin-bottom: 4px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-        
-        .payment-label {
-          font-weight: 500;
-          color: #6B7280;
-          display: inline-block;
-          min-width: 130px;
-        }
-        
-        .payment-value {
-          color: #1F2937;
-          font-weight: 600;
-        }
-        
-        .signatures-section {
-          margin-top: 35px;
-          page-break-inside: avoid;
-        }
-        
-        .signatures-title {
-          font-size: 14px;
-          font-weight: 700;
-          text-align: center;
-          margin-bottom: 8px;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-        }
-        
-        .signatures-disclaimer {
-          font-size: 10px;
-          color: #6B7280;
-          text-align: center;
-          margin-bottom: 25px;
-          line-height: 1.5;
-          font-style: italic;
-        }
-        
-        .signature-box {
-          margin-bottom: 30px;
-          text-align: center;
-        }
-        
-        .signature-line {
-          height: 50px;
-          margin-bottom: 8px;
-        }
-        
-        .signature-label {
-          font-size: 11px;
-          color: #1F2937;
-          font-weight: 600;
-        }
-        
-        .footer {
-          margin-top: 30px;
-          text-align: center;
-          border-top: 1px solid #E5E7EB;
-          padding-top: 15px;
-        }
-        
-        .footer-text {
-          font-size: 9px;
-          color: #9CA3AF;
-          line-height: 1.6;
-        }
-        
-        .footer-note {
-          font-size: 8px;
-          color: #9CA3AF;
-          margin-top: 8px;
-          line-height: 1.5;
-          font-style: italic;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="document">
-        <!-- Header with Company Info -->
-        <header class="header">
-          <h1 class="company-name">${companyData.name}</h1>
-          <div class="company-details">
-            Proprietar: ${companyData.owner} | Telefon: ${companyData.phone} | Email: ${companyData.email}<br>
-            Adresă: ${companyData.address}
-          </div>
-        </header>
-        
-        <!-- Document Title -->
-        <h1 class="document-title">Contract de Prestări Servicii</h1>
-        <p class="document-subtitle">Document de Comandă Nr. ${orderData.id} | Data Emiterii: ${new Date().toLocaleDateString('ro-RO', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        })}</p>
-        
-        <!-- Order Information -->
-        <div class="section">
-          <h2 class="section-title">Date Beneficiar</h2>
-          <div class="info-item">
-            <span class="info-label">Nume complet:</span>
-            <span class="info-value">${orderData.clientName}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Telefon:</span>
-            <span class="info-value">${orderData.clientPhone}</span>
-          </div>
-          ${orderData.clientEmail ? `
-          <div class="info-item">
-            <span class="info-label">Adresă email:</span>
-            <span class="info-value">${orderData.clientEmail}</span>
-          </div>
-          ` : ''}
-        </div>
-        
-        <div class="section">
-          <h2 class="section-title">Informații Contract</h2>
-          <div class="info-item">
-            <span class="info-label">Data contractării:</span>
-            <span class="info-value">${new Date(orderData.orderDate).toLocaleDateString('ro-RO')}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Data estimată finalizare:</span>
-            <span class="info-value">${new Date(orderData.pickupDate).toLocaleDateString('ro-RO')}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Cod referință:</span>
-            <span class="info-value">${orderData.id}</span>
-          </div>
-        </div>
-        
-        ${orderData.jacket ? `
-        <!-- Jacket Measurements -->
-        <div class="section">
-          <h2 class="section-title">Specificații Tehnice - Sacou</h2>
-          <div class="measurement-item">
-            <span class="measurement-label">Bust:</span>
-            <span class="measurement-value">${orderData.jacket.chest} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Talie:</span>
-            <span class="measurement-value">${orderData.jacket.waist} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Șold:</span>
-            <span class="measurement-value">${orderData.jacket.hips} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Față:</span>
-            <span class="measurement-value">${orderData.jacket.frontLength} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Spate:</span>
-            <span class="measurement-value">${orderData.jacket.backLength} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Umăr în Umăr:</span>
-            <span class="measurement-value">${orderData.jacket.shoulderToShoulder} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Mânecă:</span>
-            <span class="measurement-value">${orderData.jacket.sleeveLength} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lățime Spate:</span>
-            <span class="measurement-value">${orderData.jacket.backWidth} cm</span>
-          </div>
-          
-          <div style="margin-top: 10px;">
-            <div class="style-item">
-              <span class="style-label">Mărime:</span>
-              <span class="style-value">${orderData.jacket.size}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Model:</span>
-              <span class="style-value">${orderData.jacket.model}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Tip rever:</span>
-              <span class="style-value">${orderData.jacket.lapelType}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Cod material:</span>
-              <span class="style-value">${orderData.jacket.materialCode}</span>
-            </div>
-          </div>
-          
-          ${orderData.jacket.observations ? `
-          <div class="observations">
-            <div class="observations-title">Observații și Specificații Suplimentare:</div>
-            <div class="observations-text">${orderData.jacket.observations}</div>
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-        
-        ${orderData.vest ? `
-        <!-- Vest Measurements -->
-        <div class="section">
-          <h2 class="section-title">Specificații Tehnice - Vestă</h2>
-          <div class="measurement-item">
-            <span class="measurement-label">Bust:</span>
-            <span class="measurement-value">${orderData.vest.chest} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Talie:</span>
-            <span class="measurement-value">${orderData.vest.waist} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Șold:</span>
-            <span class="measurement-value">${orderData.vest.hips} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Față:</span>
-            <span class="measurement-value">${orderData.vest.frontLength} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Spate:</span>
-            <span class="measurement-value">${orderData.vest.backLength} cm</span>
-          </div>
-          
-          <div style="margin-top: 10px;">
-            <div class="style-item">
-              <span class="style-label">Model:</span>
-              <span class="style-value">${orderData.vest.model}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Căptușeală:</span>
-              <span class="style-value">${orderData.vest.lining}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Nasturi:</span>
-              <span class="style-value">${orderData.vest.buttons}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Cod material:</span>
-              <span class="style-value">${orderData.vest.materialCode}</span>
-            </div>
-          </div>
-          
-          ${orderData.vest.observations ? `
-          <div class="observations">
-            <div class="observations-title">Observații și Specificații Suplimentare:</div>
-            <div class="observations-text">${orderData.vest.observations}</div>
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-        
-        ${orderData.pants ? `
-        <!-- Pants Measurements -->
-        <div class="section">
-          <h2 class="section-title">Specificații Tehnice - Pantaloni</h2>
-          <div class="measurement-item">
-            <span class="measurement-label">Mărime:</span>
-            <span class="measurement-value">${orderData.pants.size}</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Talie:</span>
-            <span class="measurement-value">${orderData.pants.waist} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Șold:</span>
-            <span class="measurement-value">${orderData.pants.hips} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Picior Sus:</span>
-            <span class="measurement-value">${orderData.pants.upperLeg} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Genunchi:</span>
-            <span class="measurement-value">${orderData.pants.knee} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Tiv:</span>
-            <span class="measurement-value">${orderData.pants.hem} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Int.:</span>
-            <span class="measurement-value">${orderData.pants.interiorLength} cm</span>
-          </div>
-          <div class="measurement-item">
-            <span class="measurement-label">Lungime Ext.:</span>
-            <span class="measurement-value">${orderData.pants.exteriorLength} cm</span>
-          </div>
-          
-          <div style="margin-top: 10px;">
-            <div class="style-item">
-              <span class="style-label">Model:</span>
-              <span class="style-value">${orderData.pants.model}</span>
-            </div>
-            <div class="style-item">
-              <span class="style-label">Cod material:</span>
-              <span class="style-value">${orderData.pants.materialCode}</span>
-            </div>
-          </div>
-          
-          ${orderData.pants.observations ? `
-          <div class="observations">
-            <div class="observations-title">Observații și Specificații Suplimentare:</div>
-            <div class="observations-text">${orderData.pants.observations}</div>
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-        
-        <!-- Payment Information -->
-        <div class="section">
-          <h2 class="section-title">Condiții Comerciale</h2>
-          <div class="payment-item">
-            <span class="payment-label">Valoare totală servicii:</span>
-            <span class="payment-value">${orderData.total} RON</span>
-          </div>
-          <div class="payment-item">
-            <span class="payment-label">Sumă achitată în avans:</span>
-            <span class="payment-value">${orderData.advance} RON</span>
-          </div>
-          <div class="payment-item">
-            <span class="payment-label">Sold de achitat la finalizare:</span>
-            <span class="payment-value">${remaining} RON</span>
-          </div>
-          <div class="payment-item">
-            <span class="payment-label">Metodă de plată convenită:</span>
-            <span class="payment-value">${orderData.paymentMethod}</span>
-          </div>
-        </div>
-        
-        <!-- Signatures -->
-        <div class="signatures-section">
-          <h3 class="signatures-title">Confirmare și Validare Document</h3>
-          <p class="signatures-disclaimer">
-            Prin semnarea prezentului document, ambele părți confirmă că au citit, înțeles și acceptat termenii și condițiile stipulate mai sus.
-          </p>
-          <div class="signature-box">
-            <div class="signature-line"></div>
-            <div class="signature-label">Semnătura și Ștampila Prestatorului</div>
-          </div>
-          <div class="signature-box">
-            <div class="signature-line"></div>
-            <div class="signature-label">Semnătura Beneficiarului</div>
-          </div>
-        </div>
-        
-        <!-- Footer -->
-        <footer class="footer">
-          <p class="footer-text">
-            Document emis în data de ${new Date().toLocaleDateString('ro-RO', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </p>
-          <p class="footer-note">
-            Acest document are valoare contractuală. Modificările ulterioare vor fi efectuate doar prin acordul scris al ambelor părți.<br>
-            Vă mulțumim pentru încrederea acordată serviciilor noastre.
-          </p>
-        </footer>
+/* ============================= */
+/*        HELPER FUNCTIONS       */
+/* ============================= */
+
+function escapeHtml(s?: string): string {
+  if (!s) return '';
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatMoney(value?: number): string {
+  if (typeof value !== 'number') return '';
+  return new Intl.NumberFormat('ro-RO', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/** Resolve stored value for select fields: index → option label, or value as-is if already a label. */
+function resolveSelectDisplayValue(value: string, options?: string[] | null): string {
+  if (!options?.length) return value;
+  const trimmed = String(value).trim();
+  const asIndex = parseInt(trimmed, 10);
+  if (!Number.isNaN(asIndex) && asIndex >= 0 && asIndex < options.length) {
+    return options[asIndex] ?? trimmed;
+  }
+  if (options.includes(trimmed)) return trimmed;
+  return value;
+}
+
+/* ============================= */
+/*        HTML GENERATOR         */
+/* ============================= */
+
+const DEFAULT_LABELS: PDFLabels = {
+  orderNumber: 'Order #:',
+  orderDate: 'Order Date:',
+  deliveryDate: 'Delivery Date:',
+  client: 'Client:',
+  phone: 'Phone:',
+  email: 'Email:',
+  specialInstructions: 'Special Instructions',
+  generatedOn: 'Generated on',
+};
+
+function generateHTML(
+  order: PDFOrderData,
+  company: PDFCompanyData,
+  garmentDisplayNames: GarmentDisplayNames,
+  labels: PDFLabels = DEFAULT_LABELS
+): string {
+  const safe = (v?: string) => escapeHtml(v);
+
+  const measurementSections: string[] = [];
+  const measurements = order.measurements ?? {};
+  const definitionsByGarment = order.measurementDefinitionsByGarment ?? {};
+
+  for (const [garmentId, entries] of Object.entries(measurements)) {
+    if (!entries || typeof entries !== 'object') continue;
+
+    const garmentTitle = garmentDisplayNames[garmentId] ?? garmentId;
+    const defs = definitionsByGarment[garmentId] ?? [];
+
+    const rows =
+      defs.length > 0
+        ? getSnapshotEntriesInDefinitionOrder(entries, defs)
+            .map(([key, value]) => {
+              const def = defs.find((d) => d.key === key);
+              const label = getSnapshotDisplayLabel(key, def);
+              const isSelect = def?.inputType === 'select' && def?.options?.length;
+              const displayValue = isSelect
+                ? resolveSelectDisplayValue(value, def?.options)
+                : value;
+              return `
+        <tr>
+          <td class="label">${safe(label)}</td>
+          <td class="value">${safe(displayValue)}</td>
+        </tr>
+      `;
+            })
+            .join('')
+        : Object.entries(entries)
+            .filter(([, value]) => value != null && String(value).trim() !== '')
+            .map(
+              ([key, value]) => `
+        <tr>
+          <td class="label">${safe(key)}</td>
+          <td class="value">${safe(value)}</td>
+        </tr>
+      `
+            )
+            .join('');
+
+    measurementSections.push(`
+      <div class="section">
+        <h3>${safe(garmentTitle)}</h3>
+        <table class="measurements">
+          ${rows}
+        </table>
       </div>
-    </body>
-    </html>
-  `;
-};
-
-export const generateOrderPDF = async (orderData: OrderData, companyData: CompanyData, useBase64: boolean = false) => {
-  try {
-    const html = generatePDFHTML(orderData, companyData);
-    
-    const result = await Print.printToFileAsync({
-      html,
-      base64: useBase64,
-      width: 612,
-      height: 792,
-      margins: {
-        left: 20,
-        top: 20,
-        right: 20,
-        bottom: 20,
-      },
-    });
-    
-    // If base64 was requested, return both uri and base64
-    if (useBase64 && 'base64' in result && result.base64) {
-      return { uri: result.uri, base64: result.base64 };
-    }
-    
-    return { uri: result.uri };
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    throw new Error('Nu s-a putut genera PDF-ul. Verificați datele și încercați din nou.');
+    `);
   }
-};
 
-export const shareOrderPDF = async (orderData: OrderData, companyData: CompanyData) => {
-  try {
-    const result = await generateOrderPDF(orderData, companyData, false);
-    const pdfUri = result.uri;
-    
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(pdfUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: `Comandă ${orderData.id} - ${orderData.clientName}`,
-        UTI: 'com.adobe.pdf',
-      });
-    } else {
-      throw new Error('Partajarea nu este disponibilă pe această platformă');
-    }
-  } catch (error) {
-    console.error('Error sharing PDF:', error);
-    throw new Error('Nu s-a putut partaja PDF-ul. Încercați din nou.');
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    color: #111;
+    font-size: 12px;
+    line-height: 1.6;
   }
-};
 
-export const downloadOrderPDF = async (orderData: OrderData, companyData: CompanyData) => {
-  try {
-    const fileName = `Comanda_${orderData.id}_${orderData.clientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-    
-    // Check if we're on web platform - must have both window and document
-    const isWeb = Platform.OS === 'web' && 
-                  typeof window !== 'undefined' && 
-                  typeof document !== 'undefined' &&
-                  typeof document.createElement === 'function';
-    
-    if (isWeb) {
-      try {
-        // Generate PDF with base64 for web (if supported)
-        let result;
-        try {
-          result = await generateOrderPDF(orderData, companyData, true);
-        } catch (base64Error) {
-          // If base64 generation fails, try without base64
-          console.warn('Base64 PDF generation failed, trying without base64:', base64Error);
-          result = await generateOrderPDF(orderData, companyData, false);
-        }
-        
-        let downloadUrl: string;
-        
-        if ('base64' in result && result.base64) {
-          // Create data URL from base64
-          downloadUrl = `data:application/pdf;base64,${result.base64}`;
-        } else {
-          // Fallback to URI if base64 not available
-          const pdfUri = result.uri;
-          
-          // Check if URI is already a data URL
-          if (pdfUri.startsWith('data:')) {
-            downloadUrl = pdfUri;
-          } else if (pdfUri.startsWith('blob:')) {
-            // Use blob URL directly - no need to create a new one
-            downloadUrl = pdfUri;
-          } else {
-            // Try to fetch and convert to data URL using FileReader (avoids createObjectURL)
-            try {
-              const response = await fetch(pdfUri);
-              if (!response.ok) {
-                throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-              }
-              const blob = await response.blob();
-              if (!blob || blob.size === 0) {
-                throw new Error('Received empty or invalid blob');
-              }
-              // Convert blob to base64 data URL using FileReader (more reliable than createObjectURL)
-              const reader = new FileReader();
-              downloadUrl = await new Promise<string>((resolve, reject) => {
-                reader.onloadend = () => {
-                  if (typeof reader.result === 'string') {
-                    resolve(reader.result);
-                  } else {
-                    reject(new Error('Failed to convert blob to data URL'));
-                  }
-                };
-                reader.onerror = () => {
-                  reject(new Error('FileReader error while converting blob'));
-                };
-                reader.readAsDataURL(blob);
-              });
-            } catch (fetchError) {
-              console.error('Error fetching/converting PDF:', fetchError);
-              throw new Error(`Nu s-a putut descărca PDF-ul: ${fetchError instanceof Error ? fetchError.message : 'Eroare necunoscută'}`);
-            }
-          }
-        }
-        
-        // Create download link with data URL (only if document exists)
-        if (typeof document !== 'undefined' && document.createElement) {
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          throw new Error('Document API not available');
-        }
-        
-        return result.uri;
-      } catch (webError) {
-        console.error('Web download error:', webError);
-        throw webError;
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: #fff;
+    padding: 15px 30px 12px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .main-content {
+    padding: 30px;
+    padding-top: 60px;
+    padding-bottom: 56px;
+    box-sizing: border-box;
+  }
+
+  .container {
+    width: 100%;
+  }
+
+  .logo {
+    max-height: 60px;
+    margin-bottom: 10px;
+  }
+
+  .company-name {
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .company-info {
+    font-size: 11px;
+    color: #555;
+    margin-top: 6px;
+  }
+
+  .meta {
+    margin-top: 25px;
+    margin-bottom: 10px;
+  }
+
+  .meta-row {
+    margin-bottom: 4px;
+  }
+
+  .meta-label {
+    font-weight: 600;
+    display: inline-block;
+    width: 120px;
+  }
+
+  .section {
+    margin-top: 25px;
+  }
+
+  .section h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #000;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+  }
+
+  table.measurements {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table.measurements td {
+    padding: 5px 6px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  td.label {
+    width: 50%;
+    font-weight: 500;
+  }
+
+  .notes-box {
+    border: 1px solid #000;
+    padding: 10px;
+    margin-top: 10px;
+    min-height: 60px;
+    white-space: pre-line;
+  }
+
+  .signature-section {
+    margin-top: 50px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .signature-line {
+    width: 45%;
+    border-top: 1px solid #000;
+    text-align: center;
+    padding-top: 6px;
+    font-size: 11px;
+  }
+
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: #fff;
+    padding: 12px 50px;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 10px;
+    color: #777;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="company-info-container">
+      <div class="company-name">${safe(company.name)}</div>
+      <div class="company-info">
+        ${safe(company.owner ?? '')}<br/>
+        ${safe(company.phone ?? '')} ${company.email ? `| ${safe(company.email)}` : ''}<br/>
+        ${safe(company.address ?? '')}
+      </div>
+    </div>
+    ${company.logo ? `<img src="${company.logo}" class="logo" />` : ''}
+  </div>
+
+  <div class="main-content">
+    <div class="container">
+    <div class="meta">
+      <div class="meta-row">
+        <span class="meta-label">${safe(labels.orderNumber)}</span> ${safe(order.orderNumber ?? order.id)}
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">${safe(labels.orderDate)}</span> ${safe(order.orderDate)}
+      </div>
+      ${
+        order.deliveryDate
+          ? `<div class="meta-row">
+               <span class="meta-label">${safe(labels.deliveryDate)}</span> ${safe(order.deliveryDate)}
+             </div>`
+          : ''
       }
-    } else {
-      // For native platforms (iOS/Android), use regular URI
-      // On native, we can use FileSystem or Sharing for downloads
-      const result = await generateOrderPDF(orderData, companyData, false);
-      
-      // Try to use sharing if available
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(result.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: fileName,
-          UTI: 'com.adobe.pdf',
-        });
+      <div class="meta-row">
+        <span class="meta-label">${safe(labels.client)}</span> ${safe(order.clientName)}
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">${safe(labels.phone)}</span> ${safe(order.clientPhone)}
+      </div>
+      ${
+        order.clientEmail
+          ? `<div class="meta-row">
+               <span class="meta-label">${safe(labels.email)}</span> ${safe(order.clientEmail)}
+             </div>`
+          : ''
       }
-      
-      return result.uri;
-    }
-  } catch (error) {
-    console.error('Error downloading PDF:', error);
-    throw new Error('Nu s-a putut descărca PDF-ul. Încercați din nou.');
-  }
-};
+    </div>
 
-export const previewOrderPDF = async (orderData: OrderData, companyData: CompanyData) => {
-  try {
-    const html = generatePDFHTML(orderData, companyData);
-    
-    // For web platform, open in new window for preview
-    if (typeof window !== 'undefined') {
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.document.write(html);
-        newWindow.document.close();
-      }
+    ${measurementSections.join('')}
+
+    ${
+      order.notes
+        ? `
+      <div class="section">
+        <h3>${safe(labels.specialInstructions)}</h3>
+        <div class="notes-box">${safe(order.notes)}</div>
+      </div>
+      `
+        : ''
     }
-    
-    return html;
-  } catch (error) {
-    console.error('Error previewing PDF:', error);
-    throw new Error('Nu s-a putut previzualiza PDF-ul. Încercați din nou.');
-  }
-};
+
+    </div>
+  </div>
+
+  <div class="footer">
+    ${labels.generatedOn} ${new Date().toLocaleDateString('ro-RO')}
+  </div>
+</body>
+</html>
+`;
+}
+
+/* ============================= */
+/*        PDF GENERATOR          */
+/* ============================= */
+
+async function createPDF(
+  order: PDFOrderData,
+  company: PDFCompanyData,
+  garmentDisplayNames: GarmentDisplayNames,
+  labels: PDFLabels = DEFAULT_LABELS
+) {
+  const html = generateHTML(order, company, garmentDisplayNames, labels);
+
+  return Print.printToFileAsync({
+    html,
+    width: 595,   // A4 width in points
+    height: 842,  // A4 height in points
+    margins: {
+      left: 20,
+      right: 20,
+      top: 20,
+      bottom: 20,
+    },
+  });
+}
+
+/* ============================= */
+/*        PUBLIC FUNCTIONS       */
+/* ============================= */
+
+/** Build order title for dialog and filename (e.g. "Order 123"). */
+function getOrderTitle(
+  order: PDFOrderData,
+  resolvedLabels: PDFLabels
+): string {
+  return resolvedLabels.shareDialogTitle != null
+    ? resolvedLabels.shareDialogTitle.replace(/\{\{number\}\}/g, String(order.orderNumber ?? order.id))
+    : `Order ${order.orderNumber ?? order.id}`;
+}
+
+/** Sanitize string for use as a file name (no path or invalid chars). */
+function sanitizeFileName(name: string): string {
+  return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'Order';
+}
+
+export async function shareOrderPDF(
+  order: PDFOrderData,
+  company: PDFCompanyData,
+  garmentDisplayNames: GarmentDisplayNames,
+  labels?: PDFLabels
+) {
+  const resolvedLabels = labels ?? DEFAULT_LABELS;
+  const { uri } = await createPDF(order, company, garmentDisplayNames, resolvedLabels);
+
+  await new Promise<void>((resolve) =>
+    InteractionManager.runAfterInteractions(() => resolve())
+  );
+
+  const orderTitle = getOrderTitle(order, resolvedLabels);
+  const dialogTitle = orderTitle;
+  const fileName = `${sanitizeFileName(orderTitle)}.pdf`;
+
+  const sourceFile = new File(uri);
+  const destFile = new File(Paths.dirname(uri), fileName);
+  sourceFile.copy(destFile);
+  sourceFile.delete();
+
+  await Sharing.shareAsync(destFile.uri, {
+    mimeType: 'application/pdf',
+    UTI: 'com.adobe.pdf',
+    dialogTitle,
+    anchor: { x: 0, y: 0, width: 1, height: 1 }, // iPad safe
+  });
+
+  return destFile.uri;
+}
+
+export async function downloadOrderPDF(
+  order: PDFOrderData,
+  company: PDFCompanyData,
+  garmentDisplayNames: GarmentDisplayNames,
+  labels?: PDFLabels
+) {
+  return shareOrderPDF(order, company, garmentDisplayNames, labels);
+}

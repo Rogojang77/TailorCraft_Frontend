@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useI18n } from '@/lib/i18n';
 import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
 
 interface OrderStepNavProps {
@@ -27,9 +28,12 @@ export function OrderStepNav({
   onNext,
   nextDisabled = false,
   nextLoading = false,
-  prevLabel = 'Înapoi',
-  nextLabel = 'Înainte',
+  prevLabel,
+  nextLabel,
 }: OrderStepNavProps) {
+  const { t } = useI18n();
+  const displayPrevLabel = prevLabel ?? t('stepNav.back');
+  const displayNextLabel = nextLabel ?? t('stepNav.next');
   return (
     <View style={styles.container}>
       {showPrev ? (
@@ -39,7 +43,7 @@ export function OrderStepNav({
           activeOpacity={0.7}
         >
           <ChevronLeft size={22} color={Colors.primary} strokeWidth={2.5} />
-          <Text style={styles.prevLabel}>{prevLabel}</Text>
+          <Text style={styles.prevLabel}>{displayPrevLabel}</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.spacer} />
@@ -55,7 +59,7 @@ export function OrderStepNav({
             <ActivityIndicator size="small" color={Colors.textInverse} />
           ) : (
             <>
-              <Text style={styles.nextLabel}>{nextLabel}</Text>
+              <Text style={styles.nextLabel}>{displayNextLabel}</Text>
               <ChevronRight size={22} color={Colors.textInverse} strokeWidth={2.5} />
             </>
           )}
@@ -72,9 +76,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
-    paddingBottom: Spacing.xxxl,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     backgroundColor: Colors.surface,

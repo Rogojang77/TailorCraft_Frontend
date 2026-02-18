@@ -1,84 +1,54 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  saveDraft,
+  loadDraft,
+  clearDraftStorage,
+  isDraftNonEmpty,
+} from '@/lib/orderDraftStorage';
+import * as diagnostics from '@/lib/diagnostics';
 
-export interface JacketMeasurements {
-  chest?: string;
-  waist?: string;
-  hips?: string;
-  frontLength?: string;
-  backLength?: string;
-  shoulderToShoulder?: string;
-  sleeveLength?: string;
-  backWidth?: string;
-  lapelType?: string;
-  model?: string;
-  slit?: string;
-  pockets?: string;
-  lining?: string;
-  buttonholes?: string;
-  buttons?: string;
-  materialCode?: string;
-  customization?: string;
-  observations?: string;
-  size?: string;
-}
+// Measurements are key → value only; no fixed schema. Updates are merged so unknown keys are preserved.
+export type GarmentMeasurements = Record<string, string>;
 
-export interface VestMeasurements {
-  chest?: string;
-  waist?: string;
-  hips?: string;
-  frontLength?: string;
-  backLength?: string;
-  model?: string;
-  lining?: string;
-  buttons?: string;
-  materialCode?: string;
-  observations?: string;
-}
+/** Draft lifecycle: none (no draft), active (user editing), restored (loaded from storage, show banner). */
+export type DraftStatus = 'none' | 'active' | 'restored';
 
-export interface PantsMeasurements {
-  size?: string;
-  model?: string;
-  waist?: string;
-  hips?: string;
-  upperLeg?: string;
-  knee?: string;
-  hem?: string;
-  frontCircumference?: string;
-  backCircumference?: string;
-  interiorLength?: string;
-  exteriorLength?: string;
-  materialCode?: string;
-  observations?: string;
-}
+/** Explicit mode for new-order flow. Set once when entering /new-order. */
+export type OrderMode = 'create' | 'edit';
 
 export interface DraftOrder {
   orderId?: string; // ID of the order being edited (if any)
+  /** Garment type ids the user chose to include in this order. Only these get forms and snapshots. */
+  selectedGarmentIds: string[];
   customer: {
     id?: string;
     name: string;
     phone: string;
     email?: string;
   };
-  measurements: {
-    jacket?: JacketMeasurements;
-    vest?: VestMeasurements;
-    pants?: PantsMeasurements;
-  };
+  measurements: Record<string, GarmentMeasurements>; // Generic: garmentId -> measurements
   payment: {
     totalAmount: number;
     paidAmount: number;
-    paymentMethod?: 'cash' | 'card' | 'transfer';
   };
-  dueDate?: string; // ISO date string
   notes?: string;
 }
 
 interface OrderDraftContextType {
   draftOrder: DraftOrder;
+  /** Explicit mode: create (can restore drafts) | edit (never restore). Set once in new-order layout. */
+  orderMode: OrderMode;
+  /** When orderMode === 'edit', the order id to load. Undefined in create mode. */
+  orderIdToEdit: string | undefined;
+  /** Lifecycle: none | active | restored. Restored = loaded from storage; show banner until user acknowledges. */
+  draftStatus: DraftStatus;
+  /** Call after user taps "Continuă" on restored-draft banner; sets status to 'active'. */
+  acknowledgeRestoredDraft: () => void;
+  setSelectedGarmentIds: (ids: string[]) => void;
   updateCustomer: (customer: Partial<DraftOrder['customer']>) => void;
-  updateMeasurements: (type: 'jacket' | 'vest' | 'pants', measurements: any) => void;
+  updateMeasurements: (garmentId: string, measurements: GarmentMeasurements) => void;
   updatePayment: (payment: Partial<DraftOrder['payment']>) => void;
-  updateDueDate: (dueDate: string | undefined) => void;
   updateNotes: (notes: string | undefined) => void;
   loadOrderData: (orderData: {
     id: string;
@@ -86,14 +56,13 @@ interface OrderDraftContextType {
     measurements?: Record<string, Record<string, unknown>> | null;
     totalAmount: number;
     paidAmount: number;
-    paymentMethod?: string | null;
-    dueDate?: string | null;
     notes?: string | null;
   }) => void;
   clearDraft: () => void;
 }
 
 const defaultDraftOrder: DraftOrder = {
+  selectedGarmentIds: [],
   customer: {
     name: '',
     phone: '',
@@ -107,46 +76,130 @@ const defaultDraftOrder: DraftOrder = {
 
 const OrderDraftContext = createContext<OrderDraftContextType | undefined>(undefined);
 
-export function OrderDraftProvider({ children }: { children: ReactNode }) {
-  const [draftOrder, setDraftOrder] = useState<DraftOrder>(defaultDraftOrder);
+const PERSIST_DEBOUNCE_MS = 500;
 
-  const updateCustomer = (customer: Partial<DraftOrder['customer']>) => {
+export interface OrderDraftProviderProps {
+  children: ReactNode;
+  /** Explicit mode: create (can restore drafts) | edit (never restore). Set once when entering /new-order. */
+  orderMode: OrderMode;
+  /** When orderMode === 'edit', the order id to load. Omit or undefined in create mode. */
+  orderIdToEdit?: string;
+}
+
+export function OrderDraftProvider({
+  children,
+  orderMode,
+  orderIdToEdit,
+}: OrderDraftProviderProps) {
+  const { user } = useAuth();
+  const [draftOrder, setDraftOrder] = useState<DraftOrder>(defaultDraftOrder);
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>('none');
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRestoredRef = useRef(false);
+
+  const skipRestore = orderMode === 'edit';
+
+  // Restore draft on mount when same user and draft exists (create mode only). Edit mode never restores.
+  useEffect(() => {
+    if (!user?.id || skipRestore) {
+      if (skipRestore) isRestoredRef.current = true;
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const loaded = await loadDraft(user.id);
+      if (cancelled) return;
+      if (loaded && isDraftNonEmpty(loaded)) {
+        setDraftOrder(loaded);
+        setDraftStatus('restored');
+        diagnostics.recordDraftRestore();
+      }
+      isRestoredRef.current = true;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, skipRestore]);
+
+  // Persist draft when it changes (debounced). Only in create mode — edit mode must not overwrite the create draft key.
+  useEffect(() => {
+    if (!user?.id || !isRestoredRef.current || orderMode === 'edit') return;
+
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+    }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      persistTimeoutRef.current = null;
+      if (isDraftNonEmpty(draftOrder)) {
+        saveDraft(user.id, draftOrder);
+      }
+      // Do not clear storage when draft is empty - could be transient (e.g. edit flow before loadOrderData).
+      // Storage is cleared only via clearDraft() (successful order creation or explicit cancel).
+    }, PERSIST_DEBOUNCE_MS);
+
+    return () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+      }
+    };
+  }, [user?.id, draftOrder, orderMode]);
+
+  const setSelectedGarmentIds = useCallback((ids: string[]) => {
+    setDraftOrder((prev) => {
+      const idSet = new Set(ids);
+      const nextMeasurements = { ...prev.measurements };
+      for (const garmentId of Object.keys(nextMeasurements)) {
+        if (!idSet.has(garmentId)) delete nextMeasurements[garmentId];
+      }
+      return {
+        ...prev,
+        selectedGarmentIds: ids,
+        measurements: nextMeasurements,
+      };
+    });
+  }, []);
+
+  const updateCustomer = useCallback((customer: Partial<DraftOrder['customer']>) => {
     setDraftOrder((prev) => ({
       ...prev,
       customer: { ...prev.customer, ...customer },
     }));
-  };
+  }, []);
 
-  const updateMeasurements = (type: 'jacket' | 'vest' | 'pants', measurements: any) => {
-    setDraftOrder((prev) => ({
-      ...prev,
-      measurements: {
-        ...prev.measurements,
-        [type]: measurements,
-      },
-    }));
-  };
+  const updateMeasurements = useCallback((garmentId: string, measurements: GarmentMeasurements) => {
+    setDraftOrder((prev) => {
+      const existing = prev.measurements[garmentId] || {};
+      return {
+        ...prev,
+        measurements: {
+          ...prev.measurements,
+          [garmentId]: { ...existing, ...measurements },
+        },
+      };
+    });
+  }, []);
 
-  const updatePayment = (payment: Partial<DraftOrder['payment']>) => {
+  const updatePayment = useCallback((payment: Partial<DraftOrder['payment']>) => {
     setDraftOrder((prev) => ({
       ...prev,
       payment: { ...prev.payment, ...payment },
     }));
-  };
+  }, []);
 
-  const updateDueDate = (dueDate: string | undefined) => {
-    setDraftOrder((prev) => ({
-      ...prev,
-      dueDate,
-    }));
-  };
-
-  const updateNotes = (notes: string | undefined) => {
+  const updateNotes = useCallback((notes: string | undefined) => {
     setDraftOrder((prev) => ({
       ...prev,
       notes,
     }));
-  };
+  }, []);
+
+  const acknowledgeRestoredDraft = useCallback(() => {
+    setDraftStatus('active');
+  }, []);
 
   const loadOrderData = (orderData: {
     id: string;
@@ -155,7 +208,6 @@ export function OrderDraftProvider({ children }: { children: ReactNode }) {
     totalAmount: number;
     paidAmount: number;
     paymentMethod?: string | null;
-    dueDate?: string | null;
     notes?: string | null;
   }) => {
     // Helper to convert unknown to string
@@ -165,18 +217,24 @@ export function OrderDraftProvider({ children }: { children: ReactNode }) {
       return String(v);
     };
 
-    // Map payment method from backend format to draft format
-    const paymentMethodMap: Record<string, 'cash' | 'card' | 'transfer'> = {
-      'Numerar': 'cash',
-      'Card': 'card',
-      'Transfer bancar': 'transfer',
-    };
-
     const customer = orderData.customer;
     const measurements = orderData.measurements ?? {};
     
+    // Convert measurements to generic structure; selected garments = those with snapshot data
+    const convertedMeasurements: Record<string, GarmentMeasurements> = {};
+    const selectedGarmentIds: string[] = [];
+    for (const [garmentId, garmentData] of Object.entries(measurements)) {
+      if (garmentData && typeof garmentData === 'object') {
+        convertedMeasurements[garmentId] = Object.fromEntries(
+          Object.entries(garmentData).map(([k, v]) => [k, str(v)])
+        );
+        selectedGarmentIds.push(garmentId);
+      }
+    }
+    
     setDraftOrder({
       orderId: orderData.id,
+      selectedGarmentIds,
       customer: customer
         ? {
             id: customer.id,
@@ -185,47 +243,36 @@ export function OrderDraftProvider({ children }: { children: ReactNode }) {
             email: customer.email || undefined,
           }
         : defaultDraftOrder.customer,
-      measurements: {
-        jacket: measurements.jacket
-          ? Object.fromEntries(
-              Object.entries(measurements.jacket).map(([k, v]) => [k, str(v)])
-            ) as JacketMeasurements
-          : undefined,
-        vest: measurements.vest
-          ? Object.fromEntries(
-              Object.entries(measurements.vest).map(([k, v]) => [k, str(v)])
-            ) as VestMeasurements
-          : undefined,
-        pants: measurements.pants
-          ? Object.fromEntries(
-              Object.entries(measurements.pants).map(([k, v]) => [k, str(v)])
-            ) as PantsMeasurements
-          : undefined,
-      },
+      measurements: convertedMeasurements,
       payment: {
         totalAmount: orderData.totalAmount || 0,
         paidAmount: orderData.paidAmount || 0,
-        paymentMethod: orderData.paymentMethod
-          ? paymentMethodMap[orderData.paymentMethod] || undefined
-          : undefined,
       },
-      dueDate: orderData.dueDate || undefined,
       notes: orderData.notes || undefined,
     });
+    setDraftStatus('active');
   };
 
-  const clearDraft = () => {
+  const clearDraft = useCallback(() => {
     setDraftOrder(defaultDraftOrder);
-  };
+    setDraftStatus('none');
+    if (user?.id) {
+      clearDraftStorage(user.id);
+    }
+  }, [user?.id]);
 
   return (
     <OrderDraftContext.Provider
       value={{
         draftOrder,
+        orderMode,
+        orderIdToEdit: orderMode === 'edit' ? orderIdToEdit : undefined,
+        draftStatus,
+        acknowledgeRestoredDraft,
+        setSelectedGarmentIds,
         updateCustomer,
         updateMeasurements,
         updatePayment,
-        updateDueDate,
         updateNotes,
         loadOrderData,
         clearDraft,

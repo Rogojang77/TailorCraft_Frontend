@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Crown } from 'lucide-react-native';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import { usePremium } from '@/contexts/PremiumContext';
 import { Colors, BorderRadius, Spacing } from '@/constants/design';
 
 interface ProBadgeProps {
@@ -48,18 +48,10 @@ interface ProBadgeProps {
  * <ProBadge label="ENTERPRISE" />
  */
 export function ProBadge({ size = 'md', style, label = 'PRO', showIfFree = false }: ProBadgeProps) {
-  const { subscription, isLoading } = useSubscription();
-  
-  // Don't render while loading subscription data
-  if (isLoading) {
-    return null;
-  }
-  
-  // Only render if user is on Pro plan (or showIfFree is enabled for debugging)
-  const isPro = subscription?.plan === 'PRO';
-  if (!isPro && !showIfFree) {
-    return null;
-  }
+  const { isPremium: isPro, loading } = usePremium();
+
+  if (loading) return null;
+  if (!isPro && !showIfFree) return null;
   
   const isSizeSmall = size === 'sm';
   const iconSize = isSizeSmall ? 12 : 14;
@@ -79,7 +71,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFBEB', // Very subtle gold tint
+    backgroundColor: Colors.warningBg,
     borderWidth: 1.5,
     borderColor: Colors.primary,
     borderRadius: BorderRadius.full,

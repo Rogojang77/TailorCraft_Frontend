@@ -5,15 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
   Alert,
   FlatList,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Search, Plus, Filter, X } from 'lucide-react-native';
 import { ClientListItem } from '@/components/ClientListItem';
 import { OrderHistoryItem } from '@/components/OrderHistoryItem';
@@ -25,7 +25,13 @@ import {
   formatDate,
   customerFullName,
 } from '@/lib/api-mappers';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
+import { Button } from '@/components/ui/Button';
+import { ErrorText } from '@/components/ui/ErrorText';
+import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, StatusStyles } from '@/constants/design';
 
 type ClientListItemData = {
   id: string;
@@ -37,61 +43,48 @@ type ClientListItemData = {
 
 type OrderHistoryItemData = {
   id: string;
+  orderNumber: string;
   clientName: string;
   items: string[];
   total: number;
   advance: number;
   status: string;
   orderDate: string;
-  pickupDate: string;
   rawOrderDate: string; // ISO date for filtering
-  rawPickupDate: string; // ISO date for filtering
   rawStatus: string; // Original status for filtering
 };
 
-const ORDER_STATUSES = [
-  { id: 'all', label: 'Toate' },
-  { id: 'PENDING', label: 'În așteptare' },
-  { id: 'IN_PROGRESS', label: 'În lucru' },
-  { id: 'COMPLETED', label: 'Finalizat' },
-  { id: 'DELIVERED', label: 'Finalizat' },
-  { id: 'CANCELLED', label: 'Anulat' },
-];
+const ORDER_STATUS_IDS = ['all', 'PENDING', 'inProgress', 'COMPLETED', 'DELIVERED', 'CANCELLED'] as const;
+const CLIENT_ORDER_IDS = ['all', '0', '1', '5', '10'] as const;
+const PAYMENT_STATUS_IDS = ['all', 'fully_paid', 'partially_paid', 'unpaid'] as const;
+const DATE_RANGE_IDS = ['all', 'today', 'week', 'month', '3months', 'year'] as const;
+const AMOUNT_RANGE_IDS = ['all', '0-500', '500-1000', '1000-2000', '2000+'] as const;
 
-const CLIENT_ORDER_FILTERS = [
-  { id: 'all', label: 'Toți' },
-  { id: '0', label: 'Fără comenzi' },
-  { id: '1', label: '1+ comenzi' },
-  { id: '5', label: '5+ comenzi' },
-  { id: '10', label: '10+ comenzi' },
-];
-
-const PAYMENT_STATUS_FILTERS = [
-  { id: 'all', label: 'Toate' },
-  { id: 'fully_paid', label: 'Plătite complet' },
-  { id: 'partially_paid', label: 'Plătite parțial' },
-  { id: 'unpaid', label: 'Neplătite' },
-];
-
-const DATE_RANGE_FILTERS = [
-  { id: 'all', label: 'Toate' },
-  { id: 'today', label: 'Astăzi' },
-  { id: 'week', label: 'Ultima săptămână' },
-  { id: 'month', label: 'Ultima lună' },
-  { id: '3months', label: 'Ultimele 3 luni' },
-  { id: 'year', label: 'Ultimul an' },
-];
-
-const AMOUNT_RANGE_FILTERS = [
-  { id: 'all', label: 'Toate' },
-  { id: '0-500', label: '0 - 500 RON' },
-  { id: '500-1000', label: '500 - 1000 RON' },
-  { id: '1000-2000', label: '1000 - 2000 RON' },
-  { id: '2000+', label: '2000+ RON' },
-];
+function orderStatusLabelId(id: string): string {
+  if (id === 'all') return 'all';
+  if (id === 'DELIVERED') return 'completed';
+  if (id === 'inProgress') return 'inProgress';
+  return id.toLowerCase();
+}
+function amountRangeLabelId(id: string): string {
+  if (id === 'all') return 'all';
+  const map: Record<string, string> = {
+    '0-500': 'amount0_500',
+    '500-1000': 'amount500_1000',
+    '1000-2000': 'amount1000_2000',
+    '2000+': 'amount2000plus',
+  };
+  return map[id] ?? id;
+}
 
 export default function OrdersTab() {
+  const { t } = useI18n();
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const { checkCanCreateClient, checkCanCreateOrder, getLimitMessages } = useSubscription();
+  const canCreateClient = checkCanCreateClient();
+  const canCreateOrder = checkCanCreateOrder();
+  const limitMsgs = getLimitMessages();
   const [activeTab, setActiveTab] = useState<'clients' | 'orders'>('clients');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -109,7 +102,6 @@ export default function OrdersTab() {
   // Order filters
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all');
   const [orderDateRangeFilter, setOrderDateRangeFilter] = useState<string>('all');
-  const [pickupDateRangeFilter, setPickupDateRangeFilter] = useState<string>('all');
   const [totalAmountFilter, setTotalAmountFilter] = useState<string>('all');
   const [advanceAmountFilter, setAdvanceAmountFilter] = useState<string>('all');
   // Client filters
@@ -132,7 +124,12 @@ export default function OrdersTab() {
     else setLoading(true);
     setError(null);
     const search = searchRef.current.trim() || undefined;
-    const statusParam = orderStatusFilter !== 'all' ? orderStatusFilter : undefined;
+    const statusParam =
+      orderStatusFilter !== 'all'
+        ? orderStatusFilter === 'inProgress'
+          ? 'IN_PROGRESS'
+          : orderStatusFilter
+        : undefined;
     try {
       const [customersRes, ordersRes] = await Promise.all([
         apiFetch<{ customers: Array<{
@@ -151,45 +148,58 @@ export default function OrdersTab() {
           totalAmount: number;
           paidAmount: number;
           orderDate: string;
-          dueDate: string | null;
           measurements: Record<string, unknown> | null;
-          customer?: { firstName: string; lastName: string };
+          customer?: { id: string; firstName: string; lastName: string };
         }> }>(
           `${api.orders()}?limit=100${search ? `&search=${encodeURIComponent(search)}` : ''}${statusParam ? `&status=${encodeURIComponent(statusParam)}` : ''}`
         ),
       ]);
+      const ord = ordersRes.orders ?? [];
+      
+      // Create a map of customer ID to their most recent order date
+      const customerLastOrderMap = new Map<string, string>();
+      for (const o of ord) {
+        if (!o.customer || !('id' in o.customer)) continue;
+        const customerId = o.customer.id;
+        const existing = customerLastOrderMap.get(customerId);
+        if (!existing || o.orderDate > existing) {
+          customerLastOrderMap.set(customerId, o.orderDate);
+        }
+      }
+      
       const cust = customersRes.customers ?? [];
       setClients(
-        cust.map((c) => ({
-          id: c.id,
-          name: customerFullName(c.firstName, c.lastName),
-          phone: c.phone,
-          totalOrders: c._count?.orders ?? 0,
-          lastOrder: '—',
-        }))
+        cust.map((c) => {
+          const lastOrderDate = customerLastOrderMap.get(c.id);
+          return {
+            id: c.id,
+            name: customerFullName(c.firstName, c.lastName),
+            phone: c.phone,
+            totalOrders: c._count?.orders ?? 0,
+            lastOrder: lastOrderDate ? formatDate(lastOrderDate) : '—',
+          };
+        })
       );
-      const ord = ordersRes.orders ?? [];
       setOrders(
         ord.map((o) => ({
           id: o.id,
+          orderNumber: o.orderNumber,
           clientName: o.customer
             ? customerFullName(o.customer.firstName, o.customer.lastName)
             : '—',
           items: orderItemsFromMeasurements(o.measurements),
           total: o.totalAmount,
           advance: o.paidAmount,
-          status: orderStatusToLabel(o.status),
+          status: o.status, // Pass raw status code for color-coding
           orderDate: formatDate(o.orderDate),
-          pickupDate: formatDate(o.dueDate ?? o.orderDate),
           rawOrderDate: o.orderDate,
-          rawPickupDate: o.dueDate ?? o.orderDate,
           rawStatus: o.status,
         }))
       );
     } catch (e) {
       // Ignore abort errors
       if (e instanceof Error && e.name !== 'AbortError' && isMountedRef.current) {
-        setError(e.message || 'Eroare la încărcarea datelor.');
+        setError(e.message || t('home.errorLoad'));
       }
     } finally {
       if (isMountedRef.current) {
@@ -212,6 +222,7 @@ export default function OrdersTab() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isAuthenticated) return;
       if (isMountedRef.current) {
         fetchData();
       }
@@ -221,10 +232,11 @@ export default function OrdersTab() {
           abortControllerRef.current.abort();
         }
       };
-    }, [fetchData])
+    }, [isAuthenticated, fetchData])
   );
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const t = setTimeout(() => {
       if (isMountedRef.current) {
         fetchData();
@@ -236,7 +248,7 @@ export default function OrdersTab() {
         abortControllerRef.current.abort();
       }
     };
-  }, [searchQuery, orderStatusFilter, fetchData]);
+  }, [isAuthenticated, searchQuery, orderStatusFilter, fetchData]);
 
   const onRefresh = () => fetchData(true);
 
@@ -254,15 +266,15 @@ export default function OrdersTab() {
     try {
       if (deleteTarget.type === 'client') {
         await apiFetch(api.customers(deleteTarget.id), { method: 'DELETE' });
-        Alert.alert('Succes', 'Clientul și toate comenzile au fost șterse.');
+        Alert.alert(t('common.success'), t('orders.deleteSuccessClient'));
       } else {
         await apiFetch(api.orders(deleteTarget.id), { method: 'DELETE' });
-        Alert.alert('Succes', 'Comanda a fost ștearsă.');
+        Alert.alert(t('common.success'), t('orders.deleteSuccessOrder'));
       }
       setDeleteTarget(null);
       await fetchData(true);
     } catch (e) {
-      Alert.alert('Eroare', e instanceof Error ? e.message : 'Nu s-a putut șterge.');
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('orders.deleteError'));
     } finally {
       setDeleteLoading(false);
     }
@@ -360,11 +372,6 @@ export default function OrdersTab() {
       filtered = filtered.filter(order => isDateInRange(order.rawOrderDate, orderDateRangeFilter));
     }
     
-    // Filter by pickup date range
-    if (pickupDateRangeFilter !== 'all') {
-      filtered = filtered.filter(order => isDateInRange(order.rawPickupDate, pickupDateRangeFilter));
-    }
-    
     // Filter by total amount range
     if (totalAmountFilter !== 'all') {
       filtered = filtered.filter(order => isAmountInRange(order.total, totalAmountFilter));
@@ -376,7 +383,7 @@ export default function OrdersTab() {
     }
     
     return filtered;
-  }, [orders, paymentStatusFilter, orderDateRangeFilter, pickupDateRangeFilter, totalAmountFilter, advanceAmountFilter]);
+  }, [orders, paymentStatusFilter, orderDateRangeFilter, totalAmountFilter, advanceAmountFilter]);
 
   // Memoize callbacks to prevent re-renders
   const handleClientPress = useCallback((clientId: string) => {
@@ -421,47 +428,38 @@ export default function OrdersTab() {
     
     if (activeTab === 'orders') {
       if (orderStatusFilter !== 'all') {
-        const status = ORDER_STATUSES.find(s => s.id === orderStatusFilter);
-        if (status) active.push({ id: 'orderStatus', label: status.label, type: 'orderStatus' });
+        active.push({ id: 'orderStatus', label: t('orders.filters.' + orderStatusLabelId(orderStatusFilter)), type: 'orderStatus' });
       }
       if (paymentStatusFilter !== 'all') {
-        const payment = PAYMENT_STATUS_FILTERS.find(p => p.id === paymentStatusFilter);
-        if (payment) active.push({ id: 'paymentStatus', label: payment.label, type: 'paymentStatus' });
+        const key = paymentStatusFilter === 'fully_paid' ? 'fullyPaid' : paymentStatusFilter === 'partially_paid' ? 'partiallyPaid' : 'unpaid';
+        active.push({ id: 'paymentStatus', label: t('orders.filters.' + key), type: 'paymentStatus' });
       }
       if (orderDateRangeFilter !== 'all') {
-        const dateRange = DATE_RANGE_FILTERS.find(d => d.id === orderDateRangeFilter);
-        if (dateRange) active.push({ id: 'orderDate', label: `Data: ${dateRange.label}`, type: 'orderDate' });
-      }
-      if (pickupDateRangeFilter !== 'all') {
-        const dateRange = DATE_RANGE_FILTERS.find(d => d.id === pickupDateRangeFilter);
-        if (dateRange) active.push({ id: 'pickupDate', label: `Ridicare: ${dateRange.label}`, type: 'pickupDate' });
+        active.push({ id: 'orderDate', label: t('orders.filters.dateLabel', { label: t('orders.filters.' + orderDateRangeFilter) }), type: 'orderDate' });
       }
       if (totalAmountFilter !== 'all') {
-        const amount = AMOUNT_RANGE_FILTERS.find(a => a.id === totalAmountFilter);
-        if (amount) active.push({ id: 'totalAmount', label: `Total: ${amount.label}`, type: 'totalAmount' });
+        active.push({ id: 'totalAmount', label: t('orders.filters.totalLabel', { label: t('orders.filters.' + amountRangeLabelId(totalAmountFilter)) }), type: 'totalAmount' });
       }
       if (advanceAmountFilter !== 'all') {
-        const amount = AMOUNT_RANGE_FILTERS.find(a => a.id === advanceAmountFilter);
-        if (amount) active.push({ id: 'advanceAmount', label: `Avans: ${amount.label}`, type: 'advanceAmount' });
+        active.push({ id: 'advanceAmount', label: t('orders.filters.advanceLabel', { label: t('orders.filters.' + amountRangeLabelId(advanceAmountFilter)) }), type: 'advanceAmount' });
       }
     } else {
       if (clientOrderFilter !== 'all') {
-        const filter = CLIENT_ORDER_FILTERS.find(f => f.id === clientOrderFilter);
-        if (filter) active.push({ id: 'clientOrders', label: filter.label, type: 'clientOrders' });
+        const key = clientOrderFilter === '0' ? 'noOrders' : clientOrderFilter === '1' ? '1orders' : clientOrderFilter === '5' ? '5orders' : '10orders';
+        active.push({ id: 'clientOrders', label: t('orders.filters.' + key), type: 'clientOrders' });
       }
       if (clientDateRangeFilter !== 'all') {
-        const dateRange = DATE_RANGE_FILTERS.find(d => d.id === clientDateRangeFilter);
-        if (dateRange) active.push({ id: 'clientDate', label: `Data: ${dateRange.label}`, type: 'clientDate' });
+        active.push({ id: 'clientDate', label: t('orders.filters.dateLabel', { label: t('orders.filters.' + clientDateRangeFilter) }), type: 'clientDate' });
       }
     }
     
     return active;
   }, [
+    t,
     activeTab,
     orderStatusFilter,
     paymentStatusFilter,
     orderDateRangeFilter,
-    pickupDateRangeFilter,
     totalAmountFilter,
     advanceAmountFilter,
     clientOrderFilter,
@@ -479,9 +477,6 @@ export default function OrdersTab() {
       case 'orderDate':
         setOrderDateRangeFilter('all');
         break;
-      case 'pickupDate':
-        setPickupDateRangeFilter('all');
-        break;
       case 'totalAmount':
         setTotalAmountFilter('all');
         break;
@@ -498,28 +493,50 @@ export default function OrdersTab() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenContainer noPadding>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Comenzi & Clienți</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/new-order')}
-          activeOpacity={0.8}
-        >
-          <Plus size={22} color={Colors.textInverse} strokeWidth={2.5} />
-        </TouchableOpacity>
+        <Text style={styles.title}>{t('orders.title')}</Text>
+        {clients.length > 0 ? (
+          <Button
+            variant="primaryIcon"
+            onPress={() => router.push('/new-order')}
+            disabled={!canCreateOrder}
+            accessibilityLabel={t('home.addOrder')}
+          >
+            <Plus size={22} color={Colors.textInverse} strokeWidth={2.5} />
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            onPress={() => router.push('/clients/new')}
+            disabled={!canCreateClient}
+            leftIcon={<Plus size={22} color={Colors.textInverse} strokeWidth={2.5} />}
+            accessibilityLabel={t('orders.addClient')}
+          >
+            {t('orders.addClient')}
+          </Button>
+        )}
       </View>
 
-      {/* Search Bar */}
+      {error ? (
+        <View style={styles.errorBanner}>
+          <ErrorText>{error}</ErrorText>
+        </View>
+      ) : null}
+
+      {/* Search Bar and tabs only when there are clients */}
+      {clients.length > 0 ? (
+        <>
       <View style={styles.searchContainer}>
         <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Caută după nume sau telefon..."
+          placeholder={t('orders.searchPlaceholder')}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={Colors.textTertiary}
         />
         <TouchableOpacity 
           style={styles.filterButton}
@@ -533,7 +550,6 @@ export default function OrdersTab() {
                clientOrderFilter !== 'all' || 
                paymentStatusFilter !== 'all' ||
                orderDateRangeFilter !== 'all' ||
-               pickupDateRangeFilter !== 'all' ||
                totalAmountFilter !== 'all' ||
                advanceAmountFilter !== 'all' ||
                clientDateRangeFilter !== 'all') 
@@ -544,14 +560,8 @@ export default function OrdersTab() {
         </TouchableOpacity>
       </View>
 
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
       {/* Active Filters */}
-      {getActiveFilters.length > 0 && (
+      {clients.length > 0 && getActiveFilters.length > 0 && (
         <View style={styles.activeFiltersContainer}>
           <ScrollView 
             horizontal 
@@ -582,7 +592,7 @@ export default function OrdersTab() {
           <Text
             style={[styles.tabText, activeTab === 'clients' && styles.activeTabText]}
           >
-            Clienți ({filteredClients.length})
+            {t('orders.tabs.clients')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -592,16 +602,36 @@ export default function OrdersTab() {
           <Text
             style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}
           >
-            Istoricul Comenzilor ({filteredOrders.length})
+            {t('orders.tabs.orderHistory')}
           </Text>
         </TouchableOpacity>
       </View>
+        </>
+      ) : null}
 
-      {/* Content */}
-      {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Se încarcă...</Text>
+      {/* No clients empty state - block order creation and guide to add client */}
+      {!loading && !refreshing && clients.length === 0 ? (
+        <View style={styles.noClientsContainer}>
+          <View style={styles.noClientsCard}>
+            <Text style={styles.noClientsTitle}>{t('orders.noClients.title')}</Text>
+            <Text style={styles.noClientsSubtitle}>
+              {t('orders.noClients.subtitle')}
+            </Text>
+            {!canCreateClient && <Text style={styles.limitHint}>{limitMsgs.clientLimitReached}</Text>}
+            <TouchableOpacity
+              style={[styles.addClientButton, !canCreateClient && styles.addClientButtonDisabled]}
+              onPress={() => canCreateClient && router.push('/clients/new')}
+              disabled={!canCreateClient}
+              activeOpacity={0.8}
+            >
+              <Plus size={20} color={Colors.textInverse} strokeWidth={2.5} />
+              <Text style={styles.addClientButtonText}>{t('orders.noClients.button')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : loading && !refreshing ? (
+        <View style={styles.content}>
+          <ListSkeletonLoader variant="row" count={8} />
         </View>
       ) : activeTab === 'clients' ? (
         <FlatList
@@ -614,7 +644,7 @@ export default function OrdersTab() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
-          ListEmptyComponent={<Text style={styles.emptyText}>Niciun client găsit.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>{t('orders.emptyClients')}</Text>}
           // Performance optimizations for FlatList
           windowSize={5} // Render 5 screens worth of items (reduces memory)
           initialNumToRender={10} // Render 10 items initially
@@ -634,7 +664,7 @@ export default function OrdersTab() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
           }
-          ListEmptyComponent={<Text style={styles.emptyText}>Nicio comandă găsită.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>{t('orders.emptyOrders')}</Text>}
           // Performance optimizations for FlatList
           windowSize={5} // Render 5 screens worth of items (reduces memory)
           initialNumToRender={10} // Render 10 items initially
@@ -654,7 +684,7 @@ export default function OrdersTab() {
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filtrează</Text>
+            <Text style={styles.modalTitle}>{t('orders.filterTitle')}</Text>
             <TouchableOpacity
               onPress={() => setShowFilterModal(false)}
               style={styles.closeButton}
@@ -666,139 +696,116 @@ export default function OrdersTab() {
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
             {activeTab === 'orders' ? (
               <>
-                <Text style={styles.inputLabel}>Status comandă</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.orderStatus')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {ORDER_STATUSES.map((status) => (
+                  {ORDER_STATUS_IDS.map((id) => (
                     <TouchableOpacity
-                      key={status.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        orderStatusFilter === status.id && styles.activeFilterOption,
+                        orderStatusFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setOrderStatusFilter(status.id)}
+                      onPress={() => setOrderStatusFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          orderStatusFilter === status.id && styles.activeFilterOptionText,
+                          orderStatusFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {status.label}
+                        {t('orders.filters.' + orderStatusLabelId(id))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={styles.inputLabel}>Status plată</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.paymentStatus')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {PAYMENT_STATUS_FILTERS.map((filter) => (
+                  {PAYMENT_STATUS_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        paymentStatusFilter === filter.id && styles.activeFilterOption,
+                        paymentStatusFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setPaymentStatusFilter(filter.id)}
+                      onPress={() => setPaymentStatusFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          paymentStatusFilter === filter.id && styles.activeFilterOptionText,
+                          paymentStatusFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
+                        {t('orders.filters.' + (id === 'fully_paid' ? 'fullyPaid' : id === 'partially_paid' ? 'partiallyPaid' : 'unpaid'))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={styles.inputLabel}>Data comenzii</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.orderDate')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {DATE_RANGE_FILTERS.map((filter) => (
+                  {DATE_RANGE_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        orderDateRangeFilter === filter.id && styles.activeFilterOption,
+                        orderDateRangeFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setOrderDateRangeFilter(filter.id)}
+                      onPress={() => setOrderDateRangeFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          orderDateRangeFilter === filter.id && styles.activeFilterOptionText,
+                          orderDateRangeFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
+                        {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={styles.inputLabel}>Data ridicării</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.totalAmount')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {DATE_RANGE_FILTERS.map((filter) => (
+                  {AMOUNT_RANGE_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        pickupDateRangeFilter === filter.id && styles.activeFilterOption,
+                        totalAmountFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setPickupDateRangeFilter(filter.id)}
+                      onPress={() => setTotalAmountFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          pickupDateRangeFilter === filter.id && styles.activeFilterOptionText,
+                          totalAmountFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
+                        {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={styles.inputLabel}>Valoare totală</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.advance')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {AMOUNT_RANGE_FILTERS.map((filter) => (
+                  {AMOUNT_RANGE_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        totalAmountFilter === filter.id && styles.activeFilterOption,
+                        advanceAmountFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setTotalAmountFilter(filter.id)}
+                      onPress={() => setAdvanceAmountFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          totalAmountFilter === filter.id && styles.activeFilterOptionText,
+                          advanceAmountFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                <Text style={styles.inputLabel}>Avans</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {AMOUNT_RANGE_FILTERS.map((filter) => (
-                    <TouchableOpacity
-                      key={filter.id}
-                      style={[
-                        styles.filterOption,
-                        advanceAmountFilter === filter.id && styles.activeFilterOption,
-                      ]}
-                      onPress={() => setAdvanceAmountFilter(filter.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          advanceAmountFilter === filter.id && styles.activeFilterOptionText,
-                        ]}
-                      >
-                        {filter.label}
+                        {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -806,47 +813,47 @@ export default function OrdersTab() {
               </>
             ) : (
               <>
-                <Text style={styles.inputLabel}>Număr comenzi</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.orderCount')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {CLIENT_ORDER_FILTERS.map((filter) => (
+                  {CLIENT_ORDER_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        clientOrderFilter === filter.id && styles.activeFilterOption,
+                        clientOrderFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setClientOrderFilter(filter.id)}
+                      onPress={() => setClientOrderFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          clientOrderFilter === filter.id && styles.activeFilterOptionText,
+                          clientOrderFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
+                        {t('orders.filters.' + (id === 'all' ? 'all' : id === '0' ? 'noOrders' : id === '1' ? '1orders' : id === '5' ? '5orders' : '10orders'))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={styles.inputLabel}>Data înregistrării</Text>
+                <Text style={styles.inputLabel}>{t('orders.filters.registrationDate')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
-                  {DATE_RANGE_FILTERS.map((filter) => (
+                  {DATE_RANGE_IDS.map((id) => (
                     <TouchableOpacity
-                      key={filter.id}
+                      key={id}
                       style={[
                         styles.filterOption,
-                        clientDateRangeFilter === filter.id && styles.activeFilterOption,
+                        clientDateRangeFilter === id && styles.activeFilterOption,
                       ]}
-                      onPress={() => setClientDateRangeFilter(filter.id)}
+                      onPress={() => setClientDateRangeFilter(id)}
                     >
                       <Text
                         style={[
                           styles.filterOptionText,
-                          clientDateRangeFilter === filter.id && styles.activeFilterOptionText,
+                          clientDateRangeFilter === id && styles.activeFilterOptionText,
                         ]}
                       >
-                        {filter.label}
+                        {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -862,13 +869,12 @@ export default function OrdersTab() {
                   setClientOrderFilter('all');
                   setPaymentStatusFilter('all');
                   setOrderDateRangeFilter('all');
-                  setPickupDateRangeFilter('all');
                   setTotalAmountFilter('all');
                   setAdvanceAmountFilter('all');
                   setClientDateRangeFilter('all');
                 }}
               >
-                <Text style={styles.resetButtonText}>Resetează filtrele</Text>
+                <Text style={styles.resetButtonText}>{t('orders.filterReset')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.applyButton}
@@ -876,7 +882,7 @@ export default function OrdersTab() {
                   setShowFilterModal(false);
                 }}
               >
-                <Text style={styles.applyButtonText}>Aplică</Text>
+                <Text style={styles.applyButtonText}>{t('common.apply')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -887,40 +893,84 @@ export default function OrdersTab() {
         visible={!!deleteTarget}
         onClose={() => !deleteLoading && setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
-        title={deleteTarget?.type === 'client' ? 'Șterge client' : 'Șterge comandă'}
+        title={deleteTarget?.type === 'client' ? t('orders.deleteClient') : t('orders.deleteOrder')}
         message={
           deleteTarget
             ? deleteTarget.type === 'client'
-              ? `Sigur ștergi „${deleteTarget.name}"? Toate comenzile clientului vor fi șterse.`
-              : `Sigur ștergi comanda pentru „${deleteTarget.clientName}"?`
+              ? t('orders.deleteClientMessage', { name: deleteTarget.name })
+              : t('orders.deleteOrderMessage', { name: deleteTarget.clientName })
             : ''
         }
-        confirmLabel="Șterge"
+        confirmLabel={t('common.delete')}
         loading={deleteLoading}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   header: {
-    ...HeaderStyles.container,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
   title: {
-    ...Typography.h2,
+    ...Typography.h1,
   },
-  addButton: {
-    ...ButtonStyles.primaryIcon,
+  noClientsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  noClientsCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    maxWidth: 320,
+    ...Shadows.md,
+  },
+  noClientsTitle: {
+    ...Typography.h3,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  noClientsSubtitle: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.xxl,
+    lineHeight: 22,
+  },
+  limitHint: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  addClientButton: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    ...ButtonStyles.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  addClientButtonText: {
+    ...Typography.bodyBold,
+    color: Colors.textInverse,
+  },
+  addClientButtonDisabled: {
+    opacity: 0.5,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.lg,
@@ -938,7 +988,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
   activeFiltersContainer: {
-    marginHorizontal: Spacing.xl,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
   },
   activeFiltersContent: {
@@ -965,8 +1015,8 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
     backgroundColor: '#E5E7EB',
     borderRadius: BorderRadius.md,
     padding: Spacing.xs,
@@ -993,19 +1043,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContainer: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   errorBanner: {
-    marginHorizontal: Spacing.xl,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: '#FEE2E2',
+    ...StatusStyles.error,
     borderRadius: BorderRadius.sm,
-  },
-  errorText: {
-    ...Typography.caption,
-    color: Colors.error,
   },
   centerContainer: {
     flex: 1,

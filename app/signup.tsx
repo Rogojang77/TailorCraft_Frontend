@@ -2,27 +2,30 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
   Alert,
   ScrollView,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenLayout } from '@/components/layout/ScreenLayout';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
+import { useI18n } from '@/lib/i18n';
 import { getErrorMessage, uploadImage } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Camera, X } from 'lucide-react-native';
-import { Colors, Spacing, Typography, ButtonStyles, Shadows, BorderRadius } from '@/constants/design';
+import { ChevronLeft, ChevronRight, Camera, X, Eye, EyeOff } from 'lucide-react-native';
+import { Colors, Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
+import { ConsentCheckbox } from '@/components/ConsentCheckbox';
+import { TERMS_URL, PRIVACY_POLICY_URL, LEGAL_LAST_UPDATED } from '@/constants/legal';
 
 type SignupStep = 'personal' | 'company';
 
 export default function SignupScreen() {
+  const { t } = useI18n();
   const router = useRouter();
   const { signup } = useAuth();
   const [step, setStep] = useState<SignupStep>('personal');
@@ -33,6 +36,8 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Company data
   const [companyName, setCompanyName] = useState('');
@@ -42,12 +47,17 @@ export default function SignupScreen() {
   const [address, setAddress] = useState('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
 
+  // Consent (required for signup; never pre-checked)
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+
   const handleImagePicker = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'The app needs access to your photo library to select a logo.');
+        Alert.alert(t('auth.signup.permissionRequired'), t('auth.signup.permissionMessage'));
         return;
       }
 
@@ -62,33 +72,33 @@ export default function SignupScreen() {
         setLogoUri(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not select image. Please try again.');
+      Alert.alert(t('common.error'), t('auth.signup.selectImageError'));
     }
   };
 
   const validatePersonalStep = (): boolean => {
     if (!email.trim()) {
-      Alert.alert('Validation Error', 'Please enter your email address.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterEmail'));
       return false;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      Alert.alert('Validation Error', 'Please enter a valid email address.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.validEmail'));
       return false;
     }
 
     if (!password.trim()) {
-      Alert.alert('Validation Error', 'Please enter a password.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterPassword'));
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert('Validation Error', 'Password must be at least 6 characters long.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.passwordLength'));
       return false;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Validation Error', 'Passwords do not match.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.passwordsMatch'));
       return false;
     }
 
@@ -97,31 +107,45 @@ export default function SignupScreen() {
 
   const validateCompanyStep = (): boolean => {
     if (!companyName.trim()) {
-      Alert.alert('Validation Error', 'Please enter your company name.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterCompanyName'));
       return false;
     }
 
     if (!ownerName.trim()) {
-      Alert.alert('Validation Error', 'Please enter the owner name.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterOwnerName'));
       return false;
     }
 
     if (!phone.trim()) {
-      Alert.alert('Validation Error', 'Please enter a phone number.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterPhone'));
       return false;
     }
 
     if (!companyEmail.trim()) {
-      Alert.alert('Validation Error', 'Please enter your company email.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.enterCompanyEmail'));
       return false;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyEmail.trim())) {
-      Alert.alert('Validation Error', 'Please enter a valid company email address.');
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.validCompanyEmail'));
+      return false;
+    }
+
+    if (!termsAccepted || !privacyAccepted) {
+      Alert.alert(t('auth.signup.validationError'), t('auth.signup.consentRequired'));
       return false;
     }
 
     return true;
+  };
+
+  const openLegalDocument = async (type: 'terms' | 'privacy') => {
+    try {
+      const url = type === 'terms' ? TERMS_URL : PRIVACY_POLICY_URL;
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Alert.alert(t('common.error'), t('legal.openError'));
+    }
   };
 
   const handleNext = () => {
@@ -158,7 +182,7 @@ export default function SignupScreen() {
           try {
             logoUrl = await uploadImage(logoUri);
           } catch (uploadError) {
-            Alert.alert('Upload Error', 'Could not upload logo. Please try again.');
+            Alert.alert(t('common.error'), t('auth.signup.uploadError'));
             setIsLoading(false);
             return;
           }
@@ -176,31 +200,20 @@ export default function SignupScreen() {
           address: address.trim() || undefined,
           logoUrl,
         },
+        termsAccepted,
+        privacyAccepted,
+        marketingOptIn,
       });
 
       Alert.alert(
-        'Account Created!',
-        'Please verify your email and phone number. Check your email for the verification link, and enter the code sent to your phone.',
-        [
-          {
-            text: 'Verify Phone',
-            onPress: () => {
-              router.replace('/verify-phone');
-            },
-          },
-          {
-            text: 'Later',
-            style: 'cancel',
-            onPress: () => {
-              router.replace('/(tabs)');
-            },
-          },
-        ]
+        t('auth.signup.accountCreated'),
+        t('auth.signup.verifyMessage'),
+        [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)') }]
       );
     } catch (error: unknown) {
-      const msg = getErrorMessage(error, 'Could not create account. Please try again.');
+      const msg = getErrorMessage(error, t('auth.signup.createAccountError'));
       setErrorMessage(msg);
-      Alert.alert('Signup Failed', msg);
+      Alert.alert(t('auth.signup.signupFailed'), msg);
     } finally {
       setIsLoading(false);
     }
@@ -208,79 +221,85 @@ export default function SignupScreen() {
 
   const renderPersonalStep = () => (
     <View style={styles.stepContent}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email Address</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your email"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          autoComplete="email"
-          returnKeyType="next"
-          editable={!isLoading}
-        />
-      </View>
+      <Input
+        label={t('auth.signup.emailLabel')}
+        placeholder={t('auth.signup.emailPlaceholder')}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        autoComplete="email"
+        returnKeyType="next"
+        editable={!isLoading}
+      />
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your password (min. 6 characters)"
-          placeholderTextColor="#999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          textContentType="newPassword"
-          autoComplete="password-new"
-          passwordRules="minlength: 6;"
-          returnKeyType="next"
-          editable={!isLoading}
-        />
-      </View>
+      <Input
+        label={t('auth.signup.password')}
+        placeholder={t('auth.signup.passwordPlaceholder')}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry={!showPassword}
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="newPassword"
+        autoComplete="password-new"
+        passwordRules="minlength: 6;"
+        returnKeyType="next"
+        editable={!isLoading}
+        rightElement={
+          <Button
+            variant="ghost"
+            onPress={() => setShowPassword((v) => !v)}
+            accessibilityLabel={showPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
+          >
+            {showPassword ? (
+              <EyeOff size={20} color={Colors.textSecondary} />
+            ) : (
+              <Eye size={20} color={Colors.textSecondary} />
+            )}
+          </Button>
+        }
+      />
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm your password"
-          placeholderTextColor="#999"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          textContentType="newPassword"
-          autoComplete="password-new"
-          passwordRules="minlength: 6;"
-          returnKeyType="done"
-          onSubmitEditing={handleNext}
-          editable={!isLoading}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleNext}
-        disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>Next</Text>
-        <ChevronRight size={20} color="#fff" style={styles.buttonIcon} />
-      </TouchableOpacity>
+      <Input
+        label={t('auth.signup.confirmPassword')}
+        placeholder={t('auth.signup.confirmPlaceholderAlt')}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry={!showConfirmPassword}
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="newPassword"
+        autoComplete="password-new"
+        passwordRules="minlength: 6;"
+        returnKeyType="done"
+        onSubmitEditing={handleNext}
+        editable={!isLoading}
+        rightElement={
+          <Button
+            variant="ghost"
+            onPress={() => setShowConfirmPassword((v) => !v)}
+            accessibilityLabel={showConfirmPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
+          >
+            {showConfirmPassword ? (
+              <EyeOff size={20} color={Colors.textSecondary} />
+            ) : (
+              <Eye size={20} color={Colors.textSecondary} />
+            )}
+          </Button>
+        }
+      />
     </View>
   );
 
   const renderCompanyStep = () => (
     <View style={styles.stepContent}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Company Logo (Optional)</Text>
-        <TouchableOpacity
+      <View style={styles.fieldContainer}>
+        <Text style={styles.label}>{t('auth.signup.companyLogoOptional')}</Text>
+        <Button
+          variant="ghost"
           style={styles.logoContainer}
           onPress={handleImagePicker}
           disabled={isLoading}
@@ -288,83 +307,98 @@ export default function SignupScreen() {
           {logoUri ? (
             <View style={styles.logoImageContainer}>
               <Image source={{ uri: logoUri }} style={styles.logoImage} />
-              <TouchableOpacity
-                style={styles.removeLogoButton}
+              <Button
+                variant="dangerIcon"
                 onPress={() => setLogoUri(null)}
+                style={styles.removeLogoButton}
+                accessibilityLabel={t('common.remove')}
               >
-                <X size={16} color="#fff" />
-              </TouchableOpacity>
+                <X size={16} color={Colors.textInverse} />
+              </Button>
             </View>
           ) : (
             <View style={styles.logoPlaceholder}>
-              <Camera size={32} color="#1a1a1a" />
-              <Text style={styles.logoText}>Add Logo</Text>
+              <Camera size={32} color={Colors.textPrimary} />
+              <Text style={styles.logoText}>{t('auth.signup.addLogo')}</Text>
             </View>
           )}
-        </TouchableOpacity>
+        </Button>
       </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Company Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter company name"
-          placeholderTextColor="#999"
-          value={companyName}
-          onChangeText={setCompanyName}
-          editable={!isLoading}
+      <Input
+        label={t('auth.signup.companyNameRequired')}
+        placeholder={t('auth.signup.companyPlaceholder')}
+        value={companyName}
+        onChangeText={setCompanyName}
+        editable={!isLoading}
+      />
+
+      <Input
+        label={t('auth.signup.ownerNameRequired')}
+        placeholder={t('auth.signup.enterOwnerNameShort')}
+        value={ownerName}
+        onChangeText={setOwnerName}
+        editable={!isLoading}
+      />
+
+      <Input
+        label={t('auth.signup.phoneRequired')}
+        placeholder={t('auth.signup.phonePlaceholder')}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        editable={!isLoading}
+      />
+
+      <Input
+        label={t('auth.signup.companyEmailRequired')}
+        placeholder={t('profile.emailPlaceholder')}
+        value={companyEmail}
+        onChangeText={setCompanyEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        editable={!isLoading}
+      />
+
+      <Input
+        label={t('auth.signup.addressOptional')}
+        placeholder={t('auth.signup.enterCompanyAddress')}
+        value={address}
+        onChangeText={setAddress}
+        optional
+        editable={!isLoading}
+      />
+
+      {/* Consent (mandatory; never pre-checked) */}
+      <View style={styles.consentSection}>
+        <Text style={styles.consentTitle}>{t('auth.signup.consentTitle')}</Text>
+        <ConsentCheckbox
+          checked={termsAccepted}
+          onToggle={() => setTermsAccepted((v) => !v)}
+          label={t('auth.signup.consentTerms')}
+          sublabel={t('auth.signup.lastUpdated', { date: LEGAL_LAST_UPDATED.terms })}
+          documentUrl={TERMS_URL}
+          onOpenDocument={() => openLegalDocument('terms')}
+          optional={false}
+          disabled={isLoading}
         />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Owner Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter owner name"
-          placeholderTextColor="#999"
-          value={ownerName}
-          onChangeText={setOwnerName}
-          editable={!isLoading}
+        <ConsentCheckbox
+          checked={privacyAccepted}
+          onToggle={() => setPrivacyAccepted((v) => !v)}
+          label={t('auth.signup.consentPrivacy')}
+          sublabel={t('auth.signup.lastUpdated', { date: LEGAL_LAST_UPDATED.privacyPolicy })}
+          documentUrl={PRIVACY_POLICY_URL}
+          onOpenDocument={() => openLegalDocument('privacy')}
+          optional={false}
+          disabled={isLoading}
         />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Phone Number *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="+40 7XX XXX XXX"
-          placeholderTextColor="#999"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          editable={!isLoading}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Company Email *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="contact@company.com"
-          placeholderTextColor="#999"
-          value={companyEmail}
-          onChangeText={setCompanyEmail}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          editable={!isLoading}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Address (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter company address"
-          placeholderTextColor="#999"
-          value={address}
-          onChangeText={setAddress}
-          editable={!isLoading}
+        <ConsentCheckbox
+          checked={marketingOptIn}
+          onToggle={() => setMarketingOptIn((v) => !v)}
+          label={t('auth.signup.consentMarketing')}
+          optional
+          disabled={isLoading}
         />
       </View>
 
@@ -373,87 +407,89 @@ export default function SignupScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         </View>
       ) : null}
-
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleSignup}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Text style={styles.buttonText}>Create Account</Text>
-          </>
-        )}
-      </TouchableOpacity>
     </View>
   );
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenLayout scrollable={false}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          disabled={isLoading}
-        >
-          <ChevronLeft size={24} color="#1a1a1a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {step === 'personal' ? 'Personal Information' : 'Company Details'}
-        </Text>
-        <View style={styles.backButton} />
-      </View>
+          <Button
+            variant="back"
+            onPress={handleBack}
+            disabled={isLoading}
+            accessibilityLabel={t('common.back')}
+          >
+            <ChevronLeft size={24} color={Colors.textPrimary} />
+          </Button>
+          <Text style={styles.headerTitle}>
+            {step === 'personal' ? t('auth.signup.personalInfo') : t('auth.signup.companyDetails')}
+          </Text>
+          <View style={styles.backButton} />
+        </View>
 
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressStep, step === 'personal' && styles.progressStepActive]} />
-        <View style={styles.progressLine} />
-        <View style={[styles.progressStep, step === 'company' && styles.progressStepActive]} />
-      </View>
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressStep, step === 'personal' && styles.progressStepActive]} />
+          <View style={styles.progressLine} />
+          <View style={[styles.progressStep, step === 'company' && styles.progressStepActive]} />
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
-          bounces={true}
-          alwaysBounceVertical={false}
-        >
-          <View style={styles.content}>
-            {step === 'personal' ? renderPersonalStep() : renderCompanyStep()}
+        <View style={styles.flex1}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.content}>
+              {step === 'personal' ? renderPersonalStep() : renderCompanyStep()}
+            </View>
+          </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
+            {step === 'personal' ? (
+              <Button
+                variant="primary"
+                fullWidth
+                onPress={handleNext}
+                disabled={isLoading}
+                rightIcon={<ChevronRight size={20} color={Colors.textInverse} />}
+                style={styles.stepButton}
+              >
+                {t('auth.signup.next')}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                fullWidth
+                onPress={handleSignup}
+                disabled={isLoading}
+                loading={isLoading}
+                style={styles.stepButton}
+              >
+                {t('auth.signup.createAccount')}
+              </Button>
+            )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </View>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  keyboardView: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44, // Minimum 44x44px for accessibility
+    height: 44,
+    minWidth: 44,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -482,50 +518,49 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginHorizontal: Spacing.sm,
   },
+  flex1: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Spacing.xxl * 3,
+    paddingBottom: 20,
+  },
+  footer: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
   content: {
-    paddingHorizontal: Spacing.xxl,
-    paddingTop: Spacing.xxl,
+    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
+    paddingTop: Spacing.lg, // 24px vertical section spacing
   },
   stepContent: {
     width: '100%',
   },
   errorContainer: {
-    marginBottom: Spacing.lg,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#fef2f2',
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    ...StatusStyles.error,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: '#fecaca',
   },
   errorText: {
     ...Typography.caption,
     color: Colors.error,
-    lineHeight: 20,
+    lineHeight: 21, // 14px * 1.5
   },
-  inputContainer: {
-    marginBottom: Spacing.xl,
+  fieldContainer: {
+    marginBottom: 14,
   },
   label: {
-    ...Typography.captionBold,
-    color: Colors.textPrimary,
+    ...Typography.label,
     marginBottom: Spacing.sm,
-  },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
-    ...Typography.body,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    ...Shadows.sm,
+    color: Colors.textPrimary,
   },
   logoContainer: {
     alignItems: 'center',
@@ -545,12 +580,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: Colors.error,
-    borderRadius: BorderRadius.md,
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    minWidth: 24,
+    minHeight: 24,
   },
   logoPlaceholder: {
     width: 120,
@@ -569,20 +602,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: Spacing.sm,
   },
-  button: {
-    ...ButtonStyles.primary,
-    backgroundColor: Colors.textPrimary,
-    marginTop: Spacing.sm,
-    flexDirection: 'row',
+  stepButton: {
+    marginTop: 0,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  consentSection: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
-  buttonText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
-  },
-  buttonIcon: {
-    marginLeft: Spacing.sm,
+  consentTitle: {
+    ...Typography.label,
+    marginBottom: Spacing.sm,
   },
 });

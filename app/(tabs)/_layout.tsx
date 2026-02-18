@@ -1,12 +1,22 @@
 import { Tabs } from 'expo-router';
 import { Home, ShoppingBag, Image, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, Typography } from '@/constants/design';
+import { useI18n } from '@/lib/i18n';
 
 export default function TabLayout() {
+  const { t } = useI18n();
+  const insets = useSafeAreaInsets();
+  // Tab bar respects safe bottom inset (home indicator / nav bar). Hide tab bar when
+  // keyboard is open so it doesn’t push content and forms stay visible.
+  const tabBarPaddingBottom = Math.max(insets.bottom, Spacing.sm);
+  const tabBarHeight = 56 + Spacing.sm + tabBarPaddingBottom;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textTertiary,
         tabBarStyle: {
@@ -14,8 +24,8 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
           paddingTop: Spacing.sm,
-          paddingBottom: 28, // Extra padding for iPhone models with home indicator
-          height: 88, // Increased height to accommodate extra padding
+          paddingBottom: tabBarPaddingBottom,
+          height: tabBarHeight,
           shadowColor: '#000000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.05,
@@ -25,13 +35,12 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           ...Typography.small,
           fontWeight: '600',
-          marginTop: Spacing.xs,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Acasă',
+          title: t('tabs.home'),
           tabBarIcon: ({ size, color }) => (
             <Home size={size} color={color} />
           ),
@@ -40,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: 'Comenzi',
+          title: t('tabs.orders'),
           tabBarIcon: ({ size, color }) => (
             <ShoppingBag size={size} color={color} />
           ),
@@ -49,7 +58,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="gallery"
         options={{
-          title: 'Galerie',
+          title: t('tabs.gallery'),
           tabBarIcon: ({ size, color }) => (
             <Image size={size} color={color} />
           ),
@@ -61,7 +70,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
+          title: t('tabs.profile'),
           tabBarIcon: ({ size, color }) => (
             <User size={size} color={color} />
           ),

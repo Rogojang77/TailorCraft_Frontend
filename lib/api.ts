@@ -1,27 +1,65 @@
 /**
  * TailorCraft API client for the Expo frontend.
- * Backend runs at API_BASE_URL (default http://localhost:3001).
- *
- * Set EXPO_PUBLIC_API_URL in .env for production (e.g. your deployed Next.js API).
- * For Expo dev, use your machine's IP when testing on device (e.g. http://192.168.1.x:3001).
+ * Backend URL is set via EXPO_PUBLIC_API_URL (see lib/apiConfig.ts).
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL, getApiBaseUrlCached } from './apiConfig';
 
-const API_BASE_URL =
-  (typeof process !== 'undefined' && (process as NodeJS.Process).env?.EXPO_PUBLIC_API_URL) ||
-  'http://localhost:3001';
+/** Request timeout in ms (connectivity errors surface as fetch rejection). */
+const REQUEST_TIMEOUT_MS = 30_000;
 
-// Custom error class to preserve error codes from API responses
+/** API error codes returned by the backend (e.g. in JSON body). */
+export const ApiErrorCode = {
+  SUBSCRIPTION_LIMIT_REACHED: 'SUBSCRIPTION_LIMIT_REACHED',
+  CUSTOM_PDF_PRO_ONLY: 'CUSTOM_PDF_PRO_ONLY',
+} as const;
+
+export type ApiErrorCodeType = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];
+
+/** HTTP status codes used for API error handling. */
+export const HttpStatus = {
+  Unauthorized: 401,
+  NotFound: 404,
+  Conflict: 409,
+  UnprocessableEntity: 422,
+  InternalServerError: 500,
+} as const;
+
+/** Backend i18n error payload: frontend translates with t(messageKey, messageParams). */
+export type ApiMessagePayload = {
+  success: false;
+  messageKey: string;
+  messageParams?: Record<string, string | number>;
+  code?: string;
+  errors?: Array<{ field: string; messageKey?: string; messageParams?: Record<string, string | number> }>;
+};
+
+/** Custom error class to preserve error codes and i18n keys from API responses. */
 class ApiError extends Error {
   code?: string;
   status: number;
+  /** When present, use t(messageKey, messageParams) for user-facing message. */
+  messageKey?: string;
+  messageParams?: Record<string, string | number>;
+  /** Per-field errors (e.g. validation) with messageKey per item. */
+  errors?: ApiMessagePayload['errors'];
 
-  constructor(message: string, code?: string, status?: number) {
+  constructor(
+    message: string,
+    code?: string,
+    status?: number,
+    i18n?: { messageKey: string; messageParams?: Record<string, string | number>; errors?: ApiMessagePayload['errors'] }
+  ) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
-    this.status = status || 500;
+    this.status = status ?? HttpStatus.InternalServerError;
+    if (i18n) {
+      this.messageKey = i18n.messageKey;
+      this.messageParams = i18n.messageParams;
+      this.errors = i18n.errors;
+    }
   }
 }
 
@@ -36,27 +74,69 @@ export const api = {
     register: `${API_BASE_URL}/api/auth/register`,
     signup: `${API_BASE_URL}/api/auth/signup`,
     verifyEmail: (token: string) => `${API_BASE_URL}/api/auth/verify-email?token=${token}`,
-    verifyPhone: `${API_BASE_URL}/api/auth/verify-phone`,
     resendEmailVerification: `${API_BASE_URL}/api/auth/resend-email-verification`,
-    resendPhoneVerification: `${API_BASE_URL}/api/auth/resend-phone-verification`,
   },
+  /** Account (authenticated user). DELETE /me, GET /me/deletion-status */
+  me: `${API_BASE_URL}/api/me`,
+  meDeletionStatus: `${API_BASE_URL}/api/me/deletion-status`,
   customers: (id?: string) =>
     id ? `${API_BASE_URL}/api/customers/${id}` : `${API_BASE_URL}/api/customers`,
   customerOrders: (id: string) => `${API_BASE_URL}/api/customers/${id}/orders`,
   orders: (id?: string) =>
     id ? `${API_BASE_URL}/api/orders/${id}` : `${API_BASE_URL}/api/orders`,
-  stats: `${API_BASE_URL}/api/stats`,
   gallery: (id?: string) =>
     id ? `${API_BASE_URL}/api/gallery/${id}` : `${API_BASE_URL}/api/gallery`,
+  galleryCategories: (id?: string) =>
+    id
+      ? `${API_BASE_URL}/api/gallery/categories/${id}`
+      : `${API_BASE_URL}/api/gallery/categories`,
   settings: {
     company: `${API_BASE_URL}/api/settings/company`,
   },
   subscription: {
     status: `${API_BASE_URL}/api/subscription/status`,
-    upgrade: `${API_BASE_URL}/api/subscription/upgrade`,
+    prices: `${API_BASE_URL}/api/subscription/prices`,
     cancel: `${API_BASE_URL}/api/subscription/cancel`,
   },
+  /** Backend as source of truth for premium. GET returns { premium, expiresAt }. */
+  entitlements: {
+    me: `${API_BASE_URL}/api/entitlements/me`,
+  },
+  /** Confirm purchase after IAP. POST body: { platform, receipt, productId }. Returns { premium, expiresAt }. */
+  subscriptions: {
+    confirm: `${API_BASE_URL}/api/subscriptions/confirm`,
+  },
+  pdf: {
+    template: `${API_BASE_URL}/api/pdf/template`,
+    generateCustom: `${API_BASE_URL}/api/pdf/generate-custom`,
+    templates: `${API_BASE_URL}/api/pdf/templates`,
+    templateById: (id: string) => `${API_BASE_URL}/api/pdf/templates/${id}`,
+    fields: `${API_BASE_URL}/api/pdf/fields`,
+  },
   upload: `${API_BASE_URL}/api/upload`,
+  /**
+   * Garment types list/detail. Auth required.
+   * List: GET /api/garment-types (?tailorId, ?enabledOnly).
+   * 404 on list means "Tailor not found" (no tailorId and user has no Tailor).
+   */
+  garmentTypes: (id?: string, query?: { tailorId?: string; enabledOnly?: boolean }) => {
+    const base = id
+      ? `${API_BASE_URL}/api/garment-types/${id}`
+      : `${API_BASE_URL}/api/garment-types`;
+    if (!id && query && (query.tailorId != null || query.enabledOnly !== undefined)) {
+      const params = new URLSearchParams();
+      if (query.tailorId != null) params.set('tailorId', query.tailorId);
+      if (query.enabledOnly !== undefined) params.set('enabledOnly', String(query.enabledOnly));
+      const qs = params.toString();
+      return qs ? `${base}?${qs}` : base;
+    }
+    return base;
+  },
+  garmentTypeDelete: (id: string) => `${API_BASE_URL}/api/garment-types/${id}`,
+  garmentTypeDefinitions: (garmentTypeId: string, defId?: string) =>
+    defId
+      ? `${API_BASE_URL}/api/garment-types/${garmentTypeId}/measurement-definitions/${defId}`
+      : `${API_BASE_URL}/api/garment-types/${garmentTypeId}/measurement-definitions`,
 };
 
 export interface ApiOptions extends RequestInit {
@@ -66,11 +146,77 @@ export interface ApiOptions extends RequestInit {
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 
-type ApiErrorPayload = { 
-  error?: string; 
+/** Get stored access token (e.g. for custom fetch that returns non-JSON like PDF blob). */
+export async function getStoredAccessToken(): Promise<string | null> {
+  try {
+    return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** AbortSignal that fires after ms. Call abort() on the controller to clear the timer. */
+function timeoutSignal(ms: number): { signal: AbortSignal; abort: () => void } {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  return {
+    signal: controller.signal,
+    abort: () => {
+      clearTimeout(id);
+      controller.abort();
+    },
+  };
+}
+
+/** Combine timeout with optional caller signal: abort when either fires. */
+function signalWithTimeout(
+  timeoutMs: number,
+  callerSignal?: AbortSignal | null
+): { signal: AbortSignal; abort: () => void } {
+  const { signal: timeoutAbortSignal, abort: clearTimeout } = timeoutSignal(timeoutMs);
+  if (!callerSignal) return { signal: timeoutAbortSignal, abort: clearTimeout };
+  const combined = new AbortController();
+  const onAbort = () => {
+    combined.abort();
+    clearTimeout();
+  };
+  timeoutAbortSignal.addEventListener('abort', onAbort);
+  callerSignal.addEventListener('abort', onAbort);
+  return { signal: combined.signal, abort: clearTimeout };
+}
+
+/**
+ * Classify fetch failure for dev diagnostics. No response = connectivity/refused/timeout.
+ */
+function classifyNetworkError(err: unknown, url: string): 'timeout' | 'refused' | 'offline' | 'cors_ats' | 'other' {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  if ((err instanceof Error && (err as DOMException).name === 'AbortError') || lower.includes('abort') || lower.includes('timeout'))
+    return 'timeout';
+  if (lower.includes('network request failed') || (err instanceof TypeError && /fetch|network|failed/i.test(msg)))
+    return 'refused'; // often connection refused or unreachable
+  if (lower.includes('failed to fetch') || lower.includes('load failed')) return 'refused';
+  if (lower.includes('offline') || lower.includes('not connected')) return 'offline';
+  if (lower.includes('cors') || lower.includes('cleartext') || lower.includes('app transport security'))
+    return 'cors_ats';
+  return 'other';
+}
+
+/** Dev-only: log resolved API base URL once at startup. */
+if (typeof __DEV__ !== 'undefined' && __DEV__) {
+  const base = getApiBaseUrlCached();
+  console.log('[api] API_BASE_URL (resolved):', base);
+}
+
+type ApiErrorPayload = {
+  success?: boolean;
+  error?: string;
   message?: string;
+  messageKey?: string;
+  messageParams?: Record<string, string | number>;
   code?: string;
-  details?: { field: string; message: string }[] 
+  details?: { field: string; message: string }[];
+  errors?: Array<{ field: string; messageKey?: string; messageParams?: Record<string, string | number> }>;
 };
 
 function formatApiError(
@@ -79,20 +225,23 @@ function formatApiError(
   statusText: string,
   url?: string
 ): string {
-  // Check for error or message field (backend sends either)
+  // Backend i18n: prefer messageKey as fallback display (raw key); caller should use getLocalizedApiMessage when t is available
   const base =
     typeof data === 'object' && data
-      ? (data.error || data.message || statusText)
+      ? (data.error || data.message || data.messageKey || statusText)
       : statusText;
   let msg = base || `Request failed (${status})`;
   const details = typeof data === 'object' && data?.details && Array.isArray(data.details) ? data.details : [];
+  const errors = typeof data === 'object' && data?.errors && Array.isArray(data.errors) ? data.errors : [];
   if (details.length > 0) {
     msg += ': ' + details.map((d) => `${d.field} – ${d.message}`).join('; ');
   }
-  if (status === 404) {
+  if (errors.length > 0 && !details.length) {
+    msg += ': ' + errors.map((e) => e.field).join(', ');
+  }
+  if (status === HttpStatus.NotFound && !(typeof data === 'object' && data && 'messageKey' in data)) {
     msg =
-      'Backend not reachable. Ensure the server is running (docker compose up -d in backend/ or npm run dev). ' +
-      'On a device, set EXPO_PUBLIC_API_URL in .env to your machine IP (e.g. http://192.168.1.x:3001).';
+      'Backend not reachable. Ensure the server is running and EXPO_PUBLIC_API_URL is set to your API base URL.';
     console.warn(`API 404: ${url ?? ''}`);
   }
   return msg;
@@ -118,7 +267,13 @@ export async function apiFetch<T = unknown>(
     }
   }
 
-  const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API_BASE_URL}${pathOrUrl}`;
+  const base = pathOrUrl.startsWith('http') ? '' : API_BASE_URL;
+  if (!pathOrUrl.startsWith('http') && !base) {
+    throw new Error(
+      'EXPO_PUBLIC_API_URL is not set. Set it in .env or in your EAS build profile to your backend base URL.'
+    );
+  }
+  const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${base}${pathOrUrl}`;
   const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(authToken && { Authorization: `Bearer ${authToken}` }),
@@ -128,20 +283,48 @@ export async function apiFetch<T = unknown>(
     Object.assign(reqHeaders, headers as Record<string, string>);
   }
 
+  const { signal: requestSignal, abort: clearTimeout } = signalWithTimeout(
+    REQUEST_TIMEOUT_MS,
+    rest.signal
+  );
+  const fetchOptions = { ...rest, headers: reqHeaders, signal: requestSignal };
+
   let res: Response;
   try {
-    res = await fetch(url, { ...rest, headers: reqHeaders });
+    res = await fetch(url, fetchOptions);
+    clearTimeout();
   } catch (err) {
+    clearTimeout();
+    const kind = classifyNetworkError(err, url);
+    // Always log connection failures so you can see the URL and error (dev: full detail; prod: short).
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.error(
+        '[api] Connection failed:',
+        kind,
+        '| Request URL:',
+        url,
+        '| API base:',
+        API_BASE_URL,
+        '| Error:',
+        err instanceof Error ? err.message : err
+      );
+    } else {
+      console.error('[api] Connection failed:', kind);
+    }
+    const baseMessage =
+      kind === 'timeout'
+        ? 'Request timed out. Check your network and that the backend is running.'
+        : kind === 'offline'
+          ? 'No internet connection. Check your network.'
+          : 'Unable to connect. Check your network and that the backend is running.';
     const message =
-      err instanceof TypeError && /fetch|network|failed/i.test(String(err))
-        ? 'Unable to connect. Check your network and that the backend is running.'
-        : err instanceof Error
-          ? err.message
-          : 'Network request failed.';
+      typeof __DEV__ !== 'undefined' && __DEV__
+        ? `${baseMessage} (URL: ${url})`
+        : baseMessage;
     throw new Error(message);
   }
 
-  if (res.status === 401 && authToken && !skipAuth && !pathOrUrl.includes('/auth/')) {
+  if (res.status === HttpStatus.Unauthorized && authToken && !skipAuth && !pathOrUrl.includes('/auth/')) {
     let refreshData: { accessToken?: string } | null = null;
     try {
       const refreshRes = await fetch(api.auth.refresh, {
@@ -163,7 +346,15 @@ export async function apiFetch<T = unknown>(
         const retryData = (await retryRes.json().catch(() => ({}))) as T & ApiErrorPayload;
         if (!retryRes.ok) {
           const errorMessage = formatApiError(retryData, retryRes.status, retryRes.statusText, url);
-          throw new ApiError(errorMessage, retryData.code, retryRes.status);
+          const i18n =
+            retryData.messageKey != null
+              ? {
+                  messageKey: retryData.messageKey,
+                  messageParams: retryData.messageParams,
+                  errors: retryData.errors,
+                }
+              : undefined;
+          throw new ApiError(errorMessage, retryData.code, retryRes.status, i18n);
         }
         return retryData as T;
       } catch (retryErr) {
@@ -178,8 +369,21 @@ export async function apiFetch<T = unknown>(
   const data = (await res.json().catch(() => ({}))) as T & ApiErrorPayload;
   if (!res.ok) {
     const errorMessage = formatApiError(data, res.status, res.statusText, url);
-    const error = new ApiError(errorMessage, data.code, res.status);
+    const i18n =
+      data.messageKey != null
+        ? {
+            messageKey: data.messageKey,
+            messageParams: data.messageParams,
+            errors: data.errors,
+          }
+        : undefined;
+    const error = new ApiError(errorMessage, data.code, res.status, i18n);
     throw error;
+  }
+  // Backend may return { success: true, data } for some endpoints; unwrap so caller gets data directly
+  const body = data as T & { success?: boolean; data?: unknown };
+  if (body && typeof body === 'object' && body.success === true && 'data' in body) {
+    return body.data as T;
   }
   return data as T;
 }
@@ -189,6 +393,22 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return fallback;
+}
+
+/**
+ * Get a localized message for an API error. Use when the backend returns messageKey + messageParams.
+ * In components: const msg = getLocalizedApiMessage(err, t, fallback); then show msg.
+ * When the error is an ApiError with messageKey, returns t(messageKey, messageParams). Otherwise returns getErrorMessage(error, fallback).
+ */
+export function getLocalizedApiMessage(
+  error: unknown,
+  t: (key: string, options?: Record<string, string | number>) => string,
+  fallback = 'Something went wrong. Please try again.'
+): string {
+  if (error instanceof ApiError && error.messageKey) {
+    return t(error.messageKey, error.messageParams ?? {});
+  }
+  return getErrorMessage(error, fallback);
 }
 
 /**

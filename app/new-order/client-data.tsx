@@ -1,29 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
-  TextInput,
   ActivityIndicator,
   Alert,
   Modal,
   FlatList,
   Platform,
 } from 'react-native';
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Header } from '@/components/layout/Header';
+import { Section } from '@/components/ui/Section';
+import { Loader } from '@/components/ui/Loader';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-// @ts-ignore - Package will be available after npm install
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { ArrowLeft, User, Phone, Calendar, Save, Search, X } from 'lucide-react-native';
+import { ArrowLeft, User, Phone, Save, Search, X, ChevronDown, Mail } from 'lucide-react-native';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { OrderStepNav } from '@/components/OrderStepNav';
+import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { PaywallModal } from '@/components/PaywallModal';
-import { api, apiFetch, getErrorMessage } from '@/lib/api';
+import { api, apiFetch, getErrorMessage, ApiError, ApiErrorCode } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 import { customerFullName } from '@/lib/api-mappers';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, BorderRadius, CompactLayoutStyles, Shadows } from '@/constants/design';
 
 interface Customer {
   id: string;
@@ -42,20 +46,9 @@ export default function ClientDataScreen() {
     clientEmail?: string;
     clientNotes?: string;
   }>();
-  const { draftOrder, updateCustomer, updateDueDate, updateNotes } = useOrderDraft();
+  const { t } = useI18n();
+  const { draftOrder, updateCustomer, updateNotes } = useOrderDraft();
   const { subscription, upgradeToPro, refreshSubscription } = useSubscription();
-  
-  // Initialize date with today if not set
-  const getInitialDate = (): Date => {
-    if (draftOrder.dueDate) {
-      try {
-        return new Date(draftOrder.dueDate);
-      } catch {
-        return new Date();
-      }
-    }
-    return new Date();
-  };
 
   // Helper to parse name into first and last name
   const parseName = (fullName: string): { firstName: string; lastName: string } => {
@@ -68,6 +61,41 @@ export default function ClientDataScreen() {
     };
   };
 
+  // Format phone number as user types: +40 7XX XXX XXX
+  const formatPhoneNumber = (input: string): string => {
+    // Remove all non-digit characters
+    const digits = input.replace(/\D/g, '');
+    
+    // If starts with 40, keep it; otherwise assume Romanian number
+    let formatted = digits;
+    if (digits.length > 0 && !digits.startsWith('40')) {
+      formatted = '40' + digits;
+    }
+    
+    // Format: +40 7XX XXX XXX
+    if (formatted.length <= 2) {
+      return formatted.length > 0 ? '+' + formatted : '';
+    }
+    if (formatted.length <= 5) {
+      return '+' + formatted.slice(0, 2) + ' ' + formatted.slice(2);
+    }
+    if (formatted.length <= 8) {
+      return '+' + formatted.slice(0, 2) + ' ' + formatted.slice(2, 5) + ' ' + formatted.slice(5);
+    }
+    // Max 10 digits after country code
+    return '+' + formatted.slice(0, 2) + ' ' + formatted.slice(2, 5) + ' ' + formatted.slice(5, 8) + ' ' + formatted.slice(8, 11);
+  };
+
+  const handlePhoneChange = (text: string) => {
+    const formatted = formatPhoneNumber(text);
+    setPhone(formatted);
+  };
+
+  // Extract digits only from formatted phone number
+  const getPhoneDigits = (formatted: string): string => {
+    return formatted.replace(/\D/g, '');
+  };
+
   // Initialize form fields - check route params first, then draft order
   const getInitialFields = () => {
     if (params.clientId && params.clientName && params.clientPhone) {
@@ -75,7 +103,7 @@ export default function ClientDataScreen() {
       return {
         firstName,
         lastName,
-        phone: params.clientPhone,
+        phone: formatPhoneNumber(params.clientPhone),
         email: params.clientEmail || '',
       };
     }
@@ -83,7 +111,7 @@ export default function ClientDataScreen() {
     return {
       firstName: nameParts.firstName,
       lastName: nameParts.lastName,
-      phone: draftOrder.customer.phone || '',
+      phone: draftOrder.customer.phone ? formatPhoneNumber(draftOrder.customer.phone) : '',
       email: draftOrder.customer.email || '',
     };
   };
@@ -93,11 +121,10 @@ export default function ClientDataScreen() {
   const [lastName, setLastName] = useState(initialFields.lastName);
   const [phone, setPhone] = useState(initialFields.phone);
   const [email, setEmail] = useState(initialFields.email);
-  const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState(
     params.clientNotes ?? draftOrder.notes ?? ''
   );
+  const [showNotes, setShowNotes] = useState(!!(params.clientNotes ?? draftOrder.notes));
   
   const [isLoading, setIsLoading] = useState(false);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
@@ -109,10 +136,9 @@ export default function ClientDataScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
-  // Initialize customer data from route params if provided (only once on mount)
+  // Sync context and local state when route params (client) change (e.g. same screen, different client)
   useEffect(() => {
     if (params.clientId && params.clientName && params.clientPhone) {
-      // Update context to ensure it's synced with route params
       updateCustomer({
         id: params.clientId,
         name: params.clientName,
@@ -122,36 +148,25 @@ export default function ClientDataScreen() {
       if (params.clientNotes) {
         updateNotes(params.clientNotes);
       }
+      const { firstName: f, lastName: l } = parseName(params.clientName);
+      setFirstName(f);
+      setLastName(l);
+      setPhone(formatPhoneNumber(params.clientPhone));
+      setEmail(params.clientEmail || '');
+      setNotes(params.clientNotes ?? '');
+      setShowNotes(!!params.clientNotes);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, [
+    params.clientId,
+    params.clientName,
+    params.clientPhone,
+    params.clientEmail,
+    params.clientNotes,
+    updateCustomer,
+    updateNotes,
+  ]);
 
-  // Initialize dueDate in context if not set
-  useEffect(() => {
-    if (!draftOrder.dueDate) {
-      const today = new Date();
-      updateDueDate(today.toISOString());
-    }
-  }, []);
-
-  const formatDateForDisplay = (date: Date): string => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-  };
-
-  const handleDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (date) {
-      setSelectedDate(date);
-      updateDueDate(date.toISOString());
-    }
-  };
-
-  const loadInitialCustomers = async () => {
+  const loadInitialCustomers = useCallback(async () => {
     setIsLoadingInitial(true);
     try {
       const response = await apiFetch<{ customers: Customer[] }>(
@@ -164,7 +179,7 @@ export default function ClientDataScreen() {
     } finally {
       setIsLoadingInitial(false);
     }
-  };
+  }, []);
 
   const searchCustomers = async (query: string) => {
     if (!query.trim()) {
@@ -188,12 +203,14 @@ export default function ClientDataScreen() {
   const selectCustomer = (customer: Customer) => {
     setFirstName(customer.firstName);
     setLastName(customer.lastName);
-    setPhone(customer.phone);
+    // Format phone number when selecting
+    const formattedPhone = formatPhoneNumber(customer.phone);
+    setPhone(formattedPhone);
     setEmail(customer.email || '');
     updateCustomer({
       id: customer.id,
       name: customerFullName(customer.firstName, customer.lastName),
-      phone: customer.phone,
+      phone: customer.phone, // Keep original format for API
       email: customer.email || undefined,
     });
     setShowCustomerSearch(false);
@@ -206,28 +223,33 @@ export default function ClientDataScreen() {
     if (showCustomerSearch) {
       loadInitialCustomers();
     }
-  }, [showCustomerSearch]);
+  }, [showCustomerSearch, loadInitialCustomers]);
 
   const saveClientData = async (): Promise<boolean> => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Eroare', 'Numele și prenumele sunt obligatorii');
+      Alert.alert(t('common.error'), t('newOrder.client.firstNameRequired'));
       return false;
     }
-    if (!phone.trim()) {
-      Alert.alert('Eroare', 'Numărul de telefon este obligatoriu');
+    const phoneDigits = getPhoneDigits(phone);
+    if (!phoneDigits || phoneDigits.length < 10) {
+      Alert.alert(t('common.error'), t('newOrder.client.phoneRequired'));
       return false;
     }
 
     setIsLoading(true);
     try {
       let customerId = draftOrder.customer.id;
+      const phoneToSave = phoneDigits.startsWith('40') ? phoneDigits : '40' + phoneDigits;
 
       if (!customerId) {
         try {
           const searchResponse = await apiFetch<{ customers: Customer[] }>(
-            `${api.customers()}?search=${encodeURIComponent(phone)}&limit=1`
+            `${api.customers()}?search=${encodeURIComponent(phoneToSave)}&limit=1`
           );
-          const existing = searchResponse.customers?.find((c) => c.phone === phone);
+          const existing = searchResponse.customers?.find((c) => {
+            const existingDigits = getPhoneDigits(c.phone);
+            return existingDigits === phoneToSave;
+          });
           if (existing) customerId = existing.id;
         } catch (error) {
           console.error('Search error:', error);
@@ -240,17 +262,19 @@ export default function ClientDataScreen() {
               body: JSON.stringify({
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
-                phone: phone.trim(),
+                phone: phoneToSave,
                 email: email.trim() || undefined,
               }),
             });
             customerId = newCustomer.id;
-          } catch (error: any) {
-            // Check if it's a subscription limit error
-            console.log('Customer creation error:', { code: error.code, message: error.message });
-            if (error.code === 'SUBSCRIPTION_LIMIT_REACHED' ||
-                error.message?.includes('Free plan allows only') || 
-                error.message?.includes('SUBSCRIPTION_LIMIT_REACHED')) {
+          } catch (error: unknown) {
+            const err = error instanceof ApiError ? error : (error as { code?: string; message?: string });
+            console.log('Customer creation error:', { code: err.code, message: err.message });
+            if (
+              err.code === ApiErrorCode.SUBSCRIPTION_LIMIT_REACHED ||
+              (typeof err.message === 'string' &&
+                (err.message.includes('Free plan allows only') || err.message.includes(ApiErrorCode.SUBSCRIPTION_LIMIT_REACHED)))
+            ) {
               console.log('Subscription limit reached - showing paywall');
               setShowPaywall(true);
               setIsLoading(false);
@@ -264,14 +288,14 @@ export default function ClientDataScreen() {
       updateCustomer({
         id: customerId,
         name: customerFullName(firstName.trim(), lastName.trim()),
-        phone: phone.trim(),
+        phone: phoneToSave, // Save as digits only
         email: email.trim() || undefined,
       });
 
       if (notes.trim()) updateNotes(notes.trim());
       return true;
     } catch (error) {
-      Alert.alert('Eroare', getErrorMessage(error, 'Nu s-a putut salva datele clientului'));
+      Alert.alert(t('common.error'), getErrorMessage(error, t('newOrder.client.saveError')));
       return false;
     } finally {
       setIsLoading(false);
@@ -281,205 +305,167 @@ export default function ClientDataScreen() {
   const handleSave = async () => {
     const ok = await saveClientData();
     if (ok) {
-      Alert.alert('Succes', 'Datele clientului au fost salvate', [
-        { text: 'OK', onPress: () => router.back() },
+      Alert.alert(t('common.success'), t('newOrder.client.saveSuccess'), [
+        { text: t('common.ok'), onPress: () => router.replace('/(tabs)/orders') },
       ]);
     }
   };
 
   const handleNext = async () => {
     const ok = await saveClientData();
-    if (ok) router.push('/new-order/jacket');
+    if (ok) {
+      router.push('/new-order');
+    }
   };
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
     setIsUpgrading(true);
     try {
-      const success = await upgradeToPro();
-      if (success) {
-        await refreshSubscription();
+      const result = await upgradeToPro(plan);
+      if (result.success) {
         setShowPaywall(false);
-        Alert.alert('Succes', 'Cont upgradeat la Pro! Acum puteți crea clienți nelimitați.');
-      } else {
-        Alert.alert('Eroare', 'Nu s-a putut face upgrade-ul. Vă rugăm încercați din nou.');
+      } else if (result.errorMessage) {
+        Alert.alert(t('common.error'), result.errorMessage);
       }
     } catch (error) {
-      Alert.alert('Eroare', getErrorMessage(error, 'Nu s-a putut face upgrade-ul'));
+      Alert.alert(t('common.error'), getErrorMessage(error, t('newOrder.client.checkoutError')));
     } finally {
       setIsUpgrading(false);
     }
   };
 
-  const isValid = firstName.trim() && lastName.trim() && phone.trim();
+  const phoneDigits = getPhoneDigits(phone);
+  const isValid = firstName.trim() && lastName.trim() && phoneDigits && phoneDigits.length >= 10;
+  const insets = useSafeAreaInsets();
+  // bottomOffset so KeyboardAwareScrollView keeps focused input above footer + keyboard (no padding hacks).
+  const footerBottomOffset = FOOTER_CONTENT_HEIGHT + insets.bottom;
 
   return (
     <>
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={22} color={Colors.textPrimary} strokeWidth={2.5} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Date Client</Text>
-        <TouchableOpacity 
-          style={[styles.saveButton, !isValid && styles.saveButtonDisabled]} 
-          onPress={handleSave}
-          disabled={!isValid || isLoading}
-          activeOpacity={0.7}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={Colors.textInverse} />
-          ) : (
-            <Save size={20} color={Colors.textInverse} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Search Existing Customer */}
-        <View style={styles.searchSection}>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => setShowCustomerSearch(true)}
-            activeOpacity={0.7}
+    <ScreenContainer noPadding>
+      <Header
+        title={t('newOrder.client.clientData')}
+        onBack={() => router.replace('/(tabs)/orders')}
+        backAccessibilityLabel={t('common.back')}
+        rightActions={
+          <Button
+            variant="primaryIcon"
+            onPress={handleSave}
+            disabled={!isValid || isLoading}
+            loading={isLoading}
+            accessibilityLabel={t('common.save')}
           >
-            <Search size={18} color={Colors.primary} />
-            <Text style={styles.searchButtonText}>Caută client existent</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nume *</Text>
-            <View style={styles.inputWrapper}>
-              <User size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Introduceți numele"
-                placeholderTextColor={Colors.textTertiary}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Prenume *</Text>
-            <View style={styles.inputWrapper}>
-              <User size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="Introduceți prenumele"
-                placeholderTextColor={Colors.textTertiary}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Telefon *</Text>
-            <View style={styles.inputWrapper}>
-              <Phone size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+40 7XX XXX XXX"
-                placeholderTextColor={Colors.textTertiary}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email (opțional)</Text>
-            <View style={styles.inputWrapper}>
-              <User size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="client@email.com"
-                placeholderTextColor={Colors.textTertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Data Preluare Comandă</Text>
-            <TouchableOpacity
-              style={styles.inputWrapper}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Calendar size={20} color={Colors.textSecondary} style={styles.inputIcon} />
-              <Text style={styles.dateText}>{formatDateForDisplay(selectedDate)}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <>
-                <View style={styles.datePickerContainer}>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleDateChange}
-                    minimumDate={new Date()}
-                    style={styles.datePicker}
-                  />
-                </View>
-                {Platform.OS === 'ios' && (
-                  <View style={styles.datePickerActions}>
-                    <TouchableOpacity
-                      style={styles.datePickerButton}
-                      onPress={() => setShowDatePicker(false)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.datePickerButtonText}>Confirmă</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Observații</Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Adăugați observații speciale..."
-                placeholderTextColor={Colors.textTertiary}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </SafeAreaView>
-
-      <OrderStepNav
-        showPrev
-        showNext
-        onPrev={() => router.back()}
-        onNext={handleNext}
-        nextDisabled={!isValid}
-        nextLoading={isLoading}
-        prevLabel="Înapoi"
-        nextLabel="Înainte"
+            <Save size={20} color={Colors.textInverse} />
+          </Button>
+        }
       />
+
+      <View style={styles.contentWrapper}>
+        <KeyboardAwareScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: footerBottomOffset }]}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={footerBottomOffset}
+        >
+          <Section title={t('newOrder.client.existingCustomer')} style={StyleSheet.flatten([styles.searchSection, CompactLayoutStyles.compactSection])}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={() => setShowCustomerSearch(true)}
+              leftIcon={<Search size={18} color={Colors.primary} />}
+              style={styles.searchButton}
+            >
+              {t('newOrder.client.searchExistingCustomer')}
+            </Button>
+          </Section>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('newOrder.client.or')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Section title={t('newOrder.client.newClientDataSection')} style={StyleSheet.flatten([styles.form, CompactLayoutStyles.compactSection])}>
+            <Input
+              label={t('newOrder.client.lastNameLabel')}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder={t('newOrder.client.lastNamePlaceholder')}
+              leftIcon={<User size={20} color={Colors.textSecondary} />}
+              containerStyle={styles.inputGroup}
+            />
+
+            <Input
+              label={t('newOrder.client.firstNameLabel')}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder={t('newOrder.client.firstNamePlaceholder')}
+              leftIcon={<User size={20} color={Colors.textSecondary} />}
+              containerStyle={styles.inputGroup}
+            />
+
+            <Input
+              label={t('newOrder.client.phoneLabel')}
+              value={phone}
+              onChangeText={handlePhoneChange}
+              placeholder={t('newOrder.client.phonePlaceholder')}
+              keyboardType="phone-pad"
+              leftIcon={<Phone size={20} color={Colors.textSecondary} />}
+              containerStyle={styles.inputGroup}
+            />
+
+            <Input
+              label={t('newOrder.client.emailOptionalLabel')}
+              value={email}
+              onChangeText={setEmail}
+              placeholder={t('newOrder.client.emailPlaceholder')}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              optional
+              leftIcon={<Mail size={20} color={Colors.textTertiary} />}
+              containerStyle={styles.inputGroup}
+            />
+
+            <View style={styles.inputGroup}>
+              <TouchableOpacity
+                style={styles.notesHeader}
+                onPress={() => setShowNotes(!showNotes)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.notesLabelOptional}>{t('newOrder.client.notesOptionalLabel')}</Text>
+                <ChevronDown
+                  size={18}
+                  color={Colors.textTertiary}
+                  style={[styles.chevron, showNotes && styles.chevronRotated]}
+                />
+              </TouchableOpacity>
+              {showNotes && (
+                <Input
+                  label=""
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder={t('newOrder.client.notesPlaceholder')}
+                  multiline
+                  numberOfLines={3}
+                  optional
+                  containerStyle={styles.inputGroup}
+                />
+              )}
+            </View>
+          </Section>
+        </KeyboardAwareScrollView>
+
+        <AppFloatingFooter
+          primaryLabel={t('newOrder.next')}
+          onPrimaryPress={handleNext}
+          primaryDisabled={!isValid || isLoading}
+          primaryLoading={isLoading}
+          secondaryLabel={t('newOrder.back')}
+          onSecondaryPress={() => router.replace('/(tabs)/orders')}
+        />
+      </View>
+    </ScreenContainer>
 
       {/* Customer Search Modal */}
       <Modal
@@ -488,9 +474,10 @@ export default function ClientDataScreen() {
         transparent={false}
         onRequestClose={() => setShowCustomerSearch(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Caută Client</Text>
+        <KeyboardAvoidingView style={styles.modalKeyboardAvoid} behavior="padding">
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('newOrder.client.searchModalTitle')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => {
@@ -505,15 +492,13 @@ export default function ClientDataScreen() {
           </View>
 
           <View style={styles.searchInputContainer}>
-            <TextInput
-              style={styles.searchInput}
+            <Input
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
                 searchCustomers(text);
               }}
-              placeholder="Caută după nume, telefon sau email..."
-              placeholderTextColor={Colors.textTertiary}
+              placeholder={t('newOrder.client.searchPlaceholder')}
               autoFocus
             />
           </View>
@@ -545,16 +530,17 @@ export default function ClientDataScreen() {
             ListEmptyComponent={
               !isSearching && !isLoadingInitial && searchQuery.trim() ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Nu s-au găsit clienți</Text>
+                  <Text style={styles.emptyText}>{t('newOrder.client.emptySearchResults')}</Text>
                 </View>
               ) : !isSearching && !isLoadingInitial && !searchQuery.trim() && initialCustomers.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Nu există clienți</Text>
+                  <Text style={styles.emptyText}>{t('newOrder.client.noClients')}</Text>
                 </View>
               ) : null
             }
           />
-        </SafeAreaView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Paywall Modal */}
@@ -569,118 +555,86 @@ export default function ClientDataScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  contentWrapper: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    ...HeaderStyles.container,
-  },
-  backButton: {
-    ...ButtonStyles.back,
-  },
-  title: {
-    ...Typography.h3,
-    flex: 1,
-    textAlign: 'center',
-  },
-  saveButton: {
-    ...ButtonStyles.primaryIcon,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   searchSection: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Shadows.sm,
   },
   searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     borderColor: Colors.primary,
-    ...Shadows.sm,
   },
   searchButtonText: {
     ...Typography.bodyBold,
     color: Colors.primary,
   },
-  form: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-  },
-  inputGroup: {
-    marginBottom: Spacing.lg,
-  },
-  label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.sm,
-  },
-  inputWrapper: {
+  divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.sm,
-  },
-  textAreaWrapper: {
-    alignItems: 'flex-start',
-    paddingVertical: Spacing.md,
-  },
-  inputIcon: {
-    marginRight: Spacing.md,
-  },
-  input: {
-    flex: 1,
-    ...Typography.body,
-  },
-  dateText: {
-    flex: 1,
-    ...Typography.body,
-    color: Colors.textPrimary,
-  },
-  datePickerContainer: {
-    marginTop: Spacing.sm,
-  },
-  datePicker: {
-    margin: 'auto',
-  },
-  datePickerActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: Spacing.sm,
+    marginVertical: Spacing.md,
+    marginHorizontal: Spacing.md,
     gap: Spacing.md,
   },
-  datePickerButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.sm,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
   },
-  datePickerButtonText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
+  dividerText: {
+    ...Typography.caption,
+    fontSize: 11,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+  form: {
+    paddingHorizontal: Spacing.md,
   },
-  bottomSpacer: {
-    height: Spacing.xxxl,
+  inputGroup: {
+    marginBottom: Spacing.sm,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  notesLabelOptional: {
+    ...Typography.caption,
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  chevron: {
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+  modalKeyboardAvoid: {
+    flex: 1,
   },
   modalContainer: {
     flex: 1,
@@ -690,8 +644,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.md, 
+    paddingTop: Platform.OS === 'ios' ? 64 : 0,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -711,15 +665,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  searchInput: {
-    ...Typography.body,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
   loadingContainer: {
     padding: Spacing.xxl,
     alignItems: 'center',
@@ -727,7 +672,7 @@ const styles = StyleSheet.create({
   customerItem: {
     backgroundColor: Colors.surface,
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
@@ -745,7 +690,7 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
   },
   emptyContainer: {
-    padding: Spacing.xxl,
+    padding: Spacing.lg,
     alignItems: 'center',
   },
   emptyText: {

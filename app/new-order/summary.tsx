@@ -1,64 +1,166 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
-  ScrollView,
-  TextInput,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { Input } from '@/components/ui/Input';
+import { Header } from '@/components/layout/Header';
+import { Section } from '@/components/ui/Section';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Share, CreditCard, Calendar, CheckCircle } from 'lucide-react-native';
+import { CreditCard } from 'lucide-react-native';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { OrderStepNav } from '@/components/OrderStepNav';
+import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { PaywallModal } from '@/components/PaywallModal';
-import { api, apiFetch, getErrorMessage } from '@/lib/api';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { api, apiFetch, getErrorMessage, ApiError, ApiErrorCode } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
+import { fetchGarmentTypesList } from '@/lib/apiCache';
+import { normalizeGarmentTypeRecord, definitionRecordToFormDefinition } from '@/lib/api-mappers';
+import type { GarmentTypeRecord, MeasurementDefinitionRecord } from '@/types/templates';
+import type { MeasurementDefinition } from '@/constants/garments';
+import { getDisplayUnit } from '@/hooks/useResolvedDefinition';
+import { filterDefinitionsWithValidKey } from '@/lib/measurementDefensive';
+import { getSnapshotEntriesInDefinitionOrder, getSnapshotDisplayLabel } from '@/utils';
+import { ErrorText } from '@/components/ui/ErrorText';
+import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+
+function getGarmentDisplayName(garment: GarmentTypeRecord, garmentUnavailableLabel: string): string {
+  const name = (garment.label ?? garment.name ?? '').trim();
+  return name || garmentUnavailableLabel;
+}
 
 export default function SummaryScreen() {
   const router = useRouter();
-  const { draftOrder, updatePayment, updateDueDate, clearDraft } = useOrderDraft();
-  const { subscription, upgradeToPro, refreshSubscription } = useSubscription();
+  const { t } = useI18n();
+  const { draftOrder, orderMode, updatePayment, clearDraft } = useOrderDraft();
+  const { subscription, upgradeToPro, refreshSubscription, checkCanCreateOrder, getLimitMessages } = useSubscription();
+  const canCreateOrder = checkCanCreateOrder();
+  const limitMsgs = getLimitMessages();
   
-  const [totalAmount, setTotalAmount] = useState(draftOrder.payment.totalAmount.toString() || '');
-  const [paidAmount, setPaidAmount] = useState(draftOrder.payment.paidAmount.toString() || '');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | undefined>(
-    draftOrder.payment.paymentMethod
-  );
+  const [totalAmount, setTotalAmount] = useState(() => {
+    const v = draftOrder.payment.totalAmount;
+    return v === undefined || v === 0 ? '' : String(v);
+  });
+  const [paidAmount, setPaidAmount] = useState(() => {
+    const v = draftOrder.payment.paidAmount;
+    return v === undefined || v === 0 ? '' : String(v);
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [garments, setGarments] = useState<GarmentTypeRecord[]>([]);
+  const [garmentsLoadError, setGarmentsLoadError] = useState<string | null>(null);
+  const garmentsLoadingRef = useRef(false);
+  const [summaryDefinitionsByGarment, setSummaryDefinitionsByGarment] = useState<Record<string, MeasurementDefinition[]>>({});
+  const [summaryDefinitionErrors, setSummaryDefinitionErrors] = useState<Record<string, boolean>>({});
 
-  const paymentMethods: Array<{ label: string; value: 'cash' | 'card' | 'transfer' }> = [
-    { label: 'Numerar', value: 'cash' },
-    { label: 'Card', value: 'card' },
-    { label: 'Transfer bancar', value: 'transfer' },
-  ];
+  const remaining = parseFloat(totalAmount) - parseFloat(paidAmount || '');
 
-  const remaining = parseFloat(totalAmount) - parseFloat(paidAmount || '0');
+  useEffect(() => {
+    const ids = draftOrder.selectedGarmentIds;
+    if (ids.length === 0) {
+      setSummaryDefinitionsByGarment({});
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const next: Record<string, MeasurementDefinition[]> = {};
+      const errors: Record<string, boolean> = {};
+      await Promise.all(
+        ids.map(async (garmentId) => {
+          try {
+            const defsRes = await apiFetch<
+              | MeasurementDefinitionRecord[]
+              | { measurementDefinitions?: MeasurementDefinitionRecord[]; definitions?: MeasurementDefinitionRecord[]; measurements?: MeasurementDefinitionRecord[] }
+            >(api.garmentTypeDefinitions(garmentId));
+            const raw = Array.isArray(defsRes)
+              ? defsRes
+              : (defsRes as { measurementDefinitions?: MeasurementDefinitionRecord[] }).measurementDefinitions
+                ?? (defsRes as { definitions?: MeasurementDefinitionRecord[] }).definitions
+                ?? (defsRes as { measurements?: MeasurementDefinitionRecord[] }).measurements
+                ?? [];
+            const defs = Array.isArray(raw)
+              ? raw
+                  .map((d: MeasurementDefinitionRecord & { order?: number }) => definitionRecordToFormDefinition(d))
+                  .sort((a, b) => a.displayOrder - b.displayOrder)
+              : [];
+            if (!cancelled) next[garmentId] = filterDefinitionsWithValidKey(defs);
+          } catch {
+            if (!cancelled) {
+              next[garmentId] = [];
+              errors[garmentId] = true;
+            }
+          }
+        })
+      );
+      if (!cancelled) {
+        setSummaryDefinitionsByGarment(next);
+        setSummaryDefinitionErrors((prev) => ({ ...prev, ...errors }));
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [draftOrder.selectedGarmentIds.join(',')]);
 
-  // Get items from measurements
-  const items: string[] = [];
-  if (draftOrder.measurements.jacket) {
-    const j = draftOrder.measurements.jacket;
-    const size = j.size ? ` Mărime ${j.size}` : '';
-    const model = j.model ? `, ${j.model}` : '';
-    items.push(`Sacou${size}${model}`);
+  const fetchGarments = useCallback(async () => {
+    if (garmentsLoadingRef.current) return;
+    garmentsLoadingRef.current = true;
+    try {
+      const rawList = await fetchGarmentTypesList();
+      const list = Array.isArray(rawList)
+        ? rawList.map((g: unknown) => normalizeGarmentTypeRecord(g as Parameters<typeof normalizeGarmentTypeRecord>[0]))
+        : [];
+      setGarmentsLoadError(null);
+      setGarments(list);
+    } catch {
+      setGarments([]);
+      setGarmentsLoadError(t('garments.loadError'));
+    } finally {
+      garmentsLoadingRef.current = false;
+    }
+  }, [t]);
+
+  useEffect(() => {
+    fetchGarments();
+  }, [fetchGarments]);
+
+  const garmentNameById = new Map<string, string>();
+  const garmentById = new Map<string, GarmentTypeRecord>();
+  const garmentUnavailableLabel = t('orderDetails.garmentDeleted');
+  for (const g of garments) {
+    garmentNameById.set(g.id, getGarmentDisplayName(g, garmentUnavailableLabel));
+    garmentById.set(g.id, g);
   }
-  if (draftOrder.measurements.vest) {
-    const v = draftOrder.measurements.vest;
-    const model = v.model ? `, ${v.model}` : '';
-    items.push(`Vestă${model}`);
-  }
-  if (draftOrder.measurements.pants) {
-    const p = draftOrder.measurements.pants;
-    const size = p.size ? ` Mărime ${p.size}` : '';
-    const model = p.model ? `, ${p.model}` : '';
-    items.push(`Pantaloni${size}${model}`);
+
+  type SummaryItem = { garmentId: string; displayName: string; detailText: string; canNavigate: boolean };
+  const items: SummaryItem[] = [];
+  for (const garmentId of draftOrder.selectedGarmentIds) {
+    const displayName = garmentNameById.get(garmentId) ?? garmentUnavailableLabel;
+    const canNavigate = garmentById.has(garmentId);
+    const measurements = draftOrder.measurements[garmentId];
+    const defs = summaryDefinitionsByGarment[garmentId] ?? [];
+    if (measurements && Object.keys(measurements).length > 0) {
+      const entries = getSnapshotEntriesInDefinitionOrder(measurements, defs);
+      if (entries.length > 0) {
+        const parts = entries.slice(0, 3).map(([key, value]) => {
+          const def = defs.find((d) => d.key === key);
+          const unit = def ? getDisplayUnit(def) : undefined;
+          const valueWithUnit = unit ? `${value} ${unit}` : value;
+          return `${getSnapshotDisplayLabel(key, def)}: ${valueWithUnit}`;
+        });
+        items.push({ garmentId, displayName, detailText: parts.join(', '), canNavigate });
+      } else {
+        items.push({ garmentId, displayName, detailText: '', canNavigate });
+      }
+    } else {
+      items.push({ garmentId, displayName, detailText: '', canNavigate });
+    }
   }
 
   const formatDate = (isoDate?: string): string => {
@@ -72,65 +174,70 @@ export default function SummaryScreen() {
   };
 
   const handleFinalize = async () => {
-    // Validate required fields
+    const isCreating = orderMode === 'create';
+    if (isCreating && !canCreateOrder) return;
     if (!draftOrder.customer.id) {
-      Alert.alert('Eroare', 'Selectați sau creați un client');
+      Alert.alert(t('common.error'), t('newOrder.summary.selectClient'));
       return;
     }
     if (!totalAmount || parseFloat(totalAmount) <= 0) {
-      Alert.alert('Eroare', 'Introduceți suma totală a comenzii');
+      Alert.alert(t('common.error'), t('newOrder.summary.enterTotal'));
       return;
     }
-    if (!draftOrder.dueDate) {
-      Alert.alert('Eroare', 'Introduceți data de preluare');
+    if (draftOrder.selectedGarmentIds.length === 0) {
+      Alert.alert(t('common.error'), t('newOrder.summary.selectItems'));
       return;
     }
 
     setIsLoading(true);
     try {
-      // Update payment in context
+      const rawList = await fetchGarmentTypesList();
+      const list = Array.isArray(rawList)
+        ? rawList.map((g: unknown) => normalizeGarmentTypeRecord(g as Parameters<typeof normalizeGarmentTypeRecord>[0]))
+        : [];
+      const enabledIds = new Set(list.filter((g) => g.status === 'active').map((g) => g.id));
+      const disabledSelected = draftOrder.selectedGarmentIds.filter((id) => !enabledIds.has(id));
+      if (disabledSelected.length > 0) {
+        Alert.alert(
+          t('newOrder.summary.itemUnavailable'),
+          t('newOrder.summary.itemUnavailableMessage')
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      const paid = parseFloat(paidAmount || '0') || 0;
       updatePayment({
         totalAmount: parseFloat(totalAmount),
-        paidAmount: parseFloat(paidAmount || '0'),
-        paymentMethod: paymentMethod,
+        paidAmount: paid,
       });
 
-      // Build measurements object (only include non-empty measurements)
-      const measurements: Record<string, any> = {};
-      if (draftOrder.measurements.jacket) {
-        measurements.jacket = draftOrder.measurements.jacket;
-      }
-      if (draftOrder.measurements.vest) {
-        measurements.vest = draftOrder.measurements.vest;
-      }
-      if (draftOrder.measurements.pants) {
-        measurements.pants = draftOrder.measurements.pants;
+      // One snapshot per selected garment only (empty object allowed for zero-definition garments)
+      const measurements: Record<string, Record<string, string>> = {};
+      for (const garmentId of draftOrder.selectedGarmentIds) {
+        const garmentMeasurements = draftOrder.measurements[garmentId];
+        measurements[garmentId] = garmentMeasurements && typeof garmentMeasurements === 'object'
+          ? garmentMeasurements
+          : {};
       }
 
-      // Map payment method to backend format
-      const paymentMethodMap: Record<'cash' | 'card' | 'transfer', string> = {
-        cash: 'Numerar',
-        card: 'Card',
-        transfer: 'Transfer bancar',
-      };
-
-      // Build order payload
       const orderPayload = {
         customerId: draftOrder.customer.id,
         totalAmount: parseFloat(totalAmount),
-        paidAmount: parseFloat(paidAmount || '0'),
-        dueDate: draftOrder.dueDate,
+        paidAmount: paid,
         notes: draftOrder.notes || undefined,
-        paymentMethod: paymentMethod ? paymentMethodMap[paymentMethod] : undefined,
-        measurements: Object.keys(measurements).length > 0 ? measurements : undefined,
+        measurements,
       };
 
-      // Check if we're editing an existing order or creating a new one
-      const isEditing = !!draftOrder.orderId;
-      
+      const isEditing = orderMode === 'edit';
+
       let order: { id: string; orderNumber: string };
       if (isEditing) {
-        // Update existing order
+        if (!draftOrder.orderId) {
+          Alert.alert(t('common.error'), t('newOrder.summary.missingOrderId'));
+          setIsLoading(false);
+          return;
+        }
         order = await apiFetch<{ id: string; orderNumber: string }>(api.orders(draftOrder.orderId), {
           method: 'PUT',
           body: JSON.stringify(orderPayload),
@@ -142,12 +249,14 @@ export default function SummaryScreen() {
             method: 'POST',
             body: JSON.stringify(orderPayload),
           });
-        } catch (error: any) {
-          // Check if it's a subscription limit error
-          console.log('Order creation error:', { code: error.code, message: error.message });
-          if (error.code === 'SUBSCRIPTION_LIMIT_REACHED' ||
-              error.message?.includes('Free plan allows only') || 
-              error.message?.includes('SUBSCRIPTION_LIMIT_REACHED')) {
+        } catch (error: unknown) {
+          const err = error instanceof ApiError ? error : (error as { code?: string; message?: string });
+          console.log('Order creation error:', { code: err.code, message: err.message });
+          if (
+            err.code === ApiErrorCode.SUBSCRIPTION_LIMIT_REACHED ||
+            (typeof err.message === 'string' &&
+              (err.message.includes('Free plan allows only') || err.message.includes(ApiErrorCode.SUBSCRIPTION_LIMIT_REACHED)))
+          ) {
             console.log('Subscription limit reached - showing paywall');
             setShowPaywall(true);
             setIsLoading(false);
@@ -161,23 +270,23 @@ export default function SummaryScreen() {
       clearDraft();
 
       Alert.alert(
-        'Succes',
+        t('common.success'),
         isEditing
-          ? `Comanda #${order.orderNumber} a fost actualizată cu succes!`
-          : `Comanda #${order.orderNumber} a fost creată cu succes!`,
+          ? t('newOrder.summary.updateSuccess', { number: order.orderNumber })
+          : t('newOrder.summary.createSuccess', { number: order.orderNumber }),
         [
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => router.replace(`/order-details/${order.id}`),
           },
         ]
       );
     } catch (error) {
       Alert.alert(
-        'Eroare',
+        t('common.error'),
         getErrorMessage(
           error,
-          draftOrder.orderId ? 'Nu s-a putut actualiza comanda' : 'Nu s-a putut crea comanda'
+          orderMode === 'edit' ? t('newOrder.summary.updateError') : t('newOrder.summary.createError')
         )
       );
     } finally {
@@ -185,197 +294,145 @@ export default function SummaryScreen() {
     }
   };
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
     setIsUpgrading(true);
     try {
-      const success = await upgradeToPro();
-      if (success) {
-        await refreshSubscription();
+      const result = await upgradeToPro(plan);
+      if (result.success) {
         setShowPaywall(false);
-        Alert.alert('Succes', 'Cont upgradeat la Pro! Acum puteți crea comenzi nelimitate.');
-      } else {
-        Alert.alert('Eroare', 'Nu s-a putut face upgrade-ul. Vă rugăm încercați din nou.');
+      } else if (result.errorMessage) {
+        Alert.alert(t('common.error'), result.errorMessage);
       }
     } catch (error) {
-      Alert.alert('Eroare', getErrorMessage(error, 'Nu s-a putut face upgrade-ul'));
+      Alert.alert(t('common.error'), getErrorMessage(error, t('subscription.checkoutError')));
     } finally {
       setIsUpgrading(false);
     }
   };
 
-  const canFinalize = 
-    draftOrder.customer.id && 
-    totalAmount && 
-    parseFloat(totalAmount) > 0 && 
-    draftOrder.dueDate;
+  const isCreating = orderMode === 'create';
+  const totalNum = parseFloat(String(totalAmount ?? '').trim());
+  const hasValidTotal = !Number.isNaN(totalNum) && totalNum > 0;
+  const canFinalize =
+    !!draftOrder.customer.id &&
+    draftOrder.selectedGarmentIds.length >= 1 &&
+    hasValidTotal &&
+    (!isCreating || canCreateOrder);
+  const insets = useSafeAreaInsets();
+  const footerBottomOffset = FOOTER_CONTENT_HEIGHT + insets.bottom;
 
   return (
     <>
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
+    <ScreenContainer noPadding>
+      <Header
+        title={t('newOrder.summary.orderSummaryTitle')}
+        onBack={() => router.replace('/(tabs)/orders')}
+        backAccessibilityLabel={t('common.back')}
+      />
+
+      <View style={styles.contentWrapper}>
+        <KeyboardAwareScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: footerBottomOffset }]}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={footerBottomOffset}
         >
-          <ArrowLeft size={22} color={Colors.textPrimary} strokeWidth={2.5} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Sumar Comandă</Text>
-        <TouchableOpacity 
-          style={styles.shareButton} 
-          onPress={() => Alert.alert('Partajare', 'Funcționalitatea de partajare va fi disponibilă în curând')}
-          activeOpacity={0.7}
-        >
-          <Share size={20} color={Colors.textInverse} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Order Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informații Comandă</Text>
-          
-          <View style={styles.summaryCard}>
-            <Text style={styles.clientName}>{draftOrder.customer.name || '—'}</Text>
-            <Text style={styles.clientPhone}>{draftOrder.customer.phone || '—'}</Text>
-            <Text style={styles.orderDate}>
-              Data comenzii: {new Date().toLocaleDateString('ro-RO')}
-            </Text>
-          </View>
-
-          {items.length > 0 ? (
-            <View style={styles.itemsList}>
-              <Text style={styles.itemsTitle}>Articole comandate:</Text>
-              {items.map((item, index) => (
-                <Text key={index} style={styles.itemText}>• {item}</Text>
-              ))}
+          {garmentsLoadError ? (
+            <ErrorText style={styles.loadErrorBanner}>{garmentsLoadError}</ErrorText>
+          ) : null}
+          <Section title={t('newOrder.summary.sectionOrderInfo')} style={styles.section}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.clientName}>{draftOrder.customer.name || '—'}</Text>
+              <Text style={styles.clientPhone}>{draftOrder.customer.phone || '—'}</Text>
+              <Text style={styles.orderDate}>
+                Data comenzii: {new Date().toLocaleDateString('ro-RO')}
+              </Text>
             </View>
-          ) : (
-            <View style={styles.itemsList}>
-              <Text style={styles.itemsTitle}>Nu există articole selectate</Text>
-            </View>
-          )}
-        </View>
 
-        {/* Payment Information */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <CreditCard size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Plată</Text>
-          </View>
+            {items.length > 0 ? (
+              <View style={styles.itemsList}>
+                <Text style={styles.itemsTitle}>{t('newOrder.summary.itemsOrdered')}</Text>
+                {items.map((item) => (
+                  <View key={item.garmentId} style={styles.itemRow}>
+                    <Text style={styles.itemBullet}>• </Text>
+                    <View style={styles.itemContent}>
+                      {item.canNavigate ? (
+                        <TouchableOpacity
+                          onPress={() => router.push(`/garments/${item.garmentId}`)}
+                          activeOpacity={0.7}
+                          style={styles.itemNameTouchable}
+                        >
+                          <Text style={styles.itemNameLink}>{item.displayName}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.itemName}>{item.displayName}</Text>
+                      )}
+                      {item.detailText ? (
+                        <Text style={styles.itemDetail}>{t('newOrder.summary.detailSeparator')}{item.detailText}</Text>
+                      ) : null}
+                      {summaryDefinitionErrors[item.garmentId] ? (
+                        <ErrorText style={styles.itemDefsError}>{t('orderDetails.definitionsLoadError')}</ErrorText>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.itemsList}>
+                <Text style={styles.itemsTitle}>{t('newOrder.summary.noItemsSelected')}</Text>
+              </View>
+            )}
+          </Section>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Total Comandă (RON)</Text>
-            <TextInput
-              style={styles.priceInput}
+          <Section title={t('newOrder.summary.paymentSection')} style={styles.section}>
+            <Input
+              label={t('newOrder.summary.totalLabelRon')}
               value={totalAmount}
               onChangeText={(text) => {
                 setTotalAmount(text);
-                updatePayment({ totalAmount: parseFloat(text) || 0 });
+                updatePayment({ totalAmount: parseFloat(text) || undefined });
               }}
-              placeholder="0"
+              placeholder={t('newOrder.summary.amountPlaceholder')}
               keyboardType="numeric"
-              placeholderTextColor={Colors.textTertiary}
+              containerStyle={styles.inputGroup}
             />
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Avans (RON)</Text>
-            <TextInput
-              style={styles.priceInput}
+            <Input
+              label={t('newOrder.summary.paidAmount') + ' (RON)'}
               value={paidAmount}
               onChangeText={(text) => {
                 setPaidAmount(text);
-                updatePayment({ paidAmount: parseFloat(text) || 0 });
+                updatePayment({ paidAmount: parseFloat(text) || undefined });
               }}
-              placeholder="0"
+              placeholder={t('newOrder.summary.amountPlaceholder')}
               keyboardType="numeric"
-              placeholderTextColor={Colors.textTertiary}
+              containerStyle={styles.inputGroup}
             />
-          </View>
 
-          {remaining > 0 && (
-            <View style={styles.remainingContainer}>
-              <Text style={styles.remainingLabel}>De plătit la ridicare:</Text>
-              <Text style={styles.remainingAmount}>{remaining.toFixed(2)} RON</Text>
-            </View>
+            {remaining > 0 && (
+              <View style={styles.remainingContainer}>
+                <Text style={styles.remainingLabel}>{t('newOrder.summary.remainingLabel')}</Text>
+                <Text style={styles.remainingAmount}>{remaining.toFixed(2)} RON</Text>
+              </View>
+            )}
+          </Section>
+
+          {isCreating && !canCreateOrder && (
+            <Text style={styles.limitMessage}>{limitMsgs.orderLimitReached}</Text>
           )}
+        </KeyboardAwareScrollView>
 
-          <View style={styles.optionGroup}>
-            <Text style={styles.optionLabel}>Metoda de plată avans</Text>
-            <View style={styles.optionRow}>
-              {paymentMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.value}
-                  style={[
-                    styles.paymentOption,
-                    paymentMethod === method.value && styles.selectedOption,
-                  ]}
-                  onPress={() => {
-                    setPaymentMethod(method.value);
-                    updatePayment({ paymentMethod: method.value });
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    paymentMethod === method.value && styles.selectedOptionText,
-                  ]}>
-                    {method.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Pickup Date */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Calendar size={20} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>Data Ridicare</Text>
-          </View>
-
-          <View style={styles.dateDisplay}>
-            <Text style={styles.dateText}>
-              {formatDate(draftOrder.dueDate)}
-            </Text>
-            {draftOrder.dueDate && (
-              <CheckCircle size={20} color={Colors.success} />
-            )}
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity 
-            style={[styles.finishButton, !canFinalize && styles.finishButtonDisabled]} 
-            onPress={handleFinalize}
-            disabled={!canFinalize || isLoading}
-            activeOpacity={0.7}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={Colors.textInverse} />
-            ) : (
-              <Text style={styles.finishButtonText}>
-                {draftOrder.orderId ? 'Salvează Modificările' : 'Finalizează Comanda'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </SafeAreaView>
-
-      <OrderStepNav
-        showPrev
-        showNext={false}
-        onPrev={() => router.push('/new-order/pants')}
-        onNext={() => {}}
-        prevLabel="Înapoi"
-      />
+        <AppFloatingFooter
+          primaryLabel={orderMode === 'edit' ? t('newOrder.summary.saveChanges') : t('newOrder.summary.finalizeButton')}
+          onPrimaryPress={handleFinalize}
+          primaryDisabled={!canFinalize || isLoading}
+          primaryLoading={isLoading}
+          secondaryLabel={t('stepNav.back')}
+          onSecondaryPress={() => router.push('/new-order/measurements')}
+        />
+      </View>
+    </ScreenContainer>
 
       {/* Paywall Modal */}
       <PaywallModal
@@ -389,57 +446,40 @@ export default function SummaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  contentWrapper: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    ...HeaderStyles.container,
-  },
-  backButton: {
-    ...ButtonStyles.back,
-  },
-  title: {
-    ...Typography.h3,
-    flex: 1,
-    textAlign: 'center',
-  },
-  shareButton: {
-    ...ButtonStyles.primaryIcon,
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  loadErrorBanner: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   section: {
     backgroundColor: Colors.surface,
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.lg,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
     borderRadius: BorderRadius.md,
-    padding: Spacing.xl,
+    padding: Spacing.md,
     ...Shadows.md,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  sectionTitle: {
-    ...Typography.h3,
-    marginLeft: Spacing.sm,
   },
   summaryCard: {
     backgroundColor: Colors.borderLight,
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   clientName: {
     ...Typography.h3,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   clientPhone: {
     ...Typography.caption,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   orderDate: {
     ...Typography.caption,
@@ -448,10 +488,47 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.borderLight,
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   itemsTitle: {
     ...Typography.bodyBold,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    marginBottom: Spacing.xs,
+    alignItems: 'flex-start',
+  },
+  itemBullet: {
+    ...Typography.caption,
+    lineHeight: 20,
+  },
+  itemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  itemNameTouchable: {
+    alignSelf: 'flex-start',
+  },
+  itemNameLink: {
+    ...Typography.caption,
+    lineHeight: 20,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
+  },
+  itemName: {
+    ...Typography.caption,
+    lineHeight: 20,
+  },
+  itemDetail: {
+    ...Typography.caption,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+  },
+  itemDefsError: {
+    marginTop: Spacing.xs,
   },
   itemText: {
     ...Typography.caption,
@@ -459,21 +536,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   inputGroup: {
-    marginBottom: Spacing.lg,
-  },
-  label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.sm,
-  },
-  priceInput: {
-    ...Typography.h3,
-    backgroundColor: Colors.borderLight,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    textAlign: 'right',
+    marginBottom: Spacing.md,
   },
   remainingContainer: {
     flexDirection: 'row',
@@ -536,21 +599,11 @@ const styles = StyleSheet.create({
   dateText: {
     ...Typography.bodyBold,
   },
-  actionsContainer: {
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
-  },
-  finishButton: {
-    ...ButtonStyles.primary,
-  },
-  finishButtonDisabled: {
-    opacity: 0.5,
-  },
-  finishButtonText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
-  },
-  bottomSpacer: {
-    height: Spacing.xxxl,
+  limitMessage: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
   },
 });

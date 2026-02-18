@@ -4,20 +4,25 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   TouchableWithoutFeedback,
-  ActivityIndicator,
   Platform,
   Dimensions,
 } from 'react-native';
-import Animated, { FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
+import {
+  modalEntering,
+  modalEnteringReducedMotion,
+  modalExiting,
+} from '@/constants/modalAnimation';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Trash2, X } from 'lucide-react-native';
+import { useI18n } from '@/lib/i18n';
+import { Button } from '@/components/ui/Button';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 400);
+const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 32, 400); // 16px padding on each side
 
 export interface DeleteConfirmModalProps {
   visible: boolean;
@@ -25,6 +30,8 @@ export interface DeleteConfirmModalProps {
   onConfirm: () => void | Promise<void>;
   title?: string;
   message?: string;
+  /** Optional inline error (e.g. 409 conflict). Shown below message. */
+  errorMessage?: string | null;
   confirmLabel?: string;
   cancelLabel?: string;
   loading?: boolean;
@@ -34,12 +41,18 @@ export function DeleteConfirmModal({
   visible,
   onClose,
   onConfirm,
-  title = 'Șterge',
-  message = 'Această acțiune nu poate fi anulată.',
-  confirmLabel = 'Șterge',
-  cancelLabel = 'Anulează',
+  title,
+  message,
+  errorMessage = null,
+  confirmLabel,
+  cancelLabel,
   loading = false,
 }: DeleteConfirmModalProps) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t('common.delete');
+  const resolvedMessage = message ?? t('modals.delete.cannotUndo');
+  const resolvedConfirmLabel = confirmLabel ?? t('common.delete');
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
   useEffect(() => {
     if (visible && Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -53,6 +66,7 @@ export function DeleteConfirmModal({
     await onConfirm();
   };
 
+  const reduceMotion = useReducedMotion();
   if (!visible) return null;
 
   return (
@@ -75,52 +89,45 @@ export function DeleteConfirmModal({
         <View style={styles.centered} pointerEvents="box-none">
           <Animated.View
             style={styles.card}
-            entering={ZoomIn.duration(280).springify().damping(18)}
-            exiting={FadeOut.duration(180)}
+            entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
+            exiting={modalExiting}
           >
             <View style={styles.cardInner}>
               <View style={styles.iconRing}>
-                <Trash2 size={28} color="#F43F5E" strokeWidth={2.5} />
+                <Trash2 size={28} color={Colors.danger} strokeWidth={2.5} />
               </View>
-              <TouchableOpacity
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              <Button
+                variant="ghost"
                 style={styles.closeBtn}
                 onPress={onClose}
+                accessibilityLabel={resolvedCancelLabel}
               >
-                <X size={22} color="#94A3B8" />
-              </TouchableOpacity>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.message}>{message}</Text>
+                <X size={22} color={Colors.textSecondary} />
+              </Button>
+              <Text style={styles.title}>{resolvedTitle}</Text>
+              <Text style={styles.message}>{resolvedMessage}</Text>
+              {errorMessage ? (
+                <Text style={styles.errorMessage}>{errorMessage}</Text>
+              ) : null}
               <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
+                <Button
+                  variant="secondary"
                   onPress={onClose}
                   disabled={loading}
+                  style={styles.cancelBtn}
                 >
-                  <Text style={styles.cancelText}>{cancelLabel}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.deleteBtnWrap}
+                  {resolvedCancelLabel}
+                </Button>
+                <Button
+                  variant="danger"
                   onPress={handleConfirm}
                   disabled={loading}
-                  activeOpacity={0.85}
+                  loading={loading}
+                  leftIcon={<Trash2 size={18} color={Colors.textInverse} strokeWidth={2.5} />}
+                  style={styles.deleteBtn}
                 >
-                  <LinearGradient
-                    colors={['#F43F5E', '#E11D48']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.deleteBtn, loading && styles.deleteBtnDisabled]}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Trash2 size={18} color="#FFFFFF" strokeWidth={2.5} />
-                        <Text style={styles.deleteText}>{confirmLabel}</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
+                  {resolvedConfirmLabel}
+                </Button>
               </View>
             </View>
           </Animated.View>
@@ -136,100 +143,75 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Platform.OS === 'web' ? 'rgba(15,23,42,0.72)' : 'transparent',
+    backgroundColor: Platform.OS === 'web' ? Colors.overlayModal : 'transparent',
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end', // Primary action pinned at bottom
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
+    paddingBottom: Spacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.25,
-    shadowRadius: 32,
-    elevation: 24,
+    maxHeight: '90%',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.xl,
   },
   cardInner: {
-    padding: 28,
+    padding: Spacing.lg,
     alignItems: 'center',
   },
   iconRing: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(244,63,94,0.12)',
+    backgroundColor: Colors.dangerBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   closeBtn: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    padding: 4,
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 44, // Minimum 44x44px for accessibility
+    height: 44,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 10,
+    ...Typography.h3, // 20px / SemiBold
+    marginBottom: Spacing.sm,
     textAlign: 'center',
-    letterSpacing: -0.5,
   },
   message: {
-    fontSize: 15,
-    color: '#64748B',
-    lineHeight: 22,
+    ...Typography.body, // 16px
+    color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: Spacing.lg,
+  },
+  errorMessage: {
+    ...Typography.caption, // 14px
+    color: Colors.error,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.md,
     width: '100%',
+    marginTop: Spacing.lg, // Pin actions at bottom
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  deleteBtnWrap: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#F43F5E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 8,
   },
   deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  deleteBtnDisabled: {
-    opacity: 0.8,
-  },
-  deleteText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    flex: 1,
   },
 });

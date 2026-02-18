@@ -1,16 +1,18 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Calendar, CreditCard, Package, ArrowUpRight, Trash2 } from 'lucide-react-native';
+import { Calendar, Package, Trash2 } from 'lucide-react-native';
+import { useI18n } from '@/lib/i18n';
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 interface Order {
   id: string;
+  orderNumber: string;
   clientName: string;
   items: string[];
   total: number;
   advance: number;
-  status: string;
+  status: string; // Raw status code (PENDING, IN_PROGRESS, etc.)
   orderDate: string;
-  pickupDate: string;
 }
 
 interface OrderHistoryItemProps {
@@ -22,61 +24,59 @@ interface OrderHistoryItemProps {
 // Memoized component to prevent unnecessary re-renders in lists
 // This reduces memory churn when scrolling through large lists
 export const OrderHistoryItem = memo(function OrderHistoryItem({ order, onPress, onDelete }: OrderHistoryItemProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'În lucru':
-        return '#F59E0B';
-      case 'Finalizat':
-        return '#10B981';
-      case 'În așteptare':
-        return '#6B7280';
-      case 'Anulat':
-        return '#EF4444';
-      default:
-        return '#6B7280';
-    }
-  };
-
-  const remaining = order.total - order.advance;
+  const { t } = useI18n();
+  const remaining = useMemo(() => order.total - order.advance, [order.total, order.advance]);
+  const hasRemaining = remaining > 0;
+  const itemsLabel = order.items.length === 0
+    ? t('orderHistoryItem.noItems')
+    : order.items.length === 1
+      ? `1 ${t('orderHistoryItem.item')}`
+      : `${order.items.length} ${t('orderHistoryItem.items')}`;
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.touchable} onPress={onPress} onLongPress={onDelete}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.clientName}>{order.clientName}</Text>
-            <Text style={styles.orderId}>Comanda #{order.id}</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-              <Text style={styles.statusText}>{order.status}</Text>
-            </View>
-            <ArrowUpRight size={20} color="#D4AF37" />
-          </View>
-        </View>
-        
-        <View style={styles.detail}>
-          <Package size={16} color="#6B7280" />
-          <Text style={styles.items}>{order.items.join(', ')}</Text>
-        </View>
-        
-        <View style={styles.footer}>
-          <View style={styles.priceSection}>
-            <View style={styles.priceRow}>
-              <CreditCard size={14} color="#D4AF37" />
-              <Text style={styles.total}>Total: {order.total} RON</Text>
-            </View>
-            <Text style={styles.remaining}>
-              Restant: {remaining} RON
-            </Text>
+      <TouchableOpacity 
+        style={styles.touchable} 
+        onPress={onPress} 
+        onLongPress={onDelete}
+        activeOpacity={0.7}
+      >
+        {/* Identity Section */}
+        <View style={styles.identitySection}>
+          <View style={styles.identityHeader}>
+            <Text style={styles.clientName} numberOfLines={1}>{order.clientName}</Text>
           </View>
           
-          <View style={styles.dateSection}>
-            <View style={styles.detail}>
-              <Calendar size={14} color="#6B7280" />
-              <Text style={styles.date}>Preluare: {order.pickupDate}</Text>
+          <View style={styles.identityMeta}>
+            <Text style={styles.orderNumber}>#{order.orderNumber ?? order.id.slice(0, 8)}</Text>
+            <Text style={styles.metaSeparator}>·</Text>
+            <View style={styles.dateRow}>
+              <Calendar size={12} color={Colors.textSecondary} />
+              <Text style={styles.orderDate}>{order.orderDate}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Items Section — show count only; items array holds garment IDs, not names */}
+        <View style={styles.itemsSection}>
+          <Package size={14} color={Colors.textSecondary} />
+          <Text style={styles.items} numberOfLines={1}>
+            {itemsLabel}
+          </Text>
+        </View>
+
+        {/* Financial Section - Visually Separated */}
+        <View style={styles.financialSection}>
+          <View style={styles.financialRow}>
+            <Text style={styles.financialLabel}>{t('orderHistoryItem.totalLabel')}</Text>
+            <Text style={styles.totalAmount}>{order.total} RON</Text>
+          </View>
+          {hasRemaining && (
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>{t('orderHistoryItem.balanceLabel')}</Text>
+              <Text style={styles.remainingAmount}>{remaining} RON</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
       {onDelete ? (
@@ -85,7 +85,7 @@ export const OrderHistoryItem = memo(function OrderHistoryItem({ order, onPress,
           onPress={onDelete}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Trash2 size={18} color="#F43F5E" strokeWidth={2.5} />
+          <Trash2 size={18} color={Colors.error} strokeWidth={2.5} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -95,98 +95,96 @@ export const OrderHistoryItem = memo(function OrderHistoryItem({ order, onPress,
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
     overflow: 'hidden',
     alignItems: 'stretch',
+    ...Shadows.sm,
   },
   touchable: {
     flex: 1,
-    padding: 16,
+    padding: Spacing.md,
   },
   deleteBtn: {
     width: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  // Identity Section
+  identitySection: {
+    marginBottom: Spacing.md,
+  },
+  identityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  headerRight: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   clientName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...Typography.bodyBold,
+    flex: 1,
   },
-  orderId: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  detail: {
+  identityMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: Spacing.xs,
+  },
+  orderNumber: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    fontFamily: 'monospace',
+  },
+  metaSeparator: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  orderDate: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  // Items Section
+  itemsSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
   },
   items: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
+    ...Typography.caption,
+    color: Colors.textSecondary,
     flex: 1,
   },
-  footer: {
+  // Financial Section - Visually Separated
+  financialSection: {
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.border,
+  },
+  financialRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  priceSection: {
-    flex: 1,
-  },
-  priceRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
-  total: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#D4AF37',
-    marginLeft: 6,
+  financialLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
-  remaining: {
-    fontSize: 12,
-    color: '#EF4444',
-    fontWeight: '500',
+  totalAmount: {
+    ...Typography.captionBold,
+    color: Colors.textPrimary, // Neutral color
   },
-  dateSection: {
-    alignItems: 'flex-end',
-  },
-  date: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 6,
+  remainingAmount: {
+    ...Typography.captionBold,
+    color: Colors.warning, // Warning/accent color
   },
 });

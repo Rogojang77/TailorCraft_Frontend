@@ -5,47 +5,55 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Image,
   Dimensions,
   Modal,
-  TextInput,
   Alert,
-  ActivityIndicator,
   RefreshControl,
   FlatList,
   Animated,
+  Easing,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { Input } from '@/components/ui/Input';
 import { useFocusEffect } from 'expo-router';
-import { Plus, Grid3X3, List, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Plus, Grid3X3, List, X, Trash2, ChevronLeft, ChevronRight, ChevronDown, FolderEdit } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { api, apiFetch, uploadImage } from '@/lib/api';
+import { api, apiFetch, uploadImage, ApiError } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
+import { InlineSpinner } from '@/components/InlineSpinner';
 import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import {
+  MODAL_ANIMATION_DURATION_OPEN,
+  MODAL_INITIAL_SCALE,
+} from '@/constants/modalAnimation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
-const gridPadding = 20;
-const gridGap = 16;
-const cardWidth = (width - gridPadding * 2 - gridGap) / 2;
+const GALLERY_VIEW_MODE_KEY = 'gallery:viewMode';
 
-// Helper to check if item is in right column (for grid spacing)
-const isRightColumn = (index: number, numColumns: number) => {
-  return (index + 1) % numColumns === 0;
-};
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x300?text=Gallery+item';
 
-const categories = [
-  { id: 'toate', name: 'Toate' },
-  { id: 'materiale', name: 'Materiale' },
-  { id: 'revere', name: 'Revere' },
-  { id: 'maneci', name: 'Mâneci' },
-  { id: 'buzunare', name: 'Buzunare' },
-  { id: 'nasturi', name: 'Nasturi' },
-];
+const ALL_CATEGORIES_ID = 'all';
 
-type GalleryItem = { id: string; title: string; category: string; image: string; description: string | null };
+export type GalleryCategory = { id: string; name: string; sortOrder: number; itemCount?: number };
+
+type GalleryItem = {
+  id: string;
+  title: string;
+  categoryId: string;
+  categoryName: string;
+  image: string;
+  description: string | null;
+};
 
 // Image Viewer Component
 const ImageViewer = memo<{
@@ -58,8 +66,35 @@ const ImageViewer = memo<{
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const currentIndexRef = useRef(initialIndex);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const translateY = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(MODAL_INITIAL_SCALE)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: translateY } }],
+    { useNativeDriver: true }
+  );
+
+  const handleGestureStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      const { translationY: ty } = event.nativeEvent;
+
+      if (ty > 120) {
+        Animated.timing(translateY, {
+          toValue: 1000,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          translateY.setValue(0);
+          onClose();
+        });
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
 
   useEffect(() => {
     if (visible) {
@@ -68,25 +103,20 @@ const ImageViewer = memo<{
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 300,
+          duration: MODAL_ANIMATION_DURATION_OPEN,
+          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.spring(scaleAnim, {
+        Animated.timing(scaleAnim, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
+          duration: MODAL_ANIMATION_DURATION_OPEN,
+          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
       ]).start();
     } else {
       fadeAnim.setValue(0);
-      scaleAnim.setValue(0.9);
-      translateY.setValue(50);
+      scaleAnim.setValue(MODAL_INITIAL_SCALE);
     }
   }, [visible, initialIndex]);
 
@@ -119,11 +149,22 @@ const ImageViewer = memo<{
       onRequestClose={onClose}
       statusBarTranslucent
     >
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Animated.View
         style={[
           styles.imageViewerContainer,
           {
-            opacity: fadeAnim,
+            opacity: Animated.multiply(
+              fadeAnim,
+              Animated.subtract(
+                1,
+                translateY.interpolate({
+                  inputRange: [0, 300],
+                  outputRange: [0, 0.6],
+                  extrapolate: 'clamp',
+                })
+              )
+            ),
           },
         ]}
       >
@@ -136,7 +177,7 @@ const ImageViewer = memo<{
           style={[
             styles.imageViewerContent,
             {
-              transform: [{ scale: scaleAnim }, { translateY }],
+              transform: [{ scale: scaleAnim }],
             },
           ]}
         >
@@ -180,13 +221,25 @@ const ImageViewer = memo<{
           )}
 
           {/* Image */}
-          <View style={styles.imageViewerImageContainer}>
-            <Image
-              source={{ uri: currentItem.image }}
-              style={styles.imageViewerImage}
-              resizeMode="contain"
-            />
-          </View>
+          <PanGestureHandler
+            onGestureEvent={onGestureEvent}
+            onHandlerStateChange={handleGestureStateChange}
+            activeOffsetY={[-20, 20]}
+            failOffsetX={[-30, 30]}
+          >
+            <Animated.View
+              style={[
+                styles.imageViewerImageContainer,
+                { transform: [{ translateY }] },
+              ]}
+            >
+              <Image
+                source={{ uri: currentItem.image }}
+                style={styles.imageViewerImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </PanGestureHandler>
 
           {/* Info Panel */}
           <LinearGradient
@@ -200,7 +253,7 @@ const ImageViewer = memo<{
               )}
               <View style={styles.imageViewerCategory}>
                 <Text style={styles.imageViewerCategoryText}>
-                  {categories.find((c) => c.id === currentItem.category)?.name || currentItem.category}
+                  {currentItem.categoryName}
                 </Text>
               </View>
               {items.length > 1 && (
@@ -212,6 +265,7 @@ const ImageViewer = memo<{
           </LinearGradient>
         </Animated.View>
       </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 });
@@ -219,8 +273,7 @@ const ImageViewer = memo<{
 ImageViewer.displayName = 'ImageViewer';
 
 // Memoized gallery item component to prevent unnecessary re-renders
-// This reduces memory churn when scrolling through large lists
-const GalleryItem = memo<{
+const GalleryItemCard = memo<{
   item: GalleryItem;
   viewMode: 'grid' | 'list';
   onDeleteRequest: (item: GalleryItem) => void;
@@ -235,16 +288,32 @@ const GalleryItem = memo<{
     onView(item);
   }, [item, onView]);
 
+  if (viewMode === 'grid') {
+    return (
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={handlePress}
+        activeOpacity={0.9}
+      >
+        <Image
+          source={{ uri: item.image }}
+          style={styles.gridImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
-      style={[viewMode === 'grid' ? styles.gridItem : styles.listItem]}
+      style={styles.listItem}
       onPress={handlePress}
       activeOpacity={0.9}
     >
       <View style={styles.galleryItemImageContainer}>
         <Image
           source={{ uri: item.image }}
-          style={viewMode === 'grid' ? styles.gridImage : styles.listImage}
+          style={styles.listImage}
           resizeMode="cover"
         />
         <LinearGradient
@@ -261,18 +330,18 @@ const GalleryItem = memo<{
           </View>
         </TouchableOpacity>
       </View>
-      <View style={viewMode === 'grid' ? styles.gridInfo : styles.listInfo}>
-        <Text style={styles.itemTitle} numberOfLines={viewMode === 'grid' ? 1 : 2}>
+      <View style={styles.listInfo}>
+        <Text style={styles.itemTitle} numberOfLines={2}>
           {item.title}
         </Text>
-        {viewMode === 'list' && item.description && (
+        {item.description && (
           <Text style={styles.itemDescription} numberOfLines={2}>
             {item.description}
           </Text>
         )}
         <View style={styles.itemCategoryBadge}>
           <Text style={styles.itemCategoryText}>
-            {categories.find((c) => c.id === item.category)?.name || item.category}
+            {item.categoryName}
           </Text>
         </View>
       </View>
@@ -280,15 +349,20 @@ const GalleryItem = memo<{
   );
 });
 
-GalleryItem.displayName = 'GalleryItem';
+GalleryItemCard.displayName = 'GalleryItemCard';
 
 export default function GalleryTab() {
+  const { t } = useI18n();
+  const { isAuthenticated } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [activeCategory, setActiveCategory] = useState('toate');
+  const [viewModeLoaded, setViewModeLoaded] = useState(false);
+  const [categories, setCategories] = useState<GalleryCategory[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>(ALL_CATEGORIES_ID);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemDescription, setNewItemDescription] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('materiale');
+  const [newItemCategoryId, setNewItemCategoryId] = useState<string>('');
   const [newItemImage, setNewItemImage] = useState<string | null>(null);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,49 +372,93 @@ export default function GalleryTab() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [categoryNameInput, setCategoryNameInput] = useState('');
+  const [categoryEditId, setCategoryEditId] = useState<string | null>(null);
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<GalleryCategory | null>(null);
+  const [categoryDeleteLoading, setCategoryDeleteLoading] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const loadViewMode = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(GALLERY_VIEW_MODE_KEY);
+        if (saved === 'grid' || saved === 'list') {
+          setViewMode(saved);
+        }
+      } catch {}
+      setViewModeLoaded(true);
+    };
+
+    loadViewMode();
+  }, []);
+
+  useEffect(() => {
+    if (!viewModeLoaded) return;
+
+    AsyncStorage.setItem(GALLERY_VIEW_MODE_KEY, viewMode).catch(() => {});
+  }, [viewMode, viewModeLoaded]);
+
+  const getFilterCategoryLabel = (id: string) =>
+    id === ALL_CATEGORIES_ID ? t('gallery.categories.all') : (categories.find((c) => c.id === id)?.name ?? id);
 
   // Use ref to track if component is mounted for cleanup
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchGallery = useCallback(async (isRefresh = false) => {
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+  const fetchCategories = useCallback(async () => {
+    try {
+      const list = await apiFetch<GalleryCategory[]>(api.galleryCategories());
+      if (isMountedRef.current) {
+        const arr = Array.isArray(list) ? list : [];
+        setCategories(arr);
+        setNewItemCategoryId((prev) => (prev === '' && arr.length ? arr[0].id : prev));
+      }
+    } catch {
+      if (isMountedRef.current) setCategories([]);
     }
+  }, []);
+
+  const fetchGallery = useCallback(async (isRefresh = false) => {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
 
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const category = activeCategory === 'toate' ? undefined : activeCategory;
-      const res = await apiFetch<{ items: Array<{ id: string; title: string; category: string; imageUrl: string; description: string | null }> }>(
-        `${api.gallery()}?limit=100${category ? `&category=${encodeURIComponent(category)}` : ''}`
-      );
-      
-      // Only update state if component is still mounted
+      const categoryParam =
+        activeCategoryId === ALL_CATEGORIES_ID ? '' : `&categoryId=${encodeURIComponent(activeCategoryId)}`;
+      const res = await apiFetch<{
+        items: Array<{
+          id: string;
+          title: string;
+          categoryId: string;
+          categoryName: string;
+          imageUrl: string;
+          description: string | null;
+        }>;
+      }>(`${api.gallery()}?limit=100${categoryParam}`);
+
       if (isMountedRef.current && !abortControllerRef.current?.signal.aborted) {
         const items = (res.items ?? []).map((i) => ({
           id: i.id,
           title: i.title,
-          category: i.category,
+          categoryId: i.categoryId,
+          categoryName: i.categoryName ?? '',
           image: i.imageUrl,
           description: i.description,
         }));
         setGalleryItems(items);
       }
     } catch (err) {
-      // Ignore abort errors
-      if (err instanceof Error && err.name !== 'AbortError' && isMountedRef.current) {
-        setGalleryItems([]);
-      }
+      if (err instanceof Error && err.name !== 'AbortError' && isMountedRef.current) setGalleryItems([]);
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, [activeCategory]);
+  }, [activeCategoryId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -355,23 +473,21 @@ export default function GalleryTab() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!isAuthenticated) return;
       if (isMountedRef.current) {
+        fetchCategories();
         fetchGallery();
       }
       return () => {
-        // Cleanup on blur
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
+        if (abortControllerRef.current) abortControllerRef.current.abort();
       };
-    }, [fetchGallery])
+    }, [isAuthenticated, fetchCategories, fetchGallery])
   );
 
   useEffect(() => {
-    if (isMountedRef.current) {
-      fetchGallery();
-    }
-  }, [activeCategory, fetchGallery]);
+    if (!isAuthenticated) return;
+    if (isMountedRef.current) fetchGallery();
+  }, [isAuthenticated, activeCategoryId, fetchGallery]);
 
   const handleAddItem = () => setShowAddModal(true);
   const onRefresh = () => fetchGallery(true);
@@ -395,9 +511,9 @@ export default function GalleryTab() {
       await apiFetch(api.gallery(deleteTarget.id), { method: 'DELETE' });
       setDeleteTarget(null);
       await fetchGallery(true);
-      Alert.alert('Succes', 'Item-ul a fost șters.');
+      Alert.alert(t('common.success'), t('gallery.alerts.deleteSuccess'));
     } catch (e) {
-      Alert.alert('Eroare', e instanceof Error ? e.message : 'Nu s-a putut șterge item-ul.');
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('gallery.alerts.deleteError'));
     } finally {
       setDeleteLoading(false);
     }
@@ -406,7 +522,7 @@ export default function GalleryTab() {
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permisiune necesară', 'Avem nevoie de permisiunea pentru a accesa galeria foto.');
+      Alert.alert(t('gallery.alerts.permissionRequired'), t('gallery.alerts.permissionMessage'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -446,8 +562,8 @@ export default function GalleryTab() {
   };
 
   const handleSaveItem = async () => {
-    if (!newItemTitle.trim() || !newItemDescription.trim()) {
-      Alert.alert('Eroare', 'Te rugăm să completezi titlul și descrierea.');
+    if (!newItemTitle.trim()) {
+      Alert.alert(t('common.error'), t('gallery.alerts.fillTitle'));
       return;
     }
     setSaving(true);
@@ -468,7 +584,7 @@ export default function GalleryTab() {
           // Clear local image from memory after upload
           setNewItemImage(null);
         } catch (uploadError) {
-          Alert.alert('Eroare', 'Nu s-a putut încărca imaginea. Încercați din nou.');
+          Alert.alert(t('common.error'), t('gallery.alerts.uploadError'));
           setSaving(false);
           return;
         }
@@ -478,35 +594,93 @@ export default function GalleryTab() {
         imageUrl = PLACEHOLDER_IMAGE;
       }
 
+      if (!newItemCategoryId) {
+        Alert.alert(t('common.error'), t('gallery.alerts.createCategoryFirst'));
+        setSaving(false);
+        return;
+      }
       await apiFetch(api.gallery(), {
         method: 'POST',
         body: JSON.stringify({
           title: newItemTitle.trim(),
           description: newItemDescription.trim() || undefined,
-          category: newItemCategory,
+          categoryId: newItemCategoryId,
           imageUrl,
         }),
       });
-      // Clear form state to free memory
       setNewItemTitle('');
       setNewItemDescription('');
-      setNewItemCategory('materiale');
+      setNewItemCategoryId(categories[0]?.id ?? '');
       setNewItemImage(null);
       setShowAddModal(false);
       await fetchGallery(true);
-      Alert.alert('Succes', 'Item-ul a fost adăugat cu succes!');
+      Alert.alert(t('common.success'), t('gallery.alerts.addSuccess'));
     } catch (e) {
-      Alert.alert('Eroare', e instanceof Error ? e.message : 'Nu s-a putut adăuga item-ul.');
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('gallery.alerts.addError'));
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSaveCategory = async () => {
+    const name = categoryNameInput.trim();
+    if (!name) return;
+    setCategorySaving(true);
+    try {
+      if (categoryEditId) {
+        await apiFetch(api.galleryCategories(categoryEditId), {
+          method: 'PUT',
+          body: JSON.stringify({ name }),
+        });
+        Alert.alert(t('common.success'), t('gallery.alerts.categoryUpdated'));
+        setCategoryEditId(null);
+      } else {
+        await apiFetch(api.galleryCategories(), {
+          method: 'POST',
+          body: JSON.stringify({ name }),
+        });
+        Alert.alert(t('common.success'), t('gallery.alerts.categoryCreated'));
+      }
+      setCategoryNameInput('');
+      await fetchCategories();
+      await fetchGallery(true);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('gallery.alerts.categoryError'));
+    } finally {
+      setCategorySaving(false);
+    }
+  };
+
+  const handleDeleteCategoryConfirm = async () => {
+    if (!categoryDeleteTarget) return;
+    setCategoryDeleteLoading(true);
+    try {
+      await apiFetch(api.galleryCategories(categoryDeleteTarget.id), { method: 'DELETE' });
+      setCategoryDeleteTarget(null);
+      await fetchCategories();
+      await fetchGallery(true);
+      Alert.alert(t('common.success'), t('gallery.alerts.categoryDeleted'));
+    } catch (e: unknown) {
+      const is409 = e instanceof ApiError && e.status === 409;
+      Alert.alert(
+        t('common.error'),
+        is409 ? t('gallery.alerts.categoryInUse') : (e instanceof Error ? e.message : t('gallery.alerts.categoryError'))
+      );
+    } finally {
+      setCategoryDeleteLoading(false);
+      setCategoryDeleteTarget(null);
+    }
+  };
+
+  if (!viewModeLoaded) {
+    return null;
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenContainer noPadding>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Galerie</Text>
+        <Text style={styles.title}>{t('gallery.title')}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.viewButton, viewMode === 'grid' && styles.activeViewButton]}
@@ -532,58 +706,88 @@ export default function GalleryTab() {
         </View>
       </View>
 
-      {/* Categories */}
+      {/* Category dropdown */}
       <View style={styles.categoriesWrapper}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesContainer}
-          contentContainerStyle={styles.categoriesContent}
+        <TouchableOpacity
+          style={styles.categoryDropdownTrigger}
+          onPress={() => setCategoryDropdownOpen(true)}
+          activeOpacity={0.7}
         >
-          {categories.map((category) => (
-            <View key={category.id} style={styles.categoryItem}>
-              <TouchableOpacity
-                style={[
-                  styles.categoryButton,
-                  activeCategory === category.id && styles.activeCategoryButton,
-                ]}
-                onPress={() => setActiveCategory(category.id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    activeCategory === category.id && styles.activeCategoryText,
-                  ]}
-                >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-              {activeCategory === category.id && (
-                <View style={styles.categoryIndicator} />
-              )}
-            </View>
-          ))}
-        </ScrollView>
+          <Text style={styles.categoryDropdownTriggerText} numberOfLines={1}>
+            {getFilterCategoryLabel(activeCategoryId)}
+          </Text>
+          <ChevronDown size={20} color={Colors.textSecondary} strokeWidth={2} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.manageCategoriesBtn}
+          onPress={() => { fetchCategories(); setShowCategoriesModal(true); }}
+        >
+          <FolderEdit size={18} color={Colors.primary} strokeWidth={2} />
+          <Text style={styles.manageCategoriesText}>{t('gallery.manageCategories')}</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Category dropdown modal */}
+      <Modal
+        visible={categoryDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryDropdownOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.categoryDropdownBackdrop}
+          activeOpacity={1}
+          onPress={() => setCategoryDropdownOpen(false)}
+        >
+          <View style={styles.categoryDropdownPanel}>
+            <ScrollView
+              style={styles.categoryDropdownScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {[ALL_CATEGORIES_ID, ...categories.map((c) => c.id)].map((id) => (
+                <TouchableOpacity
+                  key={id}
+                  style={[
+                    styles.categoryDropdownOption,
+                    activeCategoryId === id && styles.categoryDropdownOptionActive,
+                  ]}
+                  onPress={() => {
+                    setActiveCategoryId(id);
+                    setCategoryDropdownOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.categoryDropdownOptionText,
+                      activeCategoryId === id && styles.categoryDropdownOptionTextActive,
+                    ]}
+                  >
+                    {getFilterCategoryLabel(id)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Gallery Content */}
       {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Se încarcă...</Text>
+        <View style={styles.content}>
+          <ListSkeletonLoader variant="grid" count={6} />
         </View>
       ) : galleryItems.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Niciun item în galerie.</Text>
+          <Text style={styles.emptyText}>{t('gallery.empty')}</Text>
         </View>
       ) : (
         <FlatList
           data={galleryItems}
           key={viewMode} // Force re-render when view mode changes
-          numColumns={viewMode === 'grid' ? 2 : 1}
+          numColumns={viewMode === 'grid' ? 3 : 1}
           keyExtractor={(item) => item.id}
           style={styles.content}
-          contentContainerStyle={viewMode === 'grid' ? styles.gridContainer : styles.listContainer}
+          contentContainerStyle={viewMode === 'grid' ? styles.cleanGridContainer : styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
@@ -593,17 +797,13 @@ export default function GalleryTab() {
           initialNumToRender={viewMode === 'grid' ? 6 : 10} // Render fewer items initially
           maxToRenderPerBatch={viewMode === 'grid' ? 4 : 8} // Render in smaller batches
           removeClippedSubviews={true} // Remove off-screen views from native hierarchy
-          renderItem={({ item, index }) => (
-            <View
-              style={viewMode === 'grid' && !isRightColumn(index, 2) ? { marginRight: gridGap } : undefined}
-            >
-              <GalleryItem
-                item={item}
-                viewMode={viewMode}
-                onDeleteRequest={handleDeleteRequest}
-                onView={handleViewItem}
-              />
-            </View>
+          renderItem={({ item }) => (
+            <GalleryItemCard
+              item={item}
+              viewMode={viewMode}
+              onDeleteRequest={handleDeleteRequest}
+              onView={handleViewItem}
+            />
           )}
         />
       )}
@@ -617,7 +817,7 @@ export default function GalleryTab() {
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Adaugă Item Nou</Text>
+            <Text style={styles.modalTitle}>{t('gallery.addItem')}</Text>
             <TouchableOpacity
               onPress={() => setShowAddModal(false)}
               style={styles.closeButton}
@@ -626,7 +826,7 @@ export default function GalleryTab() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
             <TouchableOpacity
               style={styles.imagePicker}
               onPress={handlePickImage}
@@ -641,53 +841,53 @@ export default function GalleryTab() {
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Plus size={32} color="#9CA3AF" />
-                  <Text style={styles.imagePlaceholderText}>Adaugă imagine</Text>
+                  <Text style={styles.imagePlaceholderText}>{t('gallery.addImage')}</Text>
                 </View>
               )}
             </TouchableOpacity>
 
-            <Text style={styles.inputLabel}>Titlu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Introdu titlul item-ului"
+            <Input
+              label={t('gallery.titleLabel')}
+              placeholder={t('gallery.titlePlaceholder')}
               value={newItemTitle}
               onChangeText={setNewItemTitle}
-              placeholderTextColor="#9CA3AF"
             />
 
-            <Text style={styles.inputLabel}>Descriere</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Introdu descrierea item-ului"
+            <Input
+              label={`${t('common.optional')} – ${t('gallery.descriptionLabel')}`}
+              placeholder={t('gallery.descriptionPlaceholder')}
               value={newItemDescription}
               onChangeText={setNewItemDescription}
               multiline
               numberOfLines={4}
-              placeholderTextColor="#9CA3AF"
             />
 
-            <Text style={styles.inputLabel}>Categorie</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
-              {categories.filter(c => c.id !== 'toate').map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={[
-                    styles.categoryOption,
-                    newItemCategory === category.id && styles.activeCategoryOption,
-                  ]}
-                  onPress={() => setNewItemCategory(category.id)}
-                >
-                  <Text
+            <Text style={styles.inputLabel}>{t('gallery.categoryLabel')}</Text>
+            {categories.length === 0 ? (
+              <Text style={styles.noCategoriesHint}>{t('gallery.createCategoryFirst')}</Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
+                {categories.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
                     style={[
-                      styles.categoryOptionText,
-                      newItemCategory === category.id && styles.activeCategoryOptionText,
+                      styles.categoryOption,
+                      newItemCategoryId === c.id && styles.activeCategoryOption,
                     ]}
+                    onPress={() => setNewItemCategoryId(c.id)}
                   >
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                    <Text
+                      style={[
+                        styles.categoryOptionText,
+                        newItemCategoryId === c.id && styles.activeCategoryOptionText,
+                      ]}
+                    >
+                      {c.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
 
             <TouchableOpacity
               style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -695,12 +895,12 @@ export default function GalleryTab() {
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <InlineSpinner variant="inverse" />
               ) : (
-                <Text style={styles.saveButtonText}>Salvează</Text>
+                <Text style={styles.saveButtonText}>{t('gallery.save')}</Text>
               )}
             </TouchableOpacity>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </SafeAreaView>
       </Modal>
 
@@ -716,22 +916,108 @@ export default function GalleryTab() {
         visible={!!deleteTarget}
         onClose={() => !deleteLoading && setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
-        title="Șterge item"
-        message={deleteTarget ? `Sigur ștergi „${deleteTarget.title}"?` : ''}
-        confirmLabel="Șterge"
+        title={t('gallery.deleteItem')}
+        message={deleteTarget ? t('gallery.deleteMessage', { title: deleteTarget.title }) : ''}
+        confirmLabel={t('common.delete')}
         loading={deleteLoading}
       />
-    </SafeAreaView>
+
+      {/* Manage Categories Modal */}
+      <Modal
+        visible={showCategoriesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCategoriesModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('gallery.manageCategories')}</Text>
+            <TouchableOpacity onPress={() => setShowCategoriesModal(false)} style={styles.closeButton}>
+              <X size={24} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+          <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.categoryFormRow}>
+              <Input
+                placeholder={t('gallery.categoryNamePlaceholder')}
+                value={categoryNameInput}
+                onChangeText={(text) => {
+                  setCategoryNameInput(text);
+                  if (!text.trim()) setCategoryEditId(null);
+                }}
+                containerStyle={styles.categoryInput}
+              />
+              <Button
+                variant="primary"
+                onPress={handleSaveCategory}
+                size="sm"
+                disabled={categorySaving || !categoryNameInput.trim()}
+                loading={categorySaving}
+              >
+                {categoryEditId ? t('common.save') : t('gallery.addCategory')}
+              </Button>
+            </View>
+            {categoryEditId && (
+              <TouchableOpacity
+                style={styles.cancelEditBtn}
+                onPress={() => { setCategoryEditId(null); setCategoryNameInput(''); }}
+              >
+                <Text style={styles.cancelEditText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.inputLabel}>{t('gallery.yourCategories')}</Text>
+            {categories.length === 0 ? (
+              <Text style={styles.noCategoriesHint}>{t('gallery.noCategoriesYet')}</Text>
+            ) : (
+              categories.map((c) => (
+                <View key={c.id} style={styles.categoryRow}>
+                  <TouchableOpacity
+                    style={styles.categoryRowName}
+                    onPress={() => {
+                      setCategoryEditId(c.id);
+                      setCategoryNameInput(c.name);
+                    }}
+                  >
+                    <Text style={styles.categoryRowNameText}>{c.name}</Text>
+                    {c.itemCount != null && c.itemCount > 0 && (
+                      <Text style={styles.categoryRowCount}>{c.itemCount}</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.categoryRowDelete}
+                    onPress={() => setCategoryDeleteTarget(c)}
+                    disabled={(c.itemCount ?? 0) > 0}
+                  >
+                    <Trash2 size={18} color={(c.itemCount ?? 0) > 0 ? '#9CA3AF' : '#EF4444'} strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </KeyboardAwareScrollView>
+        </SafeAreaView>
+        <DeleteConfirmModal
+          visible={!!categoryDeleteTarget}
+          onClose={() => !categoryDeleteLoading && setCategoryDeleteTarget(null)}
+          onConfirm={handleDeleteCategoryConfirm}
+          title={t('gallery.deleteCategory')}
+          message={
+            categoryDeleteTarget
+              ? t('gallery.deleteCategoryMessage', { name: categoryDeleteTarget.name })
+              : ''
+          }
+          confirmLabel={t('common.delete')}
+          loading={categoryDeleteLoading}
+        />
+      </Modal>
+
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   header: {
     ...HeaderStyles.container,
+    paddingBottom: Spacing.md,
   },
   title: {
     ...Typography.h2,
@@ -759,81 +1045,155 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   categoriesWrapper: {
-    marginBottom: 20,
-    paddingBottom: 4,
+    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
     overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
-  categoriesContainer: {
+  categoryDropdownTrigger: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    minHeight: 44,
+  },
+  categoryDropdownTriggerText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+    flex: 1,
+  },
+  categoryDropdownBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
+  categoryDropdownPanel: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    maxHeight: 320,
+    ...Shadows.lg,
+  },
+  categoryDropdownScroll: {
+    maxHeight: 320,
+  },
+  categoryDropdownOption: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+  },
+  categoryDropdownOptionActive: {
+    backgroundColor: Colors.primaryLight,
+  },
+  categoryDropdownOptionText: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
+  categoryDropdownOptionTextActive: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  manageCategoriesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginRight: Spacing.md,
+  },
+  manageCategoriesText: {
+    ...Typography.label,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  noCategoriesHint: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    fontStyle: 'italic',
+  },
+  categoryFormRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  categoryInput: {
+    flex: 1,
     marginBottom: 0,
   },
-  categoriesContent: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  categoryItem: {
-    position: 'relative',
-  },
-  categoryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB',
-  },
-  activeCategoryButton: {
-    backgroundColor: '#D4AF37',
-  },
-  categoryIndicator: {
-    position: 'absolute',
-    bottom: -4,
-    left: '50%',
-    marginLeft: -15,
-    width: 30,
-    height: 3,
-    backgroundColor: '#D4AF37',
-    borderRadius: 2,
-  },
-  categoryText: {
+  categorySubmitText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
-  },
-  activeCategoryText: {
     color: '#FFFFFF',
+  },
+  cancelEditBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  cancelEditText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '500',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  categoryRowName: {
+    flex: 1,
+  },
+  categoryRowNameText: {
+    ...Typography.body,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+  },
+  categoryRowCount: {
+    ...Typography.small,
+    color: Colors.textTertiary,
+    marginTop: Spacing.xxs,
+  },
+  categoryRowDelete: {
+    padding: 8,
   },
   content: {
     flex: 1,
   },
-  gridContainer: {
-    paddingHorizontal: gridPadding,
-    paddingBottom: 20,
+  cleanGridContainer: {
+    padding: 0,
   },
   listContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   gridItem: {
-    width: cardWidth,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginBottom: gridGap,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    width: '33.333%',
   },
   listItem: {
+    width: '100%',
+    minHeight: 160,
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginBottom: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.md,
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Shadows.md,
   },
   galleryItemImageContainer: {
     position: 'relative',
@@ -848,8 +1208,8 @@ const styles = StyleSheet.create({
   },
   deleteIconBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 2,
+    right: 2,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -866,46 +1226,42 @@ const styles = StyleSheet.create({
   },
   gridImage: {
     width: '100%',
-    height: 160,
-    backgroundColor: '#F3F4F6',
+    aspectRatio: 1,
   },
   listImage: {
-    width: 120,
-    height: 120,
-    backgroundColor: '#F3F4F6',
+    width: 100,
+    minHeight: 160,
+    backgroundColor: Colors.borderLight,
   },
   gridInfo: {
-    padding: 16,
+    padding: Spacing.md,
   },
   listInfo: {
     flex: 1,
-    padding: 16,
-    justifyContent: 'center',
+    padding: Spacing.md,
   },
   itemTitle: {
+    ...Typography.h3,
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 6,
-    letterSpacing: -0.3,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
   },
   itemDescription: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...Typography.caption,
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   itemCategoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primaryLight,
   },
   itemCategoryText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
-    color: '#D4AF37',
+    color: Colors.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1007,155 +1363,141 @@ const styles = StyleSheet.create({
   },
   imageViewerCategory: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    paddingHorizontal: Spacing.md - 2,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(196, 160, 45, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
-    marginBottom: 12,
+    borderColor: 'rgba(196, 160, 45, 0.4)',
+    marginBottom: Spacing.md,
   },
   imageViewerCategoryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#D4AF37',
+    color: Colors.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   imageViewerCounter: {
-    fontSize: 14,
+    ...Typography.caption,
     color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: '500',
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.surface,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: Colors.border,
   },
   modalTitle: {
+    ...Typography.h2,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
+    color: Colors.textPrimary,
   },
   closeButton: {
     padding: 4,
   },
   modalContent: {
     flex: 1,
-    padding: 20,
+    padding: Spacing.lg,
   },
   imagePicker: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
-    marginBottom: 24,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xl,
     overflow: 'hidden',
   },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: BorderRadius.md,
   },
   imagePlaceholderText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#9CA3AF',
+    marginTop: Spacing.sm,
+    ...Typography.body,
+    color: Colors.textTertiary,
     fontWeight: '500',
   },
   pickedImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#E5E7EB', // Placeholder color while loading
+    backgroundColor: Colors.border,
   },
   inputLabel: {
-    fontSize: 14,
+    ...Typography.label,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#1F2937',
-    marginBottom: 20,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
   },
   categorySelector: {
-    marginBottom: 20,
+    marginBottom: Spacing.lg,
   },
   categoryOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    marginRight: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.borderLight,
+    marginRight: Spacing.sm,
   },
   activeCategoryOption: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: Colors.primary,
   },
   categoryOptionText: {
-    fontSize: 14,
+    ...Typography.caption,
     fontWeight: '600',
-    color: '#6B7280',
+    color: Colors.textSecondary,
   },
   activeCategoryOptionText: {
-    color: '#FFFFFF',
+    color: Colors.textInverse,
   },
   saveButton: {
-    backgroundColor: '#D4AF37',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+    ...Shadows.primary,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...Typography.bodyBold,
+    color: Colors.textInverse,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: Spacing.xl,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 12,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   emptyState: {
-    paddingVertical: 48,
+    paddingVertical: Spacing.xxxl,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...Typography.body,
+    color: Colors.textSecondary,
   },
 });

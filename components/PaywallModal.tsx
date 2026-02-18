@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,22 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  ActivityIndicator,
   Platform,
   Dimensions,
 } from 'react-native';
-import Animated, { FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
+import {
+  modalEntering,
+  modalEnteringReducedMotion,
+  modalExiting,
+} from '@/constants/modalAnimation';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Crown, X, Users, ShoppingBag } from 'lucide-react-native';
-import { Colors, Spacing, BorderRadius, Typography } from '@/constants/design';
+import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/design';
+import { SubscriptionPlanType, useSubscription } from '@/contexts/SubscriptionContext';
+import { Button } from '@/components/ui/Button';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 420);
@@ -23,7 +29,7 @@ const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 48, 420);
 export interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
-  onUpgrade: () => void | Promise<void>;
+  onUpgrade: (plan: SubscriptionPlanType) => void | Promise<void>;
   loading?: boolean;
 }
 
@@ -33,6 +39,10 @@ export function PaywallModal({
   onUpgrade,
   loading = false,
 }: PaywallModalProps) {
+  const { prices, getLimitMessages } = useSubscription();
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanType>('monthly');
+  const reduceMotion = useReducedMotion();
+
   useEffect(() => {
     if (visible && Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -43,11 +53,19 @@ export function PaywallModal({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    await onUpgrade();
+    await onUpgrade(selectedPlan);
+  };
+
+  const handlePlanSelect = (plan: SubscriptionPlanType) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedPlan(plan);
   };
 
   if (!visible) return null;
 
+  const msgs = getLimitMessages();
   return (
     <Modal
       visible={visible}
@@ -68,26 +86,25 @@ export function PaywallModal({
         <View style={styles.centered} pointerEvents="box-none">
           <Animated.View
             style={styles.card}
-            entering={ZoomIn.duration(280).springify().damping(18)}
-            exiting={FadeOut.duration(180)}
+            entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
+            exiting={modalExiting}
           >
             <View style={styles.cardInner}>
               <View style={styles.iconRing}>
                 <Crown size={32} color={Colors.primary} strokeWidth={2.5} />
               </View>
-              <TouchableOpacity
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              <Button
+                variant="ghost"
                 style={styles.closeBtn}
                 onPress={onClose}
                 disabled={loading}
+                accessibilityLabel="Close"
               >
-                <X size={22} color="#94A3B8" />
-              </TouchableOpacity>
+                <X size={22} color={Colors.textTertiary} />
+              </Button>
               
-              <Text style={styles.title}>Limită Atinsă</Text>
-              <Text style={styles.subtitle}>
-                Ai atins limita planului gratuit
-              </Text>
+              <Text style={styles.title}>{msgs.paywallTitle}</Text>
+              <Text style={styles.subtitle}>{msgs.paywallSubtitle}</Text>
 
               <View style={styles.plansContainer}>
                 {/* Free Plan */}
@@ -95,11 +112,11 @@ export function PaywallModal({
                   <Text style={styles.planBadge}>Plan Gratuit</Text>
                   <View style={styles.planFeature}>
                     <Users size={16} color={Colors.textSecondary} strokeWidth={2} />
-                    <Text style={styles.planFeatureText}>5 clienți</Text>
+                    <Text style={styles.planFeatureText}>{msgs.freePlanClients}</Text>
                   </View>
                   <View style={styles.planFeature}>
                     <ShoppingBag size={16} color={Colors.textSecondary} strokeWidth={2} />
-                    <Text style={styles.planFeatureText}>5 comenzi</Text>
+                    <Text style={styles.planFeatureText}>{msgs.freePlanOrders}</Text>
                   </View>
                 </View>
 
@@ -125,40 +142,116 @@ export function PaywallModal({
                 </View>
               </View>
 
-              <Text style={styles.message}>
-                Fă upgrade la Pro pentru a gestiona clienți și comenzi nelimitate.
-              </Text>
+              {/* Plan Selection */}
+              <View style={styles.planSelectionContainer}>
+                <Text style={styles.planSelectionTitle}>Selectează planul</Text>
+                <View style={styles.planOptions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.planOption,
+                      selectedPlan === 'monthly' && styles.planOptionSelected,
+                    ]}
+                    onPress={() => handlePlanSelect('monthly')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.planOptionContent}>
+                      <Text
+                        style={[
+                          styles.planOptionText,
+                          selectedPlan === 'monthly' && styles.planOptionTextSelected,
+                        ]}
+                      >
+                        Lunar
+                      </Text>
+                      {prices.monthly ? (
+                        <>
+                          <Text style={styles.planOptionPrice}>
+                            {prices.monthly.amount} {prices.monthly.currency}
+                          </Text>
+                          <Text style={styles.planOptionPeriod}>
+                            / {prices.monthly.period}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.planOptionPrice}>...</Text>
+                      )}
+                    </View>
+                    {selectedPlan === 'monthly' && (
+                      <View style={styles.planOptionCheck}>
+                        <View style={styles.planOptionCheckInner} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.planOption,
+                      selectedPlan === 'yearly' && styles.planOptionSelected,
+                    ]}
+                    onPress={() => handlePlanSelect('yearly')}
+                    activeOpacity={0.7}
+                  >
+                    {selectedPlan === 'yearly' && (
+                      <View style={styles.planOptionBadge}>
+                        <Text style={styles.planOptionBadgeText}>Economie</Text>
+                      </View>
+                    )}
+                    <View style={styles.planOptionContent}>
+                      <Text
+                        style={[
+                          styles.planOptionText,
+                          selectedPlan === 'yearly' && styles.planOptionTextSelected,
+                        ]}
+                      >
+                        Anual
+                      </Text>
+                      {prices.yearly ? (
+                        <>
+                          <Text style={styles.planOptionPrice}>
+                            {prices.yearly.amount} {prices.yearly.currency}
+                          </Text>
+                          <Text style={styles.planOptionPeriod}>
+                            / {prices.yearly.period}
+                          </Text>
+                          {prices.monthly && (
+                            <Text style={styles.planOptionSavings}>
+                              {(prices.monthly.amount * 12 - prices.yearly.amount).toFixed(2)} {prices.monthly.currency} economisiți
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={styles.planOptionPrice}>...</Text>
+                      )}
+                    </View>
+                    {selectedPlan === 'yearly' && (
+                      <View style={styles.planOptionCheck}>
+                        <View style={styles.planOptionCheckInner} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <Text style={styles.message}>{msgs.paywallUpgradeCta}</Text>
 
               <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
+                <Button
+                  variant="secondary"
                   onPress={onClose}
                   disabled={loading}
+                  style={styles.cancelBtn}
                 >
-                  <Text style={styles.cancelText}>Nu acum</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.upgradeBtnWrap}
+                  Nu acum
+                </Button>
+                <Button
+                  variant="primary"
                   onPress={handleUpgrade}
                   disabled={loading}
-                  activeOpacity={0.85}
+                  loading={loading}
+                  leftIcon={<Crown size={18} color={Colors.textInverse} strokeWidth={2.5} />}
+                  style={styles.upgradeBtn}
                 >
-                  <LinearGradient
-                    colors={[Colors.primary, Colors.primaryDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.upgradeBtn, loading && styles.upgradeBtnDisabled]}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={Colors.textInverse} />
-                    ) : (
-                      <>
-                        <Crown size={18} color={Colors.textInverse} strokeWidth={2.5} />
-                        <Text style={styles.upgradeText}>Upgrade la Pro</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
+                  Upgrade la Pro
+                </Button>
               </View>
             </View>
           </Animated.View>
@@ -174,21 +267,20 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Platform.OS === 'web' ? 'rgba(15,23,42,0.72)' : 'transparent',
+    backgroundColor: Platform.OS === 'web' ? Colors.overlayModal : 'transparent',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     backgroundColor: Colors.surface,
-    borderRadius: 24,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 20 },
+    borderRadius: BorderRadius.xxl,
+    ...Shadows.xl,
     shadowOpacity: 0.25,
     shadowRadius: 32,
     elevation: 24,
@@ -300,42 +392,104 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  cancelText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  upgradeBtnWrap: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 8,
   },
   upgradeBtn: {
+    flex: 1,
+  },
+  planSelectionContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  planSelectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  planOptions: {
     flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+  },
+  planOption: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderWidth: 2,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
+    position: 'relative',
+    minHeight: 90,
   },
-  upgradeBtnDisabled: {
-    opacity: 0.8,
+  planOptionSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}10`,
   },
-  upgradeText: {
-    fontSize: 16,
+  planOptionContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  planOptionTextSelected: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  planOptionPrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  planOptionPeriod: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  planOptionSavings: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.success,
+    marginTop: 2,
+  },
+  planOptionBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.success,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  planOptionBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.textInverse,
+    textTransform: 'uppercase',
+  },
+  planOptionCheck: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planOptionCheckInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.textInverse,
   },
 });

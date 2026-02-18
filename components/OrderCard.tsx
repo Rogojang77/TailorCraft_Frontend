@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Calendar, Package, CreditCard } from 'lucide-react-native';
+import { Colors, Typography, Spacing, BorderRadius, Shadows, CardStyles } from '@/constants/design';
 
 interface Order {
   id: string;
   clientName: string;
   items: string[];
   total: number;
-  status: string;
-  pickupDate: string;
+  status: string; // Raw status code (PENDING, IN_PROGRESS, etc.)
+  orderDate: string;
 }
 
 interface OrderCardProps {
@@ -23,42 +24,31 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'În lucru':
-        return '#F59E0B';
-      case 'Finalizat':
-        return '#10B981';
-      case 'În așteptare':
-        return '#6B7280';
-      default:
-        return '#6B7280';
-    }
-  };
+  // Show only item count; items array holds garment IDs, not user-friendly names
+  const itemsDisplay =
+    order.items.length > 0
+      ? `${order.items.length} ${order.items.length === 1 ? 'item' : 'items'}`
+      : 'No items';
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress}>
       <View style={styles.header}>
         <Text style={styles.clientName}>{order.clientName}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-          <Text style={styles.statusText}>{order.status}</Text>
-        </View>
       </View>
       
-      <View style={styles.detail}>
-        <Package size={16} color="#6B7280" />
-        <Text style={styles.items}>{order.items.join(', ')}</Text>
+      <View style={styles.itemsRow}>
+        <Package size={14} color={Colors.textSecondary} />
+        <Text style={styles.items}>{itemsDisplay}</Text>
       </View>
       
       <View style={styles.footer}>
-        <View style={styles.detail}>
-          <CreditCard size={16} color="#D4AF37" />
+        <View style={styles.footerItem}>
+          <CreditCard size={14} color={Colors.primary} />
           <Text style={styles.total}>{order.total} RON</Text>
         </View>
-        
-        <View style={styles.detail}>
-          <Calendar size={16} color="#6B7280" />
-          <Text style={styles.pickupDate}>{order.pickupDate}</Text>
+        <View style={styles.footerItem}>
+          <Calendar size={14} color={Colors.textSecondary} />
+          <Text style={styles.orderDate}>{order.orderDate}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -67,64 +57,47 @@ export function OrderCard({ order, onPress }: OrderCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    ...CardStyles.card, // Border radius 14px, padding 16px, subtle shadow
+    marginHorizontal: Spacing.md, // 16px screen horizontal padding
+    marginBottom: Spacing.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingBottom: Spacing.sm,
   },
   clientName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...Typography.bodyBold,
     flex: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  detail: {
+  itemsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: Spacing.sm,
   },
   items: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
+    ...Typography.caption,
+    marginLeft: Spacing.xs,
     flex: 1,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  footerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   total: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#D4AF37',
-    marginLeft: 8,
+    ...Typography.captionBold,
+    color: Colors.primary,
   },
-  pickupDate: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
+  orderDate: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
 });
