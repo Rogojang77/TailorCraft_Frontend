@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Phone, Clock } from 'lucide-react-native';
-import { Colors, Typography, Spacing, CardStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, getCardStyles, Spacing } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
 
 interface Client {
@@ -17,20 +18,24 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ client, onPress }: ClientCardProps) {
+  const { colors } = useTheme();
+  const cardStyles = getCardStyles(colors);
+  const typography = getTypography(colors);
+
   return (
-    <Button variant="ghost" style={styles.card} onPress={onPress}>
+    <Button variant="ghost" style={[cardStyles.card, styles.card]} onPress={onPress}>
       <View style={styles.header}>
-        <Text style={styles.name} numberOfLines={1}>{client.name}</Text>
+        <Text style={[typography.bodySemiBold, styles.name]} numberOfLines={1}>{client.name}</Text>
       </View>
       
       <View style={styles.detail}>
-        <Phone size={14} color={Colors.textSecondary} />
-        <Text style={styles.phone} numberOfLines={1}>{client.phone}</Text>
+        <Phone size={14} color={colors.textSecondary} />
+        <Text style={[typography.statLabel, styles.phone]} numberOfLines={1}>{client.phone}</Text>
       </View>
       
       <View style={styles.detail}>
-        <Clock size={14} color={Colors.textSecondary} />
-        <Text style={styles.lastOrder}>{client.lastOrder}</Text>
+        <Clock size={14} color={colors.textSecondary} />
+        <Text style={typography.statLabel}>{client.lastOrder}</Text>
       </View>
     </Button>
   );
@@ -38,7 +43,6 @@ export function ClientCard({ client, onPress }: ClientCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    ...CardStyles.card,
     marginRight: Spacing.sm,
     alignItems: 'stretch',
   },
@@ -49,7 +53,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   name: {
-    ...Typography.bodySemiBold, // 16px / SemiBold
     flex: 1,
   },
   detail: {
@@ -58,12 +61,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   phone: {
-    ...Typography.statLabel, // 12px
     marginLeft: Spacing.xs,
     flex: 1,
-  },
-  lastOrder: {
-    ...Typography.statLabel, // 12px
-    marginLeft: Spacing.xs,
   },
 });

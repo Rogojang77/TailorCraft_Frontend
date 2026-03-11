@@ -5,26 +5,26 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenLayout } from '@/components/layout/ScreenLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/lib/i18n';
-import { getErrorMessage, uploadImage } from '@/lib/api';
-import { ChevronLeft, ChevronRight, Camera, X, Eye, EyeOff } from 'lucide-react-native';
-import { Colors, Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
+import { getErrorMessage } from '@/lib/api';
+import { ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 import { TERMS_URL, PRIVACY_POLICY_URL, LEGAL_LAST_UPDATED } from '@/constants/legal';
 
 type SignupStep = 'personal' | 'company';
 
 export default function SignupScreen() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
   const { signup } = useAuth();
@@ -45,36 +45,11 @@ export default function SignupScreen() {
   const [phone, setPhone] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [logoUri, setLogoUri] = useState<string | null>(null);
 
   // Consent (required for signup; never pre-checked)
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
-
-  const handleImagePicker = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert(t('auth.signup.permissionRequired'), t('auth.signup.permissionMessage'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setLogoUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      Alert.alert(t('common.error'), t('auth.signup.selectImageError'));
-    }
-  };
 
   const validatePersonalStep = (): boolean => {
     if (!email.trim()) {
@@ -173,23 +148,7 @@ export default function SignupScreen() {
     setErrorMessage('');
     setIsLoading(true);
     try {
-      // Upload logo if it's a local file
-      let logoUrl: string | undefined = undefined;
-      if (logoUri) {
-        if (logoUri.startsWith('http')) {
-          logoUrl = logoUri;
-        } else {
-          try {
-            logoUrl = await uploadImage(logoUri);
-          } catch (uploadError) {
-            Alert.alert(t('common.error'), t('auth.signup.uploadError'));
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
-
-      const response = await signup({
+      await signup({
         email: email.trim(),
         password: password.trim(),
         companyData: {
@@ -198,7 +157,6 @@ export default function SignupScreen() {
           phone: phone.trim(),
           email: companyEmail.trim(),
           address: address.trim() || undefined,
-          logoUrl,
         },
         termsAccepted,
         privacyAccepted,
@@ -208,7 +166,7 @@ export default function SignupScreen() {
       Alert.alert(
         t('auth.signup.accountCreated'),
         t('auth.signup.verifyMessage'),
-        [{ text: t('common.ok'), onPress: () => router.replace('/(tabs)') }]
+        [{ text: t('common.ok'), onPress: () => router.replace('/login') }]
       );
     } catch (error: unknown) {
       const msg = getErrorMessage(error, t('auth.signup.createAccountError'));
@@ -255,9 +213,9 @@ export default function SignupScreen() {
             accessibilityLabel={showPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
           >
             {showPassword ? (
-              <EyeOff size={20} color={Colors.textSecondary} />
+              <EyeOff size={20} color={colors.textSecondary} />
             ) : (
-              <Eye size={20} color={Colors.textSecondary} />
+              <Eye size={20} color={colors.textSecondary} />
             )}
           </Button>
         }
@@ -284,9 +242,9 @@ export default function SignupScreen() {
             accessibilityLabel={showConfirmPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
           >
             {showConfirmPassword ? (
-              <EyeOff size={20} color={Colors.textSecondary} />
+              <EyeOff size={20} color={colors.textSecondary} />
             ) : (
-              <Eye size={20} color={Colors.textSecondary} />
+              <Eye size={20} color={colors.textSecondary} />
             )}
           </Button>
         }
@@ -296,35 +254,6 @@ export default function SignupScreen() {
 
   const renderCompanyStep = () => (
     <View style={styles.stepContent}>
-      <View style={styles.fieldContainer}>
-        <Text style={styles.label}>{t('auth.signup.companyLogoOptional')}</Text>
-        <Button
-          variant="ghost"
-          style={styles.logoContainer}
-          onPress={handleImagePicker}
-          disabled={isLoading}
-        >
-          {logoUri ? (
-            <View style={styles.logoImageContainer}>
-              <Image source={{ uri: logoUri }} style={styles.logoImage} />
-              <Button
-                variant="dangerIcon"
-                onPress={() => setLogoUri(null)}
-                style={styles.removeLogoButton}
-                accessibilityLabel={t('common.remove')}
-              >
-                <X size={16} color={Colors.textInverse} />
-              </Button>
-            </View>
-          ) : (
-            <View style={styles.logoPlaceholder}>
-              <Camera size={32} color={Colors.textPrimary} />
-              <Text style={styles.logoText}>{t('auth.signup.addLogo')}</Text>
-            </View>
-          )}
-        </Button>
-      </View>
-
       <Input
         label={t('auth.signup.companyNameRequired')}
         placeholder={t('auth.signup.companyPlaceholder')}
@@ -371,8 +300,8 @@ export default function SignupScreen() {
       />
 
       {/* Consent (mandatory; never pre-checked) */}
-      <View style={styles.consentSection}>
-        <Text style={styles.consentTitle}>{t('auth.signup.consentTitle')}</Text>
+      <View style={[styles.consentSection, { borderTopColor: colors.border }]}>
+        <Text style={[styles.consentTitle, { color: colors.textPrimary }]}>{t('auth.signup.consentTitle')}</Text>
         <ConsentCheckbox
           checked={termsAccepted}
           onToggle={() => setTermsAccepted((v) => !v)}
@@ -404,7 +333,7 @@ export default function SignupScreen() {
 
       {errorMessage ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
         </View>
       ) : null}
     </View>
@@ -421,18 +350,18 @@ export default function SignupScreen() {
             disabled={isLoading}
             accessibilityLabel={t('common.back')}
           >
-            <ChevronLeft size={24} color={Colors.textPrimary} />
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Button>
-          <Text style={styles.headerTitle}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
             {step === 'personal' ? t('auth.signup.personalInfo') : t('auth.signup.companyDetails')}
           </Text>
           <View style={styles.backButton} />
         </View>
 
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressStep, step === 'personal' && styles.progressStepActive]} />
-          <View style={styles.progressLine} />
-          <View style={[styles.progressStep, step === 'company' && styles.progressStepActive]} />
+        <View style={[styles.progressContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.progressStep, { backgroundColor: colors.border }, step === 'personal' && { backgroundColor: colors.textPrimary }]} />
+          <View style={[styles.progressLine, { backgroundColor: colors.border }]} />
+          <View style={[styles.progressStep, { backgroundColor: colors.border }, step === 'company' && { backgroundColor: colors.textPrimary }]} />
         </View>
 
         <View style={styles.flex1}>
@@ -447,14 +376,14 @@ export default function SignupScreen() {
             </View>
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md), backgroundColor: colors.background, borderTopColor: colors.border }]}>
             {step === 'personal' ? (
               <Button
                 variant="primary"
                 fullWidth
                 onPress={handleNext}
                 disabled={isLoading}
-                rightIcon={<ChevronRight size={20} color={Colors.textInverse} />}
+                rightIcon={<ChevronRight size={20} color={colors.textInverse} />}
                 style={styles.stepButton}
               >
                 {t('auth.signup.next')}
@@ -482,11 +411,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
   },
   backButton: {
-    width: 44, // Minimum 44x44px for accessibility
+    width: 44,
     height: 44,
     minWidth: 44,
     minHeight: 44,
@@ -501,21 +430,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.xxl,
     paddingVertical: Spacing.lg,
-    backgroundColor: Colors.surface,
   },
   progressStep: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.border,
-  },
-  progressStepActive: {
-    backgroundColor: Colors.textPrimary,
   },
   progressLine: {
     flex: 1,
     height: 2,
-    backgroundColor: Colors.border,
     marginHorizontal: Spacing.sm,
   },
   flex1: {
@@ -530,13 +453,11 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    backgroundColor: Colors.background,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   content: {
-    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
-    paddingTop: Spacing.lg, // 24px vertical section spacing
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
   },
   stepContent: {
     width: '100%',
@@ -551,56 +472,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.caption,
-    color: Colors.error,
-    lineHeight: 21, // 14px * 1.5
-  },
-  fieldContainer: {
-    marginBottom: 14,
-  },
-  label: {
-    ...Typography.label,
-    marginBottom: Spacing.sm,
-    color: Colors.textPrimary,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  logoImageContainer: {
-    position: 'relative',
-  },
-  logoImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: Colors.textPrimary,
-  },
-  removeLogoButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 24,
-    height: 24,
-    minWidth: 24,
-    minHeight: 24,
-  },
-  logoPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.surface,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    ...Typography.small,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginTop: Spacing.sm,
+    lineHeight: 21,
   },
   stepButton: {
     marginTop: 0,
@@ -610,7 +482,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   consentTitle: {
     ...Typography.label,

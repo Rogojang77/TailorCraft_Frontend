@@ -1,9 +1,11 @@
 /**
  * Empty state block: optional title, message, and action button.
+ * Uses theme-aware styles from ThemeContext.
  */
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Typography, Colors, Spacing } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, Spacing } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
 import { Plus } from 'lucide-react-native';
 
@@ -36,20 +38,23 @@ const EmptyStateComponent = ({
   titleStyle,
   messageStyle,
 }: EmptyStateProps) => {
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+
   return (
     <View style={[styles.container, style]}>
       {title != null && title !== '' && (
-        <Text style={[styles.title, titleStyle]}>
+        <Text style={[typography.body, styles.title, titleStyle]}>
           {title}
         </Text>
       )}
       {message != null && message !== '' && (
-        <Text style={[styles.message, messageStyle]}>
+        <Text style={[typography.body, { color: colors.textSecondary }, styles.message, messageStyle]}>
           {message}
         </Text>
       )}
       {hint != null && hint !== '' && (
-        <Text style={styles.hint}>
+        <Text style={[typography.caption, { color: colors.textTertiary }, styles.hint]}>
           {hint}
         </Text>
       )}
@@ -59,7 +64,7 @@ const EmptyStateComponent = ({
           size="lg"
           onPress={onAction}
           disabled={actionDisabled}
-          leftIcon={<Plus size={18} color={Colors.textInverse} />}
+          leftIcon={<Plus size={18} color={colors.textInverse} />}
           style={styles.button}
         >
           {actionLabel}
@@ -78,19 +83,14 @@ const styles = StyleSheet.create({
     height: '80%',
   },
   title: {
-    ...Typography.body,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   message: {
-    ...Typography.body,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   hint: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },

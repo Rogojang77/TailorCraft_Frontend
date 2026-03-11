@@ -27,6 +27,9 @@ export interface SubscriptionStatus {
   usage: SubscriptionUsage;
   canCreateClient: boolean;
   canCreateOrder: boolean;
+  canCreateTemplate?: boolean;
+  /** Expiration date from backend (ISO string or timestamp). */
+  expiresAt?: string | number | null;
 }
 
 export type SubscriptionPlanType = 'monthly' | 'yearly';
@@ -137,3 +140,15 @@ export interface TemplateLimitStatus {
   allowed: boolean;
   message: string;
 }
+
+/** Tri-state result for limit checks. Never use blocked while subscription is loading. */
+export type LimitCheckResult =
+  | { status: 'loading' }
+  | { status: 'allowed' }
+  | { status: 'blocked'; reason: string };
+
+/** Template limit status with explicit loading/allowed/blocked. Backward compatible with TemplateLimitStatus. */
+export type TemplateLimitResult =
+  | { status: 'loading'; allowed: true; message: '' }
+  | { status: 'allowed'; allowed: true; message: '' }
+  | { status: 'blocked'; allowed: false; message: string; reason: string };

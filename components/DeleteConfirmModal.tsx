@@ -19,10 +19,11 @@ import * as Haptics from 'expo-haptics';
 import { Trash2, X } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/Button';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 32, 400); // 16px padding on each side
+const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 32, 400);
 
 export interface DeleteConfirmModalProps {
   visible: boolean;
@@ -30,7 +31,6 @@ export interface DeleteConfirmModalProps {
   onConfirm: () => void | Promise<void>;
   title?: string;
   message?: string;
-  /** Optional inline error (e.g. 409 conflict). Shown below message. */
   errorMessage?: string | null;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -49,10 +49,13 @@ export function DeleteConfirmModal({
   loading = false,
 }: DeleteConfirmModalProps) {
   const { t } = useI18n();
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
   const resolvedTitle = title ?? t('common.delete');
   const resolvedMessage = message ?? t('modals.delete.cannotUndo');
   const resolvedConfirmLabel = confirmLabel ?? t('common.delete');
   const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
+  
   useEffect(() => {
     if (visible && Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -79,7 +82,9 @@ export function DeleteConfirmModal({
     >
       <View style={styles.root}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.overlay}>
+          <View style={[styles.overlay, { 
+            backgroundColor: Platform.OS === 'web' ? colors.overlayModal : 'transparent' 
+          }]}>
             {Platform.OS !== 'web' && (
               <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
             )}
@@ -88,13 +93,13 @@ export function DeleteConfirmModal({
 
         <View style={styles.centered} pointerEvents="box-none">
           <Animated.View
-            style={styles.card}
+            style={[styles.card, { backgroundColor: colors.surface }]}
             entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
             exiting={modalExiting}
           >
             <View style={styles.cardInner}>
-              <View style={styles.iconRing}>
-                <Trash2 size={28} color={Colors.danger} strokeWidth={2.5} />
+              <View style={[styles.iconRing, { backgroundColor: colors.dangerBg }]}>
+                <Trash2 size={28} color={colors.danger} strokeWidth={2.5} />
               </View>
               <Button
                 variant="ghost"
@@ -102,12 +107,12 @@ export function DeleteConfirmModal({
                 onPress={onClose}
                 accessibilityLabel={resolvedCancelLabel}
               >
-                <X size={22} color={Colors.textSecondary} />
+                <X size={22} color={colors.textSecondary} />
               </Button>
-              <Text style={styles.title}>{resolvedTitle}</Text>
-              <Text style={styles.message}>{resolvedMessage}</Text>
+              <Text style={[typography.h3, styles.title]}>{resolvedTitle}</Text>
+              <Text style={[typography.body, { color: colors.textSecondary }, styles.message]}>{resolvedMessage}</Text>
               {errorMessage ? (
-                <Text style={styles.errorMessage}>{errorMessage}</Text>
+                <Text style={[typography.caption, { color: colors.error }, styles.errorMessage]}>{errorMessage}</Text>
               ) : null}
               <View style={styles.actions}>
                 <Button
@@ -123,7 +128,7 @@ export function DeleteConfirmModal({
                   onPress={handleConfirm}
                   disabled={loading}
                   loading={loading}
-                  leftIcon={<Trash2 size={18} color={Colors.textInverse} strokeWidth={2.5} />}
+                  leftIcon={<Trash2 size={18} color={colors.textInverse} strokeWidth={2.5} />}
                   style={styles.deleteBtn}
                 >
                   {resolvedConfirmLabel}
@@ -143,20 +148,18 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Platform.OS === 'web' ? Colors.overlayModal : 'transparent',
   },
   centered: {
     flex: 1,
-    justifyContent: 'flex-end', // Primary action pinned at bottom
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
+    paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     maxHeight: '90%',
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     ...Shadows.xl,
   },
@@ -168,7 +171,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.dangerBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.md,
     right: Spacing.md,
-    width: 44, // Minimum 44x44px for accessibility
+    width: 44,
     height: 44,
     minWidth: 44,
     minHeight: 44,
@@ -185,19 +187,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...Typography.h3, // 20px / SemiBold
     marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   message: {
-    ...Typography.body, // 16px
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
   errorMessage: {
-    ...Typography.caption, // 14px
-    color: Colors.error,
     textAlign: 'center',
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.sm,
@@ -206,7 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.md,
     width: '100%',
-    marginTop: Spacing.lg, // Pin actions at bottom
+    marginTop: Spacing.lg,
   },
   cancelBtn: {
     flex: 1,

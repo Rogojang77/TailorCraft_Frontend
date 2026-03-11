@@ -1,11 +1,12 @@
 /**
  * Screen header: back button (left), title (center or left), optional right actions.
- * Uses HeaderStyles from design system.
+ * Uses theme-aware styles from ThemeContext.
  */
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
-import { HeaderStyles, Colors, HeaderBackButtonSize } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getHeaderStyles, HeaderBackButtonSize } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
 
 export interface HeaderProps {
@@ -33,16 +34,19 @@ const HeaderComponent = ({
   titleNumberOfLines = 1,
   style,
 }: HeaderProps) => {
-  const titleStyle = titleAlign === 'left' ? HeaderStyles.titleLeft : HeaderStyles.title;
+  const { colors } = useTheme();
+  const headerStyles = getHeaderStyles(colors);
+  const titleStyle = titleAlign === 'left' ? headerStyles.titleLeft : headerStyles.title;
+  
   return (
-    <View style={[HeaderStyles.container, style]}>
+    <View style={[headerStyles.container, style]}>
       {onBack != null ? (
         <Button
           variant="back"
           onPress={onBack}
           accessibilityLabel={backAccessibilityLabel}
         >
-          <ArrowLeft size={24} color={Colors.textPrimary} strokeWidth={2} />
+          <ArrowLeft size={24} color={colors.textPrimary} strokeWidth={2} />
         </Button>
       ) : (
         <View style={styles.placeholder} />
@@ -51,7 +55,7 @@ const HeaderComponent = ({
         {title}
       </Text>
       {rightActions != null ? (
-        <View style={HeaderStyles.actions}>{rightActions}</View>
+        <View style={headerStyles.actions}>{rightActions}</View>
       ) : (
         <View style={styles.placeholder} />
       )}

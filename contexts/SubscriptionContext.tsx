@@ -1,21 +1,39 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useRef } from 'react';
-import { Platform } from 'react-native';
+/**
+ * SubscriptionContext - Single Source of Truth for Subscription Status
+ *
+ * IMPORTANT: Backend is the ONLY source of truth for subscription status.
+ * - Local storage/cache is only used as temporary UI cache
+ * - On app launch, subscription status is immediately fetched from backend
+ * - If backend call fails, user is treated as FREE (fail-safe)
+ * - No optimistic "Pro" access based on local cache
+ */
+
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  ReactNode,
+  useRef,
+  useCallback,
+} from 'react';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import { useI18n } from '@/lib/i18n';
 import { useAuth } from './AuthContext';
 import * as subscriptionService from '@/lib/services/subscriptionService';
 import * as iapService from '@/lib/services/iapService';
+import { getPurchaseTokenForBackend } from '@/lib/services/subscriptionManager';
 import { endIapConnection } from '@/lib/services/iapConnection';
 import { buildLimitMessages } from '@/lib/subscriptionMessages';
 import * as diagnostics from '@/lib/diagnostics';
-import { useSubscriptions } from '@/hooks/useSubscriptions';
-import { usePurchase } from '@/hooks/usePurchase';
+import { useSubscriptions, useSubscriptionState } from '@/hooks';
 import type { PlanPrice } from '@/types/subscription';
 
 import type {
   SubscriptionStatus,
   SubscriptionPlanType,
   PlanPrices,
-  TemplateLimitStatus,
   SubscriptionState,
 } from '@/types/subscription';
 
@@ -32,34 +50,77 @@ export type {
   UpcomingInvoice,
   PortalDetailsResponse,
   SubscriptionDetails,
-  TemplateLimitStatus,
+  LimitCheckResult,
   SubscriptionState,
 } from '@/types/subscription';
 
 interface SubscriptionContextType {
   subscription: SubscriptionStatus | null;
   subscriptionState: SubscriptionState;
+  /**
+   * True when backend subscription has been verified.
+   * Premium features should ONLY be accessible when this is true AND isPro is true.
+   */
+  isSubscriptionVerified: boolean;
+  /**
+   * True if user has an active Pro subscription (from BACKEND only).
+   * NEVER trust local cache for this value.
+   */
+  isPro: boolean;
+  /**
+   * Expiration date from backend (if available).
+   */
+  expiresAt: Date | null;
+  /**
+   * True when initial subscription fetch is in progress.
+   * Use this to show loading states and block premium feature access.
+   */
+  isVerifying: boolean;
+  /**
+   * Legacy alias for backwards compatibility. Same as isVerifying === false && subscription != null
+   */
+  isSubscriptionReady: boolean;
   prices: PlanPrices;
   isLoading: boolean;
   isLoadingPrices: boolean;
   error: string | null;
   subscriptionStatusLoadFailed: boolean;
+  /**
+   * In grace period (from backend entitlements).
+   */
+  inGracePeriod: boolean;
+  /**
+   * Has billing issue (from backend entitlements).
+   */
+  billingIssue: boolean;
+  /**
+   * Refreshes subscription status from backend.
+   * This is the main function to call when you need to ensure subscription is up-to-date.
+   * @param forceRefresh - If true, ignores cache and always fetches from backend
+   */
+  refreshSubscriptionStatus: (forceRefresh?: boolean) => Promise<void>;
+  /**
+   * Legacy alias for refreshSubscriptionStatus
+   */
   refreshSubscription: (forceRefresh?: boolean) => Promise<void>;
   refreshPrices: () => Promise<void>;
-  upgradeToPro: (plan?: SubscriptionPlanType) => Promise<{ success: true } | { success: false; errorMessage: string }>;
+  upgradeToPro: (
+    plan?: SubscriptionPlanType
+  ) => Promise<{ success: true } | { success: false; errorMessage: string }>;
   purchasing: boolean;
   restorePurchases: () => Promise<boolean>;
   cancelSubscription: () => Promise<boolean>;
   checkCanCreateClient: () => boolean;
   checkCanCreateOrder: () => boolean;
   checkCanCreateTemplate: () => boolean;
-  checkCanUseSharedTemplate: () => boolean;
-  templateCreationStatus: () => TemplateLimitStatus;
-  sharedTemplateUsageStatus: () => TemplateLimitStatus;
-  getUsageForDisplay: () => { clients: { current: number; max: number }; orders: { current: number; max: number } };
+  getUsageForDisplay: () => {
+    clients: { current: number; max: number };
+    orders: { current: number; max: number };
+    templates: { current: number; max: number };
+  };
   getLimitMessages: () => {
-    templateLimit: string;
     paywallTitle: string;
+    paywallTitleUpgrade: string;
     paywallSubtitle: string;
     paywallUpgradeCta: string;
     freePlanClients: string;
@@ -68,16 +129,28 @@ interface SubscriptionContextType {
     upgradeHint: string;
     clientLimitReached: string;
     orderLimitReached: string;
+    templateLimitReached: string;
   };
   isIAPSupported: boolean;
+  /**
+   * Clears all subscription state. Called on logout.
+   */
+  clearSubscriptionState: () => void;
 }
 
-const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
+  undefined
+);
 
 const CACHE_DURATION_MS = 30000;
 
 function subscriptionProductToPlanPrice(
-  product: { productId: string; price: string; rawPrice: number; currency: string },
+  product: {
+    productId: string;
+    price: string;
+    rawPrice: number;
+    currency: string;
+  },
   periodKey: 'month' | 'year'
 ): PlanPrice {
   const periodEn = periodKey;
@@ -93,14 +166,32 @@ function subscriptionProductToPlanPrice(
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, accessToken } = useAuth();
   const { t } = useI18n();
-  const { products, loading: isLoadingPrices, error: productsError, refetch: refetchProducts } = useSubscriptions();
-  const { purchase: requestPurchase, purchasing, purchaseError: purchaseErrorFromHook } = usePurchase();
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>('free');
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    products,
+    loading: isLoadingPrices,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useSubscriptions();
+  const {
+    requestSubscription: managerRequestSubscription,
+    purchaseInProgress: purchasing,
+    restorePurchases: managerRestorePurchases,
+  } = useSubscriptionState();
+
+  // Core subscription state from backend
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(
+    null
+  );
+  const [subscriptionState, setSubscriptionState] =
+    useState<SubscriptionState>('unknown');
+  const [isVerifying, setIsVerifying] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inGracePeriod, setInGracePeriod] = useState(false);
+  const [billingIssue, setBillingIssue] = useState(false);
+
   const lastRefreshTimeRef = useRef<number>(0);
   const refreshInProgressRef = useRef<boolean>(false);
+  const initialFetchDone = useRef<boolean>(false);
 
   const prices = useMemo((): PlanPrices => {
     const monthly = products.find((p) => p.productId.includes('monthly'));
@@ -111,55 +202,153 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     };
   }, [products]);
 
-  const refreshSubscription = async (forceRefresh = false) => {
-    if (!isAuthenticated || !accessToken) {
-      setSubscription(null);
-      setIsLoading(false);
-      return;
+  /**
+   * Derived state: isPro is ONLY true when backend confirms Pro status.
+   * NEVER defaults to true. Fail-safe to FREE.
+   */
+  const isPro = useMemo(() => {
+    if (subscriptionState === 'unknown' || subscriptionState === 'free') {
+      return false;
     }
-    if (refreshInProgressRef.current) return;
-    const now = Date.now();
-    const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
-    if (!forceRefresh && timeSinceLastRefresh < CACHE_DURATION_MS && subscription !== null) {
-      return;
-    }
-    try {
-      refreshInProgressRef.current = true;
-      setIsLoading(true);
-      setError(null);
-      const data = await subscriptionService.fetchStatus(accessToken);
-      setSubscription(data);
-      setSubscriptionState(data.plan === 'PRO' ? 'active' : 'free');
-      lastRefreshTimeRef.current = Date.now();
-      diagnostics.recordSubscriptionFetch('success');
-    } catch (err) {
-      console.error('Failed to fetch subscription status:', err);
-      const message = err instanceof Error ? err.message : 'Failed to load subscription';
-      setError(message);
-      setSubscriptionState('unknown');
-      setSubscription(null);
-      diagnostics.recordSubscriptionFetch('error', message);
-    } finally {
-      setIsLoading(false);
-      refreshInProgressRef.current = false;
-    }
-  };
+    return subscriptionState === 'active';
+  }, [subscriptionState]);
 
-  const upgradeToPro = async (plan: SubscriptionPlanType = 'monthly'): Promise<{ success: true } | { success: false; errorMessage: string }> => {
+  /**
+   * Expiration date from backend subscription data.
+   */
+  const expiresAt = useMemo(() => {
+    if (!subscription?.expiresAt) return null;
+    const date = new Date(subscription.expiresAt);
+    return isNaN(date.getTime()) ? null : date;
+  }, [subscription?.expiresAt]);
+
+  /**
+   * Subscription is verified when:
+   * 1. Initial fetch has completed (success or failure)
+   * 2. We are not currently verifying
+   */
+  const isSubscriptionVerified = !isVerifying && initialFetchDone.current;
+
+  /**
+   * Legacy compatibility: isSubscriptionReady
+   */
+  const isSubscriptionReady = isSubscriptionVerified && subscription != null;
+
+  /**
+   * Main function to refresh subscription status from backend.
+   * This is the ONLY source of truth for subscription status.
+   */
+  const refreshSubscriptionStatus = useCallback(
+    async (forceRefresh = false) => {
+      if (!isAuthenticated || !accessToken) {
+        // Not authenticated: clear state and treat as FREE
+        setSubscription(null);
+        setSubscriptionState('free');
+        setInGracePeriod(false);
+        setBillingIssue(false);
+        setIsVerifying(false);
+        initialFetchDone.current = true;
+        return;
+      }
+
+      if (refreshInProgressRef.current) return;
+
+      const now = Date.now();
+      const timeSinceLastRefresh = now - lastRefreshTimeRef.current;
+
+      // Only skip if we have valid cached data AND not forcing refresh
+      if (
+        !forceRefresh &&
+        timeSinceLastRefresh < CACHE_DURATION_MS &&
+        subscription !== null &&
+        initialFetchDone.current
+      ) {
+        return;
+      }
+
+      try {
+        refreshInProgressRef.current = true;
+        setIsVerifying(true);
+        setError(null);
+
+        // Fetch subscription status from backend - this is the source of truth
+        const data = await subscriptionService.fetchStatus(accessToken);
+
+        // Update state from backend response
+        setSubscription(data);
+        setSubscriptionState(data.plan === 'PRO' ? 'active' : 'free');
+        lastRefreshTimeRef.current = Date.now();
+        initialFetchDone.current = true;
+        diagnostics.recordSubscriptionFetch('success');
+
+        // Also fetch entitlements for grace period / billing issue info
+        try {
+          const entitlements =
+            await subscriptionService.fetchEntitlements(accessToken);
+          setInGracePeriod(entitlements.inGracePeriod ?? false);
+          setBillingIssue(entitlements.billingIssue ?? false);
+        } catch {
+          // Entitlements fetch is optional, don't fail the main flow
+        }
+      } catch (err) {
+        console.error('Failed to fetch subscription status:', err);
+        const message =
+          err instanceof Error ? err.message : 'Failed to load subscription';
+        setError(message);
+
+        // FAIL-SAFE: On error, treat user as FREE
+        // NEVER default to Pro when backend is unavailable
+        setSubscriptionState('free');
+        setSubscription(null);
+        setInGracePeriod(false);
+        setBillingIssue(false);
+        initialFetchDone.current = true;
+        diagnostics.recordSubscriptionFetch('error', message);
+      } finally {
+        setIsVerifying(false);
+        refreshInProgressRef.current = false;
+      }
+    },
+    [isAuthenticated, accessToken, subscription]
+  );
+
+  /**
+   * Legacy alias for refreshSubscriptionStatus
+   */
+  const refreshSubscription = refreshSubscriptionStatus;
+
+  /**
+   * Clears all subscription state. Called on logout.
+   */
+  const clearSubscriptionState = useCallback(() => {
+    setSubscription(null);
+    setSubscriptionState('free');
+    setInGracePeriod(false);
+    setBillingIssue(false);
+    setError(null);
+    setIsVerifying(false);
+    lastRefreshTimeRef.current = 0;
+    initialFetchDone.current = false;
+  }, []);
+
+  const upgradeToPro = async (
+    plan: SubscriptionPlanType = 'monthly'
+  ): Promise<{ success: true } | { success: false; errorMessage: string }> => {
     if (!accessToken) {
       const msg = 'Not authenticated';
       setError(msg);
       return { success: false, errorMessage: msg };
     }
     if (!iapService.isIAPSupported()) {
-      const msg = 'In-app purchases are not available on this device. Use the installed app from the App Store or Play Store.';
+      const msg =
+        'In-app purchases are not available on this device. Use the installed app from the App Store or Play Store.';
       setError(msg);
       return { success: false, errorMessage: msg };
     }
 
     setError(null);
     const productId = iapService.planToProductId(plan);
-    const result = await requestPurchase(productId);
+    const result = await managerRequestSubscription(productId);
 
     if (!result.success) {
       if (result.cancelled) {
@@ -171,48 +360,37 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       return { success: false, errorMessage: msg };
     }
 
-    const receipt = iapService.getPurchaseTokenForBackend(result.purchase);
-    if (!receipt) {
-      const msg = 'Could not get receipt for confirmation';
-      setError(msg);
-      return { success: false, errorMessage: msg };
-    }
-
-    try {
-      await subscriptionService.confirmSubscription(
-        {
-          platform: Platform.OS === 'ios' ? 'ios' : 'android',
-          receipt,
-          productId: result.purchase.productId,
-        },
-        accessToken
-      );
-    } catch (confirmErr: unknown) {
-      const errMsg = confirmErr instanceof Error ? confirmErr.message : 'Confirmation failed';
-      const isAlreadyLinked = errMsg.toLowerCase().includes('already linked');
-      const isDuplicate = errMsg.toLowerCase().includes('invalid productid') === false && errMsg.includes('400');
-      const msg = isAlreadyLinked
-        ? 'This purchase is already linked to another account. Use the account that made the purchase.'
-        : isDuplicate
-          ? 'This purchase was already applied.'
-          : errMsg;
-      setError(msg);
-      return { success: false, errorMessage: msg };
-    }
-
-    await refreshSubscription(true);
-
-    if (Platform.OS === 'android') {
+    // Sync with backend and refresh subscription status
+    const receipt = getPurchaseTokenForBackend(result.purchase);
+    if (receipt) {
       try {
-        await iapService.acknowledgePurchaseAndroid(result.purchase);
-      } catch (e) {
-        console.warn('acknowledgePurchaseAndroid failed:', e);
-      }
-    } else {
-      try {
-        await iapService.finishTransaction(result.purchase);
-      } catch (e) {
-        console.warn('finishTransaction failed:', e);
+        await subscriptionService.confirmSubscription(
+          {
+            platform: Platform.OS === 'ios' ? 'ios' : 'android',
+            receipt,
+            productId: result.purchase.productId,
+          },
+          accessToken
+        );
+        // Force refresh from backend after successful purchase
+        await refreshSubscriptionStatus(true);
+      } catch (confirmErr: unknown) {
+        const errMsg =
+          confirmErr instanceof Error
+            ? confirmErr.message
+            : 'Confirmation failed';
+        const isAlreadyLinked = errMsg.toLowerCase().includes('already linked');
+        const isDuplicate =
+          errMsg.toLowerCase().includes('invalid productid') === false &&
+          errMsg.includes('400');
+        const msg = isAlreadyLinked
+          ? 'This purchase is already linked to another account. Use the account that made the purchase.'
+          : isDuplicate
+            ? 'This purchase was already applied.'
+            : errMsg;
+        setError(msg);
+        // Still refresh to get the latest status
+        await refreshSubscriptionStatus(true);
       }
     }
     return { success: true };
@@ -229,16 +407,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
 
     setError(null);
-    const purchases = await iapService.restorePurchases();
+    const purchases = await managerRestorePurchases();
     if (purchases.length === 0) {
       setError(null);
-      await refreshSubscription(true);
+      await refreshSubscriptionStatus(true);
       return true;
     }
 
-    const platform: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
+    const platform: 'ios' | 'android' =
+      Platform.OS === 'ios' ? 'ios' : 'android';
     for (const purchase of purchases) {
-      const receipt = iapService.getPurchaseTokenForBackend(purchase);
+      const receipt = getPurchaseTokenForBackend(purchase);
       if (!receipt) continue;
       try {
         await subscriptionService.confirmSubscription(
@@ -249,7 +428,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         console.warn('Restore confirm failed for', purchase.productId, e);
       }
     }
-    await refreshSubscription(true);
+    // Always refresh from backend after restore
+    await refreshSubscriptionStatus(true);
     return true;
   };
 
@@ -269,92 +449,115 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       return false;
     } catch (err) {
       console.error('Failed to cancel subscription:', err);
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+      setError(
+        err instanceof Error ? err.message : 'Failed to cancel subscription'
+      );
       return false;
     }
   };
 
+  /**
+   * IMPORTANT: All limit checks return FALSE (blocked) when subscription is not verified.
+   * This prevents premium access before backend verification.
+   */
   const checkCanCreateClient = (): boolean => {
-    if (subscriptionState === 'unknown') return true;
-    return subscription?.canCreateClient ?? true;
+    // Block if subscription not verified yet
+    if (!isSubscriptionVerified) return false;
+    if (subscriptionState === 'unknown') return false;
+    return subscription?.canCreateClient ?? false;
   };
 
   const checkCanCreateOrder = (): boolean => {
-    if (subscriptionState === 'unknown') return true;
-    return subscription?.canCreateOrder ?? true;
+    // Block if subscription not verified yet
+    if (!isSubscriptionVerified) return false;
+    if (subscriptionState === 'unknown') return false;
+    return subscription?.canCreateOrder ?? false;
   };
 
   const checkCanCreateTemplate = (): boolean => {
-    if (subscriptionState === 'unknown') return true;
-    const limits = subscription?.limits;
-    if (limits?.maxTemplates == null) return true;
-    const usage = subscription?.usage?.currentTemplates ?? 0;
-    return usage < limits.maxTemplates;
-  };
-
-  const checkCanUseSharedTemplate = (): boolean => {
-    if (subscriptionState === 'unknown') return true;
-    const limits = subscription?.limits;
-    if (limits?.maxSharedTemplates == null) return true;
-    const usage = subscription?.usage?.currentSharedTemplates ?? 0;
-    return usage < limits.maxSharedTemplates;
-  };
-
-  const templateCreationStatus = (): TemplateLimitStatus => {
-    if (subscriptionState === 'unknown' || subscription == null || isLoading) {
-      return { allowed: true, message: '' };
-    }
-    const allowed = checkCanCreateTemplate();
-    const message = allowed ? '' : t('subscription.paywallTitle');
-    return { allowed, message };
-  };
-
-  const sharedTemplateUsageStatus = (): TemplateLimitStatus => {
-    if (subscriptionState === 'unknown' || subscription == null || isLoading) {
-      return { allowed: true, message: '' };
-    }
-    const allowed = checkCanUseSharedTemplate();
-    const message = allowed ? '' : t('subscription.paywallTitle');
-    return { allowed, message };
+    if (!isSubscriptionVerified) return false;
+    if (subscriptionState === 'unknown') return false;
+    return subscription?.canCreateTemplate ?? false;
   };
 
   const getUsageForDisplay = (): {
     clients: { current: number; max: number };
     orders: { current: number; max: number };
+    templates: { current: number; max: number };
   } => {
-    if (subscriptionState === 'unknown' || subscription == null || isLoading) {
-      return { clients: { current: 0, max: 0 }, orders: { current: 0, max: 0 } };
+    if (!isSubscriptionVerified) {
+      return {
+        clients: { current: 0, max: 0 },
+        orders: { current: 0, max: 0 },
+        templates: { current: 0, max: 0 },
+      };
     }
-    const maxC = subscription.limits?.maxClients ?? 0;
-    const maxO = subscription.limits?.maxOrders ?? 0;
+    const maxC = subscription?.limits?.maxClients ?? 0;
+    const maxO = subscription?.limits?.maxOrders ?? 0;
+    const maxT = subscription?.limits?.maxTemplates ?? 0;
     return {
       clients: {
-        current: subscription.usage?.currentClients ?? 0,
+        current: subscription?.usage?.currentClients ?? 0,
         max: maxC,
       },
       orders: {
-        current: subscription.usage?.currentOrders ?? 0,
+        current: subscription?.usage?.currentOrders ?? 0,
         max: maxO,
+      },
+      templates: {
+        current: subscription?.usage?.currentTemplates ?? 0,
+        max: maxT,
       },
     };
   };
 
-  const getLimitMessages = () => buildLimitMessages(getUsageForDisplay(), t);
+  const getLimitMessages = () =>
+    buildLimitMessages(getUsageForDisplay(), t, {
+      subscriptionReady: isSubscriptionVerified,
+    });
 
   const refreshPrices = async () => {
     await refetchProducts();
   };
 
+  // Fetch subscription status immediately when authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshSubscription();
+    if (isAuthenticated && accessToken) {
+      // Always fetch on auth change - this is the critical path
+      refreshSubscriptionStatus(true);
     } else {
-      setSubscription(null);
-      setSubscriptionState('free');
-      setIsLoading(false);
+      clearSubscriptionState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, accessToken]);
+
+  // Refetch subscription when app comes to foreground
+  // This ensures subscription state is always up-to-date after:
+  // - User purchases subscription outside the app
+  // - Subscription expires while app is backgrounded
+  // - Backend subscription state changes
+  useEffect(() => {
+    const appStateRef = { previous: AppState.currentState };
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const wasBackground =
+        appStateRef.previous === 'background' || appStateRef.previous === 'inactive';
+      const isNowActive = nextAppState === 'active';
+
+      if (wasBackground && isNowActive && isAuthenticated && accessToken) {
+        // Force refresh subscription status from backend when app comes to foreground
+        refreshSubscriptionStatus(true);
+      }
+
+      appStateRef.previous = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, accessToken, refreshSubscriptionStatus]);
 
   useEffect(() => {
     return () => {
@@ -365,12 +568,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const value: SubscriptionContextType = {
     subscription,
     subscriptionState,
+    isSubscriptionVerified,
+    isPro,
+    expiresAt,
+    isVerifying,
+    isSubscriptionReady,
     prices,
-    isLoading,
+    isLoading: isVerifying,
     isLoadingPrices,
-    error: error ?? productsError ?? purchaseErrorFromHook ?? null,
+    error: error ?? productsError ?? null,
     purchasing,
-    subscriptionStatusLoadFailed: subscriptionState === 'unknown',
+    subscriptionStatusLoadFailed: subscriptionState === 'unknown' && !isVerifying,
+    inGracePeriod,
+    billingIssue,
+    refreshSubscriptionStatus,
     refreshSubscription,
     refreshPrices,
     upgradeToPro,
@@ -379,13 +590,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     checkCanCreateClient,
     checkCanCreateOrder,
     checkCanCreateTemplate,
-    checkCanUseSharedTemplate,
-    templateCreationStatus,
-    sharedTemplateUsageStatus,
     getUsageForDisplay,
     getLimitMessages,
     isIAPSupported: iapService.isIAPSupported(),
-    purchasing,
+    clearSubscriptionState,
   };
 
   return (
@@ -401,4 +609,38 @@ export function useSubscription() {
     throw new Error('useSubscription must be used within a SubscriptionProvider');
   }
   return context;
+}
+
+/**
+ * Hook to get premium status from backend.
+ * This replaces the old usePremium() hook from PremiumContext.
+ * @deprecated Use useSubscription() directly for full subscription info.
+ */
+export function usePremium() {
+  const {
+    isPro,
+    expiresAt,
+    isVerifying,
+    error,
+    purchasing,
+    refreshSubscriptionStatus,
+    restorePurchases,
+    inGracePeriod,
+    billingIssue,
+  } = useSubscription();
+
+  return {
+    isPremium: isPro,
+    activeProductId: isPro ? 'entitled' : null,
+    expirationDate: expiresAt?.getTime() ?? null,
+    inGracePeriod,
+    billingIssue,
+    loading: isVerifying,
+    error,
+    purchaseInProgress: purchasing,
+    refreshEntitlements: () => refreshSubscriptionStatus(true),
+    restorePurchases: async () => {
+      await restorePurchases();
+    },
+  };
 }

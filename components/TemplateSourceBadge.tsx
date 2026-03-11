@@ -2,26 +2,25 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import type { TemplateSource } from '@/types/templates';
 import { getTemplateSourceLabel } from '@/lib/templateUtils';
-import { Colors, Spacing, Typography, BorderRadius } from '@/constants/design';
+import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
+import { getTypography, Spacing, BorderRadius } from '@/constants/design';
 
-const SOURCE_COLORS: Record<TemplateSource, { bg: string; text: string }> = {
-  local: { bg: Colors.borderLight, text: Colors.textSecondary },
-  shared: { bg: Colors.info + '20', text: Colors.info },
-  api: { bg: Colors.primaryLight, text: Colors.primaryDark },
-};
-
-const DEFAULT_SOURCE_STYLE = SOURCE_COLORS.local;
+function getSourceColors(source: TemplateSource | string | null | undefined, colors: ThemeColors): { bg: string; text: string } {
+  const sourceColors: Record<TemplateSource, { bg: string; text: string }> = {
+    local: { bg: colors.borderLight, text: colors.textSecondary },
+    shared: { bg: colors.info + '20', text: colors.info },
+    api: { bg: colors.primaryLight, text: colors.primaryDark },
+  };
+  
+  if (source === 'local' || source === 'shared' || source === 'api') {
+    return sourceColors[source];
+  }
+  return sourceColors.local;
+}
 
 interface TemplateSourceBadgeProps {
   source: TemplateSource | string | null | undefined;
   style?: ViewStyle;
-}
-
-function getSourceStyle(source: TemplateSource | string | null | undefined): { bg: string; text: string } {
-  if (source === 'local' || source === 'shared' || source === 'api') {
-    return SOURCE_COLORS[source];
-  }
-  return DEFAULT_SOURCE_STYLE;
 }
 
 /**
@@ -30,11 +29,14 @@ function getSourceStyle(source: TemplateSource | string | null | undefined): { b
  * Handles unknown or missing source from API (falls back to local style).
  */
 export function TemplateSourceBadge({ source, style }: TemplateSourceBadgeProps) {
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
   const label = getTemplateSourceLabel(source as TemplateSource);
-  const { bg, text } = getSourceStyle(source);
+  const { bg, text } = getSourceColors(source, colors);
+  
   return (
     <View style={[styles.badge, { backgroundColor: bg }, style]}>
-      <Text style={[styles.label, { color: text }]}>{label}</Text>
+      <Text style={[typography.small, { color: text, fontWeight: '600' }]}>{label}</Text>
     </View>
   );
 }
@@ -45,9 +47,5 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
     alignSelf: 'flex-start',
-  },
-  label: {
-    ...Typography.small,
-    fontWeight: '600',
   },
 });

@@ -2,76 +2,26 @@
  * Design System Constants
  * Modern 2026 aesthetic with consistent styling across the app
  * Following 8pt grid system and accessibility standards
+ * 
+ * Theme-aware: Use `useTheme().colors` from ThemeContext for dynamic theming.
+ * The `Colors` export below is the light theme for backward compatibility.
  */
+
+import { Platform } from 'react-native';
+import { LightColors, DarkColors, ThemeColors } from '@/contexts/ThemeContext';
 
 export type Density = 'comfortable' | 'compact';
 export const DENSITY: Density = 'compact';
 const isCompact = DENSITY === 'compact';
 
-export const Colors = {
-  // Primary (reduced saturation by ~15%)
-  primary: '#C4A02D', // Reduced saturation from #D4AF37
-  primaryDark: '#A88A1A',
-  primaryLight: '#E8D9A0',
-  
-  // Neutral
-  background: '#F8F9FB', // Pure app background
-  surface: '#FFFFFF', // Pure white cards
-  surfaceElevated: '#FFFFFF',
-  
-  // Text (2026 standards)
-  textPrimary: '#111111', // #111 for primary text
-  textSecondary: '#6B7280', // Secondary text
-  textTertiary: '#9CA3AF',
-  textInverse: '#FFFFFF',
-  
-  // Status (error only for errors, never warnings/info)
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444', // Only for errors
-  danger: '#F43F5E', // Destructive actions (e.g. delete)
-  dangerDark: '#E11D48',
-  dangerBg: 'rgba(244, 63, 94, 0.12)',
-  info: '#3B82F6',
-  
-  // Borders & Dividers
-  border: '#E5E7EB',
-  borderLight: '#F3F4F6',
-  
-  // Overlays
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayDark: 'rgba(0, 0, 0, 0.8)',
-  overlayModal: 'rgba(15, 23, 42, 0.72)', // Modal backdrop (web-friendly)
-  overlayLight: 'rgba(0, 0, 0, 0.4)',
-  overlayGradientEnd: 'rgba(0, 0, 0, 0.98)',
+/**
+ * @deprecated Use `useTheme().colors` from ThemeContext for theme-aware colors.
+ * This export is kept for backward compatibility and represents the light theme.
+ */
+export const Colors = LightColors;
 
-  // Status backgrounds (tinted surfaces for alerts/cards)
-  successBg: '#ECFDF5',
-  successBorder: '#10B981',
-  successText: '#065F46',
-  errorBg: '#FEF2F2',
-  errorBorder: '#FECACA',
-  errorText: '#991B1B',
-  errorTextDark: '#B91C1C',
-  warningBg: '#FFFBEB',
-  warningBorder: '#FDE68A',
-  warningText: '#92400E',
-  warningTextDark: '#A16207',
-  infoBg: '#EFF6FF',
-  infoBorder: '#BFDBFE',
-  infoText: '#1E40AF',
-
-  // Icon/default accent (for icons when not primary)
-  iconDefault: '#333333',
-  // Legacy primary used in some icons; prefer Colors.primary
-  primaryLegacy: '#D4AF37',
-
-  // Floating footer CTA (luxury gold pill)
-  ctaGold: '#C9A227',
-  ctaGoldDisabled: '#E5D3A1',
-
-  transparent: "transparent", 
-};
+export { LightColors, DarkColors };
+export type { ThemeColors };
 
 // Accent palette for avatars/badges (consistent order across app)
 export const AccentPalette = [
@@ -110,59 +60,88 @@ export const BorderRadius = {
   full: 9999,
 };
 
+const noShadow = {
+  shadowColor: 'transparent',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0,
+};
+
 export const Shadows = {
-  // Very subtle shadow for cards (2026 standard)
-  sm: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  lg: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  xl: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  primary: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  /** Floating glass footer – upward subtle shadow */
-  floatingFooter: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  /** Premium CTA pill (gold) */
-  ctaPill: {
-    shadowColor: Colors.ctaGold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
+  // Very subtle shadow for cards (2026 standard) — iOS only; no shadow on Android
+  sm: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.03,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+  }),
+  md: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+  }),
+  lg: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+  }),
+  xl: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+      elevation: 6,
+    },
+  }),
+  primary: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: Colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+  }),
+  /** Floating glass footer – upward subtle shadow — iOS only */
+  floatingFooter: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 10,
+    },
+  }),
+  /** Premium CTA pill (gold) — iOS only */
+  ctaPill: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: Colors.ctaGold,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  }),
 };
 
 // Typography System (2026 standards); compact reduces fontSize only
@@ -338,7 +317,7 @@ export const HeaderStyles = {
     alignItems: 'center' as const,
     paddingHorizontal: Spacing.md,
     paddingTop: isCompact ? Spacing.lg : Spacing.xl,
-    paddingBottom: Spacing.xs,
+    paddingBottom: Spacing.md,
   },
   title: {
     ...(isCompact ? Typography.h3 : Typography.h2),
@@ -416,8 +395,6 @@ export const LayoutStyles = {
   screenContent: {
     flex: 1,
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.lg,
   },
   section: {
     marginBottom: isCompact ? Spacing.lg : Spacing.xl,
@@ -438,7 +415,7 @@ export const LayoutStyles = {
 
 /** Overrides to reduce stacked vertical spacing when Section wraps Card or EmptyState. Apply via style prop. */
 export const CompactLayoutStyles = {
-  compactSection: { marginBottom: Spacing.md },
+  compactSection: { marginBottom: Spacing.md, flex: 1 },
   compactCard: { paddingVertical: Spacing.sm },
 };
 
@@ -457,6 +434,7 @@ export const ModalStyles = {
     alignItems: 'center' as const,
   },
   content: {
+    flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
@@ -489,3 +467,350 @@ export const StatusStyles = {
   },
   infoText: { color: Colors.infoText },
 };
+
+// ============================================================================
+// THEME-AWARE STYLE FACTORIES
+// Use these with useTheme().colors for dynamic light/dark mode support
+// ============================================================================
+
+/**
+ * Theme-aware button styles factory
+ */
+export const getButtonStyles = (colors: ThemeColors) => ({
+  primaryIcon: {
+    width: _iconSize,
+    height: _iconSize,
+    minWidth: _iconSize,
+    minHeight: _iconSize,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    ...getShadows(colors).primary,
+  },
+  secondaryIcon: {
+    width: _iconSize,
+    height: _iconSize,
+    minWidth: _iconSize,
+    minHeight: _iconSize,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.surface,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    ...Shadows.sm,
+  },
+  dangerIcon: {
+    width: _iconSize,
+    height: _iconSize,
+    minWidth: _iconSize,
+    minHeight: _iconSize,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.dangerBg,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  back: {
+    width: _iconSize,
+    height: _iconSize,
+    minWidth: _iconSize,
+    minHeight: _iconSize,
+    borderRadius: BorderRadius.full,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    ...Shadows.sm,
+  },
+  primary: {
+    backgroundColor: colors.primary,
+    minHeight: _primaryHeight,
+    paddingVertical: _primaryPadding,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    ...getShadows(colors).primary,
+  },
+  secondary: {
+    backgroundColor: colors.surface,
+    minHeight: _primaryHeight,
+    paddingVertical: _primaryPadding,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  ghost: {
+    minHeight: _primaryHeight,
+    paddingVertical: _primaryPadding,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+});
+
+/**
+ * Theme-aware card styles factory
+ */
+export const getCardStyles = (colors: ThemeColors) => ({
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: isCompact ? Spacing.md : Spacing.lg,
+    ...Shadows.sm,
+  },
+  cardElevated: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: BorderRadius.lg,
+    padding: isCompact ? Spacing.md : Spacing.lg,
+    ...Shadows.md,
+  },
+});
+
+/**
+ * Theme-aware layout styles factory
+ */
+export const getLayoutStyles = (colors: ThemeColors) => ({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  screenContent: {
+    flex: 1,
+    paddingHorizontal: Spacing.md,
+  },
+  section: {
+    marginBottom: isCompact ? Spacing.lg : Spacing.xl,
+  },
+  sectionHeader: {
+    marginBottom: Spacing.sm,
+  },
+  row: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  rowBetween: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+});
+
+/**
+ * Theme-aware input styles factory
+ */
+export const getInputStyles = (colors: ThemeColors) => ({
+  container: {
+    marginBottom: Spacing.formFieldGap,
+  },
+  label: {
+    ...getTypography(colors).label,
+    marginBottom: Spacing.sm,
+    color: colors.textPrimary,
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.xs,
+    height: 38,
+    minHeight: 38,
+    lineHeight: 20,
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '400' as const,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+});
+
+/**
+ * Theme-aware modal styles factory
+ */
+export const getModalStyles = (colors: ThemeColors) => ({
+  overlay: {
+    flex: 1,
+    backgroundColor: colors.overlayModal,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  overlayLight: {
+    flex: 1,
+    backgroundColor: colors.overlayLight,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  content: {
+    backgroundColor: colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    width: '100%' as const,
+    maxWidth: 400,
+    ...Shadows.xl,
+  },
+});
+
+/**
+ * Theme-aware status styles factory
+ */
+export const getStatusStyles = (colors: ThemeColors) => ({
+  success: {
+    backgroundColor: colors.successBg,
+    borderColor: colors.successBorder,
+  },
+  successText: { color: colors.successText },
+  error: {
+    backgroundColor: colors.errorBg,
+    borderColor: colors.errorBorder,
+  },
+  errorText: { color: colors.errorTextDark },
+  warning: {
+    backgroundColor: colors.warningBg,
+    borderColor: colors.warningBorder,
+  },
+  warningText: { color: colors.warningText },
+  info: {
+    backgroundColor: colors.infoBg,
+    borderColor: colors.infoBorder,
+  },
+  infoText: { color: colors.infoText },
+});
+
+/**
+ * Theme-aware header styles factory
+ */
+export const getHeaderStyles = (colors: ThemeColors) => ({
+  container: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: Spacing.md,
+    paddingTop: isCompact ? Spacing.lg : Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  title: {
+    ...getTypography(colors)[isCompact ? 'h3' : 'h2'],
+    flex: 1,
+    textAlign: 'center' as const,
+  },
+  titleLeft: {
+    ...getTypography(colors)[isCompact ? 'h3' : 'h2'],
+  },
+  actions: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: Spacing.sm,
+  },
+});
+
+/**
+ * Theme-aware typography factory
+ */
+export const getTypography = (colors: ThemeColors) => ({
+  h1: {
+    fontSize: _h1Fs,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    lineHeight: _h1Fs * 1.5,
+    letterSpacing: -0.3,
+  },
+  h2: {
+    fontSize: _h2Fs,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    lineHeight: _h2Fs * 1.5,
+    letterSpacing: -0.3,
+  },
+  h3: {
+    fontSize: _h3Fs,
+    fontWeight: '600' as const,
+    color: colors.textPrimary,
+    lineHeight: _h3Fs * 1.5,
+  },
+  body: {
+    fontSize: _bodyFs,
+    fontWeight: '400' as const,
+    color: colors.textPrimary,
+    lineHeight: _bodyFs * 1.5,
+  },
+  bodyBold: {
+    fontSize: _buttonFs,
+    fontWeight: '500' as const,
+    color: colors.textPrimary,
+    lineHeight: _buttonFs * 1.5,
+  },
+  bodySemiBold: {
+    fontSize: _bodyFs,
+    fontWeight: '600' as const,
+    color: colors.textPrimary,
+    lineHeight: _bodyFs * 1.5,
+  },
+  caption: {
+    fontSize: _captionFs,
+    fontWeight: '400' as const,
+    color: colors.textSecondary,
+    lineHeight: _captionFs * 1.2,
+  },
+  captionBold: {
+    fontSize: _captionFs,
+    fontWeight: '500' as const,
+    color: colors.textSecondary,
+    lineHeight: _captionFs * 1.2,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '400' as const,
+    color: colors.textSecondary,
+    lineHeight: 13 * 1.5,
+  },
+  small: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    color: colors.textTertiary,
+    lineHeight: 12 * 1.5,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: colors.textPrimary,
+    lineHeight: 18 * 1.4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: colors.textSecondary,
+    lineHeight: 12 * 1.5,
+  },
+});
+
+/**
+ * Theme-aware shadows factory (for shadows that use theme colors). Android gets no shadow.
+ */
+export const getShadows = (colors: ThemeColors) => ({
+  ...Shadows,
+  primary: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+  }),
+  ctaPill: Platform.select({
+    android: noShadow,
+    default: {
+      shadowColor: colors.ctaGold,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  }),
+});

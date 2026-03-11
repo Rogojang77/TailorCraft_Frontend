@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,25 +9,34 @@ import {
   Modal,
   FlatList,
   Platform,
+  Image,
 } from 'react-native';
 import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Header } from '@/components/layout/Header';
+import { ZoomableImageViewer } from '@/components/ZoomableImageViewer';
+import { useCustomBack } from '@/contexts/PageTitleContext';
 import { Section } from '@/components/ui/Section';
 import { Loader } from '@/components/ui/Loader';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, User, Phone, Save, Search, X, ChevronDown, Mail } from 'lucide-react-native';
+import { ArrowLeft, User, Phone, Save, Search, X, ChevronDown, Mail, Camera, ImageIcon, ZoomIn, Calendar } from 'lucide-react-native';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
-import { PaywallModal } from '@/components/PaywallModal';
-import { api, apiFetch, getErrorMessage, ApiError, ApiErrorCode } from '@/lib/api';
+import { PaywallModal } from '@/components/subscription';
+import { api, apiFetch, getErrorMessage, ApiError, ApiErrorCode, uploadImage, API_BASE_URL } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { customerFullName } from '@/lib/api-mappers';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, BorderRadius, CompactLayoutStyles, Shadows } from '@/constants/design';
+import { customerFullName } from '@/lib/api';
+import { Spacing, Typography, ButtonStyles, HeaderStyles, BorderRadius, CompactLayoutStyles, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+
+const DEFAULT_DELIVERY_WEEKS = 3;
+type Gender = 'male' | 'female' | 'neutral' | null;
 
 interface Customer {
   id: string;
@@ -35,10 +44,13 @@ interface Customer {
   lastName: string;
   phone: string;
   email?: string | null;
+  gender?: string | null;
+  referenceImage?: string | null;
 }
 
 export default function ClientDataScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const params = useLocalSearchParams<{
     clientId?: string;
     clientName?: string;
@@ -46,13 +58,15 @@ export default function ClientDataScreen() {
     clientEmail?: string;
     clientNotes?: string;
   }>();
-  const { t } = useI18n();
-  const { draftOrder, updateCustomer, updateNotes } = useOrderDraft();
+  const { t, locale } = useI18n();
+  const { draftOrder, updateCustomer, updateNotes, updateDeliveryDate } = useOrderDraft();
   const { subscription, upgradeToPro, refreshSubscription } = useSubscription();
+  const { defaultPhonePrefix } = useSettings();
 
-  // Helper to parse name into first and last name
-  const parseName = (fullName: string): { firstName: string; lastName: string } => {
-    const parts = fullName.trim().split(/\s+/);
+  // Helper to parse name into first and last name (safe for undefined/null)
+  const parseName = (fullName: string | undefined | null): { firstName: string; lastName: string } => {
+    const s = fullName != null ? String(fullName).trim() : '';
+    const parts = s ? s.split(/\s+/) : [];
     if (parts.length === 0) return { firstName: '', lastName: '' };
     if (parts.length === 1) return { firstName: parts[0], lastName: '' };
     return {
@@ -96,6 +110,7 @@ export default function ClientDataScreen() {
     return formatted.replace(/\D/g, '');
   };
 
+  // When opening from client-details ("New order"), URL params (clientId, clientName, clientPhone, clientEmail, clientNotes) are applied so the form is pre-filled.
   // Initialize form fields - check route params first, then draft order
   const getInitialFields = () => {
     if (params.clientId && params.clientName && params.clientPhone) {
@@ -107,12 +122,13 @@ export default function ClientDataScreen() {
         email: params.clientEmail || '',
       };
     }
-    const nameParts = parseName(draftOrder.customer.name);
+    const customer = draftOrder.customer;
+    const nameParts = parseName(customer?.name);
     return {
       firstName: nameParts.firstName,
       lastName: nameParts.lastName,
-      phone: draftOrder.customer.phone ? formatPhoneNumber(draftOrder.customer.phone) : '',
-      email: draftOrder.customer.email || '',
+      phone: customer?.phone ? formatPhoneNumber(customer.phone) : (defaultPhonePrefix || ''),
+      email: customer?.email || '',
     };
   };
 
@@ -125,7 +141,12 @@ export default function ClientDataScreen() {
     params.clientNotes ?? draftOrder.notes ?? ''
   );
   const [showNotes, setShowNotes] = useState(!!(params.clientNotes ?? draftOrder.notes));
-  
+  const [gender, setGender] = useState<Gender>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,6 +156,102 @@ export default function ClientDataScreen() {
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const syncToDraftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Snapshot of client data when we loaded/selected an existing customer; used to detect edits and prompt save-to-client vs only-for-order */
+  const originalCustomerRef = useRef<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    gender: Gender;
+    referenceImage: string | null;
+  } | null>(null);
+
+  // Sync form fields (name, phone, email, notes) into the draft as the user types, so the draft persists client details even before they tap Next
+  useEffect(() => {
+    if (syncToDraftTimeoutRef.current) clearTimeout(syncToDraftTimeoutRef.current);
+    syncToDraftTimeoutRef.current = setTimeout(() => {
+      syncToDraftTimeoutRef.current = null;
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+      const rawPhone = getPhoneDigits(phone);
+      const phoneToStore = rawPhone.length >= 10 ? (rawPhone.startsWith('40') ? rawPhone : '40' + rawPhone) : phone || '';
+      updateCustomer({
+        name: fullName || undefined,
+        phone: phoneToStore || undefined,
+        email: email.trim() || undefined,
+      });
+      updateNotes(notes.trim() || undefined);
+    }, 400);
+
+    return () => {
+      if (syncToDraftTimeoutRef.current) {
+        clearTimeout(syncToDraftTimeoutRef.current);
+        syncToDraftTimeoutRef.current = null;
+      }
+    };
+  }, [firstName, lastName, phone, email, notes, updateCustomer, updateNotes]);
+
+  // When draft is restored with customer info after mount (e.g. we were redirected to client-data before loadDraft resolved), sync draft -> form so the user sees saved client details
+  const hasParamsOverride = !!(params.clientId && params.clientName && params.clientPhone);
+  useEffect(() => {
+    if (hasParamsOverride) return;
+    const customer = draftOrder.customer;
+    const hasDraftCustomer = (customer?.name?.trim() ?? '') !== '' || (customer?.phone?.trim() ?? '') !== '';
+    const formLooksEmpty = !firstName.trim() && !lastName.trim() && getPhoneDigits(phone).length < 10 && !email.trim();
+    if (!hasDraftCustomer || !formLooksEmpty) return;
+
+    const nameParts = parseName(customer?.name);
+    setFirstName(nameParts.firstName);
+    setLastName(nameParts.lastName);
+    setPhone(customer?.phone ? formatPhoneNumber(customer.phone) : (defaultPhonePrefix || ''));
+    setEmail(customer?.email ?? '');
+    if ((draftOrder.notes ?? '').trim()) {
+      setNotes(draftOrder.notes ?? '');
+      setShowNotes(true);
+    }
+  }, [draftOrder.customer?.name, draftOrder.customer?.phone, draftOrder.customer?.email, draftOrder.notes]);
+
+  // When draft has an existing customer id (e.g. restored draft), fetch full customer to prefill gender and reference image
+  useEffect(() => {
+    const customerId = draftOrder.customer.id;
+    if (!customerId || hasParamsOverride) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const customer = await apiFetch<Customer>(api.customers(customerId));
+        if (!cancelled && customer) {
+          if (customer.gender === 'male' || customer.gender === 'female' || customer.gender === 'neutral') setGender(customer.gender);
+          if (customer.referenceImage != null) setReferenceImage(customer.referenceImage);
+          originalCustomerRef.current = {
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            phone: getPhoneDigits(customer.phone),
+            email: customer.email ?? '',
+            gender: (customer.gender as Gender) ?? null,
+            referenceImage: customer.referenceImage ?? null,
+          };
+        }
+      } catch {
+        // ignore; customer may not have gender/referenceImage
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [draftOrder.customer.id, hasParamsOverride]);
+
+  // When draft was cleared (e.g. user tapped "Delete draft"), reset form so client details are not left on screen
+  useEffect(() => {
+    if (hasParamsOverride) return;
+    const c = draftOrder.customer;
+    const draftCustomerEmpty = !c?.id && !(c?.name?.trim()) && !(c?.phone?.trim());
+    if (!draftCustomerEmpty) return;
+    originalCustomerRef.current = null;
+    setFirstName('');
+    setLastName('');
+    setPhone(defaultPhonePrefix || '');
+    setEmail('');
+    setNotes('');
+    setShowNotes(false);
+  }, [draftOrder.customer?.id, draftOrder.customer?.name, draftOrder.customer?.phone, hasParamsOverride, defaultPhonePrefix]);
 
   // Sync context and local state when route params (client) change (e.g. same screen, different client)
   useEffect(() => {
@@ -207,6 +324,16 @@ export default function ClientDataScreen() {
     const formattedPhone = formatPhoneNumber(customer.phone);
     setPhone(formattedPhone);
     setEmail(customer.email || '');
+    setGender(customer.gender === 'male' || customer.gender === 'female' ? customer.gender : null);
+    setReferenceImage(customer.referenceImage ?? null);
+    originalCustomerRef.current = {
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      phone: getPhoneDigits(customer.phone),
+      email: customer.email ?? '',
+      gender: (customer.gender as Gender) ?? null,
+      referenceImage: customer.referenceImage ?? null,
+    };
     updateCustomer({
       id: customer.id,
       name: customerFullName(customer.firstName, customer.lastName),
@@ -218,12 +345,85 @@ export default function ClientDataScreen() {
     setSearchResults([]);
   };
 
+  const handlePickReferenceImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('common.error'), t('clients.edit.photoPermissionDenied'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUploading(true);
+      try {
+        const imageUrl = await uploadImage(result.assets[0].uri);
+        setReferenceImage(imageUrl);
+      } catch (e) {
+        Alert.alert(t('common.error'), t('clients.edit.imageUploadError'));
+      } finally {
+        setImageUploading(false);
+      }
+    }
+  };
+
+  const handleRemoveReferenceImage = () => {
+    setReferenceImage(null);
+  };
+
   // Load initial customers when modal opens
   useEffect(() => {
     if (showCustomerSearch) {
       loadInitialCustomers();
     }
   }, [showCustomerSearch, loadInitialCustomers]);
+
+  // Set default delivery date on mount if not already set
+  useEffect(() => {
+    if (!draftOrder.deliveryDate) {
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() + DEFAULT_DELIVERY_WEEKS * 7);
+      updateDeliveryDate(defaultDate.toISOString());
+    }
+  }, []);
+
+  const deliveryDate = draftOrder.deliveryDate ? new Date(draftOrder.deliveryDate) : new Date();
+  const minDeliveryDate = new Date();
+  minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
+
+  const formatDeliveryDate = (date: Date): string => {
+    return date.toLocaleDateString(locale === 'ro' ? 'ro-RO' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const handleDeliveryDateChange = (event: { type: string }, selectedDate?: Date) => {
+    if (Platform.OS === 'ios') setShowDeliveryDatePicker(false);
+    if (event.type === 'set' && selectedDate) {
+      updateDeliveryDate(selectedDate.toISOString());
+    }
+  };
+
+  const openDeliveryDatePicker = () => {
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: deliveryDate,
+        mode: 'date',
+        minimumDate: minDeliveryDate,
+        onChange: (event, date) => {
+          if (event.type === 'set' && date) updateDeliveryDate(date.toISOString());
+        },
+      });
+    } else {
+      setShowDeliveryDatePicker(true);
+    }
+  };
 
   const saveClientData = async (): Promise<boolean> => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -257,13 +457,15 @@ export default function ClientDataScreen() {
 
         if (!customerId) {
           try {
-            const newCustomer = await apiFetch<Customer>(api.customers(), {
+            const newCustomer = await apiFetch<Customer & { gender?: Gender; referenceImage?: string | null }>(api.customers(), {
               method: 'POST',
               body: JSON.stringify({
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 phone: phoneToSave,
                 email: email.trim() || undefined,
+                gender: gender || undefined,
+                referenceImage: referenceImage || undefined,
               }),
             });
             customerId = newCustomer.id;
@@ -302,6 +504,33 @@ export default function ClientDataScreen() {
     }
   };
 
+  const hasClientDataChanged = (): boolean => {
+    const orig = originalCustomerRef.current;
+    if (!orig) return false;
+    const p = getPhoneDigits(phone);
+    return (
+      firstName.trim() !== orig.firstName.trim() ||
+      lastName.trim() !== orig.lastName.trim() ||
+      p !== orig.phone ||
+      (email ?? '').trim() !== orig.email.trim() ||
+      gender !== orig.gender ||
+      (referenceImage ?? null) !== orig.referenceImage
+    );
+  };
+
+  const applyDraftAndNavigate = () => {
+    const phoneDigits = getPhoneDigits(phone);
+    const phoneToSave = phoneDigits.startsWith('40') ? phoneDigits : '40' + phoneDigits;
+    updateCustomer({
+      id: draftOrder.customer.id,
+      name: customerFullName(firstName.trim(), lastName.trim()),
+      phone: phoneToSave,
+      email: email.trim() || undefined,
+    });
+    if (notes.trim()) updateNotes(notes.trim());
+    router.push('/new-order');
+  };
+
   const handleSave = async () => {
     const ok = await saveClientData();
     if (ok) {
@@ -312,10 +541,65 @@ export default function ClientDataScreen() {
   };
 
   const handleNext = async () => {
-    const ok = await saveClientData();
-    if (ok) {
-      router.push('/new-order');
+    if (!firstName.trim() || !lastName.trim()) {
+      Alert.alert(t('common.error'), t('newOrder.client.firstNameRequired'));
+      return;
     }
+    const phoneDigits = getPhoneDigits(phone);
+    if (!phoneDigits || phoneDigits.length < 10) {
+      Alert.alert(t('common.error'), t('newOrder.client.phoneRequired'));
+      return;
+    }
+
+    const existingCustomerId = draftOrder.customer.id;
+    const hasChanges = existingCustomerId && hasClientDataChanged();
+
+    if (hasChanges) {
+      Alert.alert(
+        t('newOrder.client.saveChangesToClientTitle'),
+        t('newOrder.client.saveChangesToClientMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('newOrder.client.onlyForThisOrder'),
+            onPress: async () => {
+              const ok = await saveClientData();
+              if (ok) router.push('/new-order');
+            },
+          },
+          {
+            text: t('newOrder.client.saveToClient'),
+            onPress: async () => {
+              setIsLoading(true);
+              try {
+                const phoneToSave = phoneDigits.startsWith('40') ? phoneDigits : '40' + phoneDigits;
+                await apiFetch(api.customers(existingCustomerId), {
+                  method: 'PUT',
+                  body: JSON.stringify({
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
+                    phone: phoneToSave,
+                    email: email.trim() || null,
+                    notes: notes.trim() || null,
+                    gender: gender || null,
+                    referenceImage: referenceImage || null,
+                  }),
+                });
+                applyDraftAndNavigate();
+              } catch (e) {
+                Alert.alert(t('common.error'), getErrorMessage(e, t('newOrder.client.saveError')));
+              } finally {
+                setIsLoading(false);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    const ok = await saveClientData();
+    if (ok) router.push('/new-order');
   };
 
   const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
@@ -340,26 +624,11 @@ export default function ClientDataScreen() {
   // bottomOffset so KeyboardAwareScrollView keeps focused input above footer + keyboard (no padding hacks).
   const footerBottomOffset = FOOTER_CONTENT_HEIGHT + insets.bottom;
 
+  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
+
   return (
     <>
     <ScreenContainer noPadding>
-      <Header
-        title={t('newOrder.client.clientData')}
-        onBack={() => router.replace('/(tabs)/orders')}
-        backAccessibilityLabel={t('common.back')}
-        rightActions={
-          <Button
-            variant="primaryIcon"
-            onPress={handleSave}
-            disabled={!isValid || isLoading}
-            loading={isLoading}
-            accessibilityLabel={t('common.save')}
-          >
-            <Save size={20} color={Colors.textInverse} />
-          </Button>
-        }
-      />
-
       <View style={styles.contentWrapper}>
         <KeyboardAwareScrollView
           style={styles.content}
@@ -368,22 +637,22 @@ export default function ClientDataScreen() {
           keyboardShouldPersistTaps="handled"
           bottomOffset={footerBottomOffset}
         >
-          <Section title={t('newOrder.client.existingCustomer')} style={StyleSheet.flatten([styles.searchSection, CompactLayoutStyles.compactSection])}>
+          <Section title={t('newOrder.client.existingCustomer')} style={StyleSheet.flatten([styles.searchSection, CompactLayoutStyles.compactSection, { backgroundColor: colors.surface }])}>
             <Button
               variant="secondary"
               size="sm"
               onPress={() => setShowCustomerSearch(true)}
-              leftIcon={<Search size={18} color={Colors.primary} />}
-              style={styles.searchButton}
+              leftIcon={<Search size={18} color={colors.primary} />}
+              style={StyleSheet.flatten([styles.searchButton, { backgroundColor: colors.background, borderColor: colors.primary }])}
             >
               {t('newOrder.client.searchExistingCustomer')}
             </Button>
           </Section>
 
           <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{t('newOrder.client.or')}</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.textTertiary }]}>{t('newOrder.client.or')}</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
           <Section title={t('newOrder.client.newClientDataSection')} style={StyleSheet.flatten([styles.form, CompactLayoutStyles.compactSection])}>
@@ -392,7 +661,7 @@ export default function ClientDataScreen() {
               value={lastName}
               onChangeText={setLastName}
               placeholder={t('newOrder.client.lastNamePlaceholder')}
-              leftIcon={<User size={20} color={Colors.textSecondary} />}
+              leftIcon={<User size={20} color={colors.textSecondary} />}
               containerStyle={styles.inputGroup}
             />
 
@@ -401,7 +670,7 @@ export default function ClientDataScreen() {
               value={firstName}
               onChangeText={setFirstName}
               placeholder={t('newOrder.client.firstNamePlaceholder')}
-              leftIcon={<User size={20} color={Colors.textSecondary} />}
+              leftIcon={<User size={20} color={colors.textSecondary} />}
               containerStyle={styles.inputGroup}
             />
 
@@ -411,9 +680,44 @@ export default function ClientDataScreen() {
               onChangeText={handlePhoneChange}
               placeholder={t('newOrder.client.phonePlaceholder')}
               keyboardType="phone-pad"
-              leftIcon={<Phone size={20} color={Colors.textSecondary} />}
+              leftIcon={<Phone size={20} color={colors.textSecondary} />}
               containerStyle={styles.inputGroup}
             />
+
+            {/* Delivery date (termen de predare) - under phone */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('createOrder.deliveryDateLabel')}</Text>
+              <TouchableOpacity
+                style={[styles.deliveryDateSelector, { backgroundColor: colors.borderLight }]}
+                onPress={openDeliveryDatePicker}
+                activeOpacity={0.7}
+              >
+                <View style={styles.deliveryDateSelectorContent}>
+                  <Calendar size={20} color={colors.textSecondary} />
+                  <Text style={[styles.deliveryDateValue, { color: colors.textPrimary }]}>
+                    {formatDeliveryDate(deliveryDate)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {Platform.OS === 'ios' && showDeliveryDatePicker && (
+                <View style={styles.deliveryDatePickerInline}>
+                  <View style={styles.deliveryDatePickerDoneRow}>
+                    <TouchableOpacity onPress={() => setShowDeliveryDatePicker(false)} activeOpacity={0.7}>
+                      <Text style={[styles.deliveryDatePickerDoneText, { color: colors.primary }]}>{t('common.done')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={deliveryDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={handleDeliveryDateChange}
+                    minimumDate={minDeliveryDate}
+                    textColor={colors.textPrimary}
+                    themeVariant={isDark ? 'dark' : 'light'}
+                  />
+                </View>
+              )}
+            </View>
 
             <Input
               label={t('newOrder.client.emailOptionalLabel')}
@@ -423,9 +727,100 @@ export default function ClientDataScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               optional
-              leftIcon={<Mail size={20} color={Colors.textTertiary} />}
+              leftIcon={<Mail size={20} color={colors.textTertiary} />}
               containerStyle={styles.inputGroup}
             />
+
+            {/* Gender Selection - same as Add Client */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>{t('clients.edit.genderLabel')}</Text>
+              <View style={styles.genderSelector}>
+                {(['male', 'female'] as const).map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.genderOption,
+                      { borderColor: colors.border, backgroundColor: colors.surface },
+                      gender === g && { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+                    ]}
+                    onPress={() => setGender(g)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.genderOptionText,
+                        { color: colors.textSecondary },
+                        gender === g && { color: colors.primary },
+                      ]}
+                    >
+                      {t(`clients.edit.gender.${g}`)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Reference Image - same as Add Client */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>{t('clients.edit.referenceImageLabel')}</Text>
+              <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('clients.edit.referenceImageHint')}</Text>
+              {referenceImage ? (
+                <View style={[styles.referenceImageContainer, { backgroundColor: colors.background }]}>
+                  <TouchableOpacity
+                    onPress={() => setImageViewerVisible(true)}
+                    activeOpacity={0.9}
+                    style={styles.referenceImageTouchable}
+                  >
+                    <Image
+                      source={{
+                        uri: referenceImage.startsWith('http')
+                          ? referenceImage
+                          : `${API_BASE_URL}${referenceImage}`,
+                      }}
+                      style={styles.referenceImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.zoomOverlay}>
+                      <ZoomIn size={18} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+                  <View style={styles.referenceImageActions}>
+                    <TouchableOpacity
+                      style={styles.changeImageBtn}
+                      onPress={handlePickReferenceImage}
+                      disabled={imageUploading}
+                    >
+                      <Camera size={16} color={colors.primary} />
+                      <Text style={[styles.changeImageText, { color: colors.primary }]}>{t('clients.edit.changeImage')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeImageBtn}
+                      onPress={handleRemoveReferenceImage}
+                      disabled={imageUploading}
+                    >
+                      <X size={16} color={colors.error} />
+                      <Text style={[styles.removeImageText, { color: colors.error }]}>{t('clients.edit.removeImage')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.imagePicker, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={handlePickReferenceImage}
+                  disabled={imageUploading}
+                  activeOpacity={0.7}
+                >
+                  {imageUploading ? (
+                    <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.uploading')}</Text>
+                  ) : (
+                    <>
+                      <ImageIcon size={32} color={colors.textTertiary} />
+                      <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.addReferenceImage')}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={styles.inputGroup}>
               <TouchableOpacity
@@ -433,10 +828,10 @@ export default function ClientDataScreen() {
                 onPress={() => setShowNotes(!showNotes)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.notesLabelOptional}>{t('newOrder.client.notesOptionalLabel')}</Text>
+                <Text style={[styles.notesLabelOptional, { color: colors.textTertiary }]}>{t('newOrder.client.notesOptionalLabel')}</Text>
                 <ChevronDown
                   size={18}
-                  color={Colors.textTertiary}
+                  color={colors.textTertiary}
                   style={[styles.chevron, showNotes && styles.chevronRotated]}
                 />
               </TouchableOpacity>
@@ -475,9 +870,9 @@ export default function ClientDataScreen() {
         onRequestClose={() => setShowCustomerSearch(false)}
       >
         <KeyboardAvoidingView style={styles.modalKeyboardAvoid} behavior="padding">
-          <SafeAreaView style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('newOrder.client.searchModalTitle')}</Text>
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('newOrder.client.searchModalTitle')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => {
@@ -487,11 +882,11 @@ export default function ClientDataScreen() {
                 setInitialCustomers([]);
               }}
             >
-              <X size={24} color={Colors.textPrimary} />
+              <X size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.searchInputContainer}>
+          <View style={[styles.searchInputContainer, { borderBottomColor: colors.border }]}>
             <Input
               value={searchQuery}
               onChangeText={(text) => {
@@ -505,7 +900,7 @@ export default function ClientDataScreen() {
 
           {(isSearching || isLoadingInitial) && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           )}
 
@@ -514,27 +909,27 @@ export default function ClientDataScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.customerItem}
+                style={[styles.customerItem, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }]}
                 onPress={() => selectCustomer(item)}
                 activeOpacity={0.7}
               >
                 <View style={styles.customerInfo}>
-                  <Text style={styles.customerName}>
+                  <Text style={[styles.customerName, { color: colors.textPrimary }]}>
                     {customerFullName(item.firstName, item.lastName)}
                   </Text>
-                  <Text style={styles.customerPhone}>{item.phone}</Text>
-                  {item.email && <Text style={styles.customerEmail}>{item.email}</Text>}
+                  <Text style={[styles.customerPhone, { color: colors.textSecondary }]}>{item.phone}</Text>
+                  {item.email && <Text style={[styles.customerEmail, { color: colors.textTertiary }]}>{item.email}</Text>}
                 </View>
               </TouchableOpacity>
             )}
             ListEmptyComponent={
               !isSearching && !isLoadingInitial && searchQuery.trim() ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>{t('newOrder.client.emptySearchResults')}</Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('newOrder.client.emptySearchResults')}</Text>
                 </View>
               ) : !isSearching && !isLoadingInitial && !searchQuery.trim() && initialCustomers.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>{t('newOrder.client.noClients')}</Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('newOrder.client.noClients')}</Text>
                 </View>
               ) : null
             }
@@ -550,6 +945,18 @@ export default function ClientDataScreen() {
         onUpgrade={handleUpgrade}
         loading={isUpgrading}
       />
+
+      <ZoomableImageViewer
+        visible={imageViewerVisible}
+        images={referenceImage ? [{
+          uri: referenceImage.startsWith('http')
+            ? referenceImage
+            : `${API_BASE_URL}${referenceImage}`,
+          title: t('clients.edit.referenceImageLabel'),
+        }] : []}
+        initialIndex={0}
+        onClose={() => setImageViewerVisible(false)}
+      />
     </>
   );
 }
@@ -562,13 +969,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xxl,
   },
   searchSection: {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-    backgroundColor: Colors.surface,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -582,14 +989,11 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.background,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.primary,
   },
   searchButtonText: {
     ...Typography.bodyBold,
-    color: Colors.primary,
   },
   divider: {
     flexDirection: 'row',
@@ -601,12 +1005,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border,
   },
   dividerText: {
     ...Typography.caption,
     fontSize: 11,
-    color: Colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -615,6 +1017,86 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: Spacing.sm,
+  },
+  fieldLabel: {
+    ...Typography.captionBold,
+    marginBottom: Spacing.sm,
+  },
+  fieldHint: {
+    ...Typography.small,
+    marginBottom: Spacing.sm,
+  },
+  genderSelector: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  genderOption: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  genderOptionText: {
+    ...Typography.caption,
+  },
+  imagePicker: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+  },
+  imagePickerText: {
+    ...Typography.caption,
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+  },
+  referenceImageContainer: {
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  referenceImageTouchable: {
+    position: 'relative',
+  },
+  referenceImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: BorderRadius.lg,
+  },
+  zoomOverlay: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: BorderRadius.full,
+    padding: Spacing.xs,
+  },
+  referenceImageActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.sm,
+  },
+  changeImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+  },
+  changeImageText: {
+    ...Typography.small,
+  },
+  removeImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+  },
+  removeImageText: {
+    ...Typography.small,
   },
   notesHeader: {
     flexDirection: 'row',
@@ -625,7 +1107,50 @@ const styles = StyleSheet.create({
   notesLabelOptional: {
     ...Typography.caption,
     fontSize: 12,
-    color: Colors.textTertiary,
+  },
+  deliverySection: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Shadows.sm,
+  },
+  deliveryDateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  deliveryDateSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  deliveryDateInfo: {
+    flex: 1,
+  },
+  deliveryDateLabel: {
+    ...Typography.small,
+    marginBottom: Spacing.xs,
+  },
+  deliveryDateValue: {
+    ...Typography.bodyBold,
+  },
+  deliveryDatePickerInline: {
+    marginTop: Spacing.sm,
+  },
+  deliveryDatePickerDoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingVertical: Spacing.sm,
+  },
+  deliveryDatePickerDoneText: {
+    ...Typography.bodyBold,
   },
   chevron: {
     transform: [{ rotate: '0deg' }],
@@ -638,7 +1163,6 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -648,7 +1172,6 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 64 : 0,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   modalTitle: {
     ...Typography.h2,
@@ -660,21 +1183,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchInputContainer: {
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   loadingContainer: {
     padding: Spacing.xxl,
     alignItems: 'center',
   },
   customerItem: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   customerInfo: {
     gap: Spacing.xs,
@@ -687,7 +1207,6 @@ const styles = StyleSheet.create({
   },
   customerEmail: {
     ...Typography.caption,
-    color: Colors.textTertiary,
   },
   emptyContainer: {
     padding: Spacing.lg,
@@ -695,6 +1214,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
   },
 });

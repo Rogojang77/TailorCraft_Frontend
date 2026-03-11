@@ -1,25 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Alert } from 'react-native';
 import { OrderDraftProvider } from '@/contexts/OrderDraftContext';
 import { DraftRestoredBanner } from '@/components/DraftRestoredBanner';
-import { FullScreenLoader } from '@/components/FullScreenLoader';
+import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
-import { useI18n } from '@/lib/i18n';
 import { api, apiFetch } from '@/lib/api';
-import { Colors } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 
 function GuardScreen() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.gate}>
-      <FullScreenLoader />
+    <View style={[styles.gate, { backgroundColor: colors.background }]}>
+      <ListSkeletonLoader variant="card" count={4} />
     </View>
   );
 }
 
 function NewOrderGuard({ children }: { children: React.ReactNode }) {
-  const { t } = useI18n();
+  const { colors } = useTheme();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [hasClients, setHasClients] = useState(true);
@@ -45,26 +44,30 @@ function NewOrderGuard({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // All redirects and alerts in a dedicated effect (side-effect safe). Run once.
+  // When no clients, show dedicated "add client first" screen instead of redirect + alert.
   useEffect(() => {
     if (!checked || hasClients || redirectFiredRef.current) return;
     redirectFiredRef.current = true;
-    router.replace('/clients/new');
-    Alert.alert(
-      t('newOrder.clientRequired'),
-      t('newOrder.clientRequiredAlertMessage')
-    );
-  }, [checked, hasClients, router, t]);
+    router.replace('/new-order/no-clients');
+  }, [checked, hasClients, router]);
 
-  if (!checked) {
-    return <GuardScreen />;
-  }
-  if (!hasClients) {
-    return <GuardScreen />;
-  }
-  return <>{children}</>;
+  const showGate = !checked || !hasClients;
+  return (
+    <>
+      {children}
+      {showGate && (
+        <View style={[StyleSheet.absoluteFillObject, styles.gateOverlay, { backgroundColor: colors.background }]}>
+          <GuardScreen />
+        </View>
+      )}
+    </>
+  );
 }
 
+/**
+ * New order flow: primary path is index → client-data (when no client) → index (garment selection) → measurements → summary.
+ * The "create" screen is an alternate single-screen flow; it redirects to index so one path is used.
+ */
 export default function NewOrderLayout() {
   const params = useLocalSearchParams<{ orderId?: string }>();
   const orderMode = params.orderId ? 'edit' : 'create';
@@ -79,6 +82,8 @@ export default function NewOrderLayout() {
             <View style={styles.stackWrap}>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="no-clients" />
+                <Stack.Screen name="create" />
                 <Stack.Screen name="client-data" />
                 <Stack.Screen name="measurements" />
                 <Stack.Screen name="summary" />
@@ -96,7 +101,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+  },
+  gateOverlay: {
+    zIndex: 1000,
   },
   container: {
     flex: 1,

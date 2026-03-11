@@ -5,11 +5,14 @@ import {
   loadDraft,
   clearDraftStorage,
   isDraftNonEmpty,
-} from '@/lib/orderDraftStorage';
+} from '@/lib/order';
 import * as diagnostics from '@/lib/diagnostics';
 
 // Measurements are key → value only; no fixed schema. Updates are merged so unknown keys are preserved.
 export type GarmentMeasurements = Record<string, string>;
+
+/** Catalog selections per garment: categoryCode -> itemId(s) */
+export type GarmentCatalogSelections = Record<string, string | string[]>;
 
 /** Draft lifecycle: none (no draft), active (user editing), restored (loaded from storage, show banner). */
 export type DraftStatus = 'none' | 'active' | 'restored';
@@ -28,10 +31,12 @@ export interface DraftOrder {
     email?: string;
   };
   measurements: Record<string, GarmentMeasurements>; // Generic: garmentId -> measurements
+  catalogSelections: Record<string, GarmentCatalogSelections>; // garmentId -> categoryCode -> itemId(s)
   payment: {
     totalAmount: number;
     paidAmount: number;
   };
+  deliveryDate?: string; // ISO date string for expected delivery date
   notes?: string;
 }
 
@@ -48,14 +53,18 @@ interface OrderDraftContextType {
   setSelectedGarmentIds: (ids: string[]) => void;
   updateCustomer: (customer: Partial<DraftOrder['customer']>) => void;
   updateMeasurements: (garmentId: string, measurements: GarmentMeasurements) => void;
+  updateCatalogSelections: (garmentId: string, categoryCode: string, itemIds: string | string[]) => void;
   updatePayment: (payment: Partial<DraftOrder['payment']>) => void;
+  updateDeliveryDate: (date: string | undefined) => void;
   updateNotes: (notes: string | undefined) => void;
   loadOrderData: (orderData: {
     id: string;
     customer?: { id: string; firstName: string; lastName: string; phone: string; email: string | null };
     measurements?: Record<string, Record<string, unknown>> | null;
+    catalogSelections?: Record<string, GarmentCatalogSelections> | null;
     totalAmount: number;
     paidAmount: number;
+    deliveryDate?: string | null;
     notes?: string | null;
   }) => void;
   clearDraft: () => void;
@@ -68,6 +77,7 @@ const defaultDraftOrder: DraftOrder = {
     phone: '',
   },
   measurements: {},
+  catalogSelections: {},
   payment: {
     totalAmount: 0,
     paidAmount: 0,
@@ -112,7 +122,13 @@ export function OrderDraftProvider({
       const loaded = await loadDraft(user.id);
       if (cancelled) return;
       if (loaded && isDraftNonEmpty(loaded)) {
-        setDraftOrder(loaded);
+        const normalized: DraftOrder = {
+          ...defaultDraftOrder,
+          ...loaded,
+          customer: { ...defaultDraftOrder.customer, ...loaded.customer },
+          payment: { ...defaultDraftOrder.payment, ...loaded.payment },
+        };
+        setDraftOrder(normalized);
         setDraftStatus('restored');
         diagnostics.recordDraftRestore();
       }
@@ -125,8 +141,11 @@ export function OrderDraftProvider({
   }, [user?.id, skipRestore]);
 
   // Persist draft when it changes (debounced). Only in create mode — edit mode must not overwrite the create draft key.
+  // Persist when draft is non-empty even if restore hasn't completed yet, so we don't lose client details typed before loadDraft() resolved.
   useEffect(() => {
-    if (!user?.id || !isRestoredRef.current || orderMode === 'edit') return;
+    if (!user?.id || orderMode === 'edit') return;
+    const canPersist = isRestoredRef.current || isDraftNonEmpty(draftOrder);
+    if (!canPersist) return;
 
     if (persistTimeoutRef.current) {
       clearTimeout(persistTimeoutRef.current);
@@ -152,13 +171,18 @@ export function OrderDraftProvider({
     setDraftOrder((prev) => {
       const idSet = new Set(ids);
       const nextMeasurements = { ...prev.measurements };
+      const nextCatalogSelections = { ...prev.catalogSelections };
       for (const garmentId of Object.keys(nextMeasurements)) {
         if (!idSet.has(garmentId)) delete nextMeasurements[garmentId];
+      }
+      for (const garmentId of Object.keys(nextCatalogSelections)) {
+        if (!idSet.has(garmentId)) delete nextCatalogSelections[garmentId];
       }
       return {
         ...prev,
         selectedGarmentIds: ids,
         measurements: nextMeasurements,
+        catalogSelections: nextCatalogSelections,
       };
     });
   }, []);
@@ -183,10 +207,30 @@ export function OrderDraftProvider({
     });
   }, []);
 
+  const updateCatalogSelections = useCallback((garmentId: string, categoryCode: string, itemIds: string | string[]) => {
+    setDraftOrder((prev) => {
+      const existing = prev.catalogSelections[garmentId] || {};
+      return {
+        ...prev,
+        catalogSelections: {
+          ...prev.catalogSelections,
+          [garmentId]: { ...existing, [categoryCode]: itemIds },
+        },
+      };
+    });
+  }, []);
+
   const updatePayment = useCallback((payment: Partial<DraftOrder['payment']>) => {
     setDraftOrder((prev) => ({
       ...prev,
       payment: { ...prev.payment, ...payment },
+    }));
+  }, []);
+
+  const updateDeliveryDate = useCallback((date: string | undefined) => {
+    setDraftOrder((prev) => ({
+      ...prev,
+      deliveryDate: date,
     }));
   }, []);
 
@@ -205,8 +249,10 @@ export function OrderDraftProvider({
     id: string;
     customer?: { id: string; firstName: string; lastName: string; phone: string; email: string | null };
     measurements?: Record<string, Record<string, unknown>> | null;
+    catalogSelections?: Record<string, GarmentCatalogSelections> | null;
     totalAmount: number;
     paidAmount: number;
+    deliveryDate?: string | null;
     paymentMethod?: string | null;
     notes?: string | null;
   }) => {
@@ -219,6 +265,7 @@ export function OrderDraftProvider({
 
     const customer = orderData.customer;
     const measurements = orderData.measurements ?? {};
+    const catalogSelections = orderData.catalogSelections ?? {};
     
     // Convert measurements to generic structure; selected garments = those with snapshot data
     const convertedMeasurements: Record<string, GarmentMeasurements> = {};
@@ -244,20 +291,30 @@ export function OrderDraftProvider({
           }
         : defaultDraftOrder.customer,
       measurements: convertedMeasurements,
+      catalogSelections,
       payment: {
         totalAmount: orderData.totalAmount || 0,
         paidAmount: orderData.paidAmount || 0,
       },
+      deliveryDate: orderData.deliveryDate || undefined,
       notes: orderData.notes || undefined,
     });
     setDraftStatus('active');
   };
 
   const clearDraft = useCallback(() => {
-    setDraftOrder(defaultDraftOrder);
+    // Set a fresh object so React and all consumers see a clear update; reusing defaultDraftOrder
+    // can leave client details visible if reference equality prevents a proper re-render.
+    setDraftOrder({
+      selectedGarmentIds: [],
+      customer: { name: '', phone: '' },
+      measurements: {},
+      catalogSelections: {},
+      payment: { totalAmount: 0, paidAmount: 0 },
+    });
     setDraftStatus('none');
     if (user?.id) {
-      clearDraftStorage(user.id);
+      void clearDraftStorage(user.id);
     }
   }, [user?.id]);
 
@@ -272,7 +329,9 @@ export function OrderDraftProvider({
         setSelectedGarmentIds,
         updateCustomer,
         updateMeasurements,
+        updateCatalogSelections,
         updatePayment,
+        updateDeliveryDate,
         updateNotes,
         loadOrderData,
         clearDraft,

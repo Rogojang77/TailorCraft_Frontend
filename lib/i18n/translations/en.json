@@ -5,6 +5,7 @@
     "success": "Success",
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving...",
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",
@@ -20,7 +21,18 @@
     "optional": "Optional",
     "lastUpdated": "Last updated",
     "confirm": "Confirm",
-    "or": "Or"
+    "or": "Or",
+    "done": "Done",
+    "back": "Back",
+    "uploading": "Uploading..."
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "retry": "Try again",
+    "goBack": "Go back"
+  },
+  "offline": {
+    "message": "No internet connection."
   },
   "home": {
     "greeting": "Hello!",
@@ -50,6 +62,34 @@
       "missingFields": "Missing: {{fields}}",
       "missingFieldsSeparator": ", ",
       "completeNow": "Complete now"
+    },
+    "dashboard": {
+      "subtitle": "Workshop Production Management",
+      "clientsList": "Clients",
+      "clientsCount": "{{count}} records",
+      "ordersList": "Orders",
+      "ordersCount": "{{count}} records",
+      "financial": "Financial",
+      "financialSubtitle": "Payment summary"
+    },
+    "quickOverview": {
+      "activeOrders": "Active Orders",
+      "dueThisWeek": "{{count}} due this week",
+      "gallery": "Gallery",
+      "totalClients": "Total Clients",
+      "records": "{{count}} records",
+      "financial": "Financial"
+    },
+    "needsAttention": {
+      "title": "Recent Orders",
+      "noOrders": "No recent orders",
+      "viewAll": "View all"
+    },
+    "fab": {
+      "addClient": "Add Client",
+      "logMeasurement": "Log Measurement",
+      "createOrder": "Create Order",
+      "addGalleryItem": "Add item in gallery"
     }
   },
   "orders": {
@@ -77,6 +117,10 @@
     "deleteSuccessOrder": "Order has been deleted.",
     "deleteError": "Could not delete.",
     "filters": {
+      "presetsLabel": "Quick filters",
+      "presetActiveOrders": "Active orders",
+      "presetUnpaid": "Unpaid",
+      "presetPartiallyPaid": "Partially paid",
       "orderStatus": "Order status",
       "paymentStatus": "Payment status",
       "orderDate": "Order date",
@@ -94,6 +138,7 @@
       "pending": "Pending",
       "inProgress": "In progress",
       "completed": "Completed",
+      "delivered": "Delivered",
       "cancelled": "Cancelled",
       "fullyPaid": "Fully paid",
       "partiallyPaid": "Partially paid",
@@ -111,6 +156,16 @@
       "totalLabel": "Total: {{label}}",
       "advanceLabel": "Advance: {{label}}"
     }
+  },
+  "financial": {
+    "title": "Financial",
+    "subtitle": "Workshop payment summary",
+    "totalOrders": "Total Orders",
+    "collected": "Collected",
+    "outstanding": "Outstanding",
+    "clientBalances": "Client Balances",
+    "remaining": "Remaining",
+    "noOutstanding": "No outstanding amounts."
   },
   "gallery": {
     "title": "Gallery",
@@ -175,7 +230,7 @@
     "companyNamePlaceholder": "Company name",
     "ownerPlaceholder": "Owner name",
     "phonePlaceholder": "+40 7XX XXX XXX",
-    "emailPlaceholder": "contact@company.com",
+    "emailPlaceholder": "your@email.com",
     "addressPlaceholder": "Full address",
     "subscription": "Subscription",
     "planFree": "Free Plan",
@@ -199,7 +254,7 @@
     "logout": "Log out",
     "aboutApp": "About App",
     "appName": "TailorCraft",
-    "version": "Version 1.0.0",
+    "version": "Version 1.1.1",
     "appDescription": "Professional app for tailors, built for efficient order and measurement management.",
     "editBanner": "Edit mode is on. Tap the fields below to change them.",
     "loadingCompany": "Loading company data...",
@@ -243,7 +298,53 @@
       "errorTitle": "Error",
       "enterBoth": "Please enter both email and password",
       "loginFailed": "Login Failed",
-      "invalidCredentials": "Invalid email or password. Please try again."
+      "invalidCredentials": "Invalid email or password. Please try again.",
+      "emailNotVerified": "Please verify your email before signing in. Check your inbox for the verification link.",
+      "forgotPassword": "Forgot password?"
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "subtitle": "Enter your email and we'll send you a link to reset your password.",
+      "enterEmail": "Please enter your email address.",
+      "sendResetLink": "Send reset link",
+      "checkEmail": "Check your email",
+      "checkEmailDescription": "If an account exists with this email, you will receive a password reset link shortly.",
+      "backToLogin": "Back to sign in",
+      "requestFailed": "Could not send reset link. Please try again."
+    },
+    "changePassword": {
+      "invalidCurrentPassword": "Current password is incorrect. Please try again."
+    },
+    "resetPassword": {
+      "title": "Reset password",
+      "subtitle": "Enter your new password below.",
+      "noToken": "No reset token provided.",
+      "invalidLink": "Invalid or expired link",
+      "invalidLinkDescription": "This password reset link is invalid or has expired. Please request a new one.",
+      "invalidOrExpiredToken": "This reset link is invalid or has expired. Please request a new password reset.",
+      "submit": "Reset password",
+      "successTitle": "Password reset",
+      "successDescription": "Your password has been updated. You can now sign in with your new password.",
+      "resetFailed": "Could not reset password. The link may have expired."
+    },
+    "companyRequired": {
+      "title": "Complete your company details",
+      "message": "You signed up with Apple. Please add your company name, owner, phone, email and address to continue. This information is used for invoices and documents."
+    },
+    "applePasswordRequired": {
+      "title": "Add a password",
+      "message": "You signed up with Apple. Please set a password for your account so you can sign in with email later if needed.",
+      "passwordPlaceholder": "Enter password",
+      "confirmPasswordPlaceholder": "Confirm password",
+      "submit": "Save password"
+    },
+    "social": {
+      "continueGoogle": "Continue with Google",
+      "continueApple": "Continue with Apple",
+      "cancelled": "Sign-in was cancelled.",
+      "error": "Sign-in failed. Please try again.",
+      "providerUnavailable": "This sign-in method is not available.",
+      "appleUnavailable": "Sign in with Apple isn't available here. Try on a real device signed in with an Apple ID, or use email to sign in."
     },
     "register": {
       "userAlreadyExists": "A user with this email already exists."
@@ -327,6 +428,39 @@
       "showPassword": "Show password"
     }
   },
+  "createOrder": {
+    "clientSection": "Client",
+    "searchClient": "Search for a client...",
+    "selectClient": "Select Client",
+    "searchClientPlaceholder": "Search by name or phone...",
+    "noClientsFound": "No clients found",
+    "addNewClient": "Add New Client",
+    "garmentsSection": "Garments",
+    "garmentsHint": "Select the garments for this order",
+    "financialSection": "Payment",
+    "deliverySection": "Delivery",
+    "deliveryDate": "Delivery Date",
+    "notesSection": "Notes",
+    "notesPlaceholder": "Add any special instructions or notes...",
+    "submitOrder": "Create Order"
+  },
+  "garmentForm": {
+    "untitled": "Untitled",
+    "size": "Size",
+    "measurements": "Measurements",
+    "designOptions": "Design Options",
+    "lapelType": "Lapel Type",
+    "lapelMaterial": "Lapel Material",
+    "model": "Model",
+    "lining": "Lining",
+    "liningPlaceholder": "e.g. Navy Blue Silk",
+    "personalization": "Personalization",
+    "collarEmbroidery": "Collar Embroidery",
+    "collarEmbroideryPlaceholder": "e.g. Initials",
+    "collarType": "Collar Type",
+    "productionNotes": "Production Notes",
+    "productionNotesPlaceholder": "Add any production notes..."
+  },
   "newOrder": {
     "title": "New order",
     "selectGarments": "Select garments",
@@ -346,7 +480,7 @@
       "firstNamePlaceholder": "Enter first name",
       "lastNamePlaceholder": "Enter last name",
       "phonePlaceholder": "+40 7XX XXX XXX",
-      "emailPlaceholder": "client@email.com",
+      "emailPlaceholder": "your@email.com",
       "notesPlaceholder": "Add special notes...",
       "searchPlaceholder": "Search by name, phone or email...",
       "newClientDataSection": "New client data",
@@ -363,7 +497,11 @@
       "saveSuccess": "Client data has been saved",
       "checkoutError": "Could not open checkout. Please try again.",
       "emptySearchResults": "No clients found.",
-      "noClients": "No clients"
+      "noClients": "No clients",
+      "saveChangesToClientTitle": "Save changes",
+      "saveChangesToClientMessage": "You have modified the client data. Do you want to save these changes to the client profile (for all future orders) or only for this order?",
+      "saveToClient": "Save to client profile",
+      "onlyForThisOrder": "Only for this order"
     },
     "summary": {
       "selectClient": "Select or create a client",
@@ -399,7 +537,9 @@
       "totalLabelRon": "Total (RON)",
       "saveChanges": "Save Changes",
       "finalizeButton": "Finalize Order",
-      "detailSeparator": " — "
+      "detailSeparator": " — ",
+      "deliverySection": "Delivery",
+      "deliveryDateLabel": "Expected delivery date"
     },
     "measurements": {
       "savedForOrder": "Values saved here are for this order only.",
@@ -408,7 +548,13 @@
       "fromDraft": "Saved for this order",
       "defaultValues": "Default values",
       "forThisOrder": "For this order",
-      "pageTitle": "Order measurements"
+      "pageTitle": "Order measurements",
+      "noMeasurementFields": "This item has no measurement fields. The snapshot will be saved empty."
+    },
+    "catalogSelections": {
+      "title": "Styles & Materials",
+      "hint": "Select fabric, buttons, and other options for better AI preview.",
+      "forGarment": "Styles & Materials for {{name}}"
     },
     "index": {
       "noItemsAvailable": "No items available",
@@ -451,7 +597,11 @@
     "downloadAs": "Download as",
     "downloadCustomTemplate": "Custom Template",
     "downloadClassicTemplate": "Classic Template",
+    "saveToFolder": "Save to folder",
     "measurementsForGarment": "Measurements {{name}}",
+    "measurement": "measurement",
+    "measurementsCount": "measurements",
+    "stylesForGarment": "Styles & Materials {{name}}",
     "orderDateLabel": "Order: {{date}}",
     "orderAlreadyCompleted": "This order is already completed and cannot be modified.",
     "editTitle": "Edit Order",
@@ -463,7 +613,11 @@
     "notesLabel": "Notes",
     "notesPlaceholder": "Order notes (optional)",
     "measurementsSection": "Measurements",
-    "definitionsLoadError": "Could not load measurement definitions. Check your connection and try again."
+    "definitionsLoadError": "Could not load measurement definitions. Check your connection and try again.",
+    "deliveryDateLabel": "Delivery date",
+    "setDeliveryDate": "Set delivery date",
+    "deliveryDateUpdated": "Delivery date has been updated.",
+    "deliveryDateUpdateError": "Could not update delivery date."
   },
   "clients": {
     "new": {
@@ -475,7 +629,23 @@
       "firstNamePlaceholder": "Enter first name",
       "lastNamePlaceholder": "Enter last name",
       "phonePlaceholder": "+40 7XX XXX XXX",
-      "emailPlaceholder": "client@email.com"
+      "emailPlaceholder": "your@email.com",
+      "addClient": "Add Client"
+    },
+    "edit": {
+      "genderLabel": "Gender",
+      "gender": {
+        "male": "Male",
+        "female": "Female"
+      },
+      "referenceImageLabel": "Reference Image",
+      "referenceImageHint": "Upload a photo of the client for AI preview generation",
+      "addReferenceImage": "Tap to add reference image",
+      "changeImage": "Change",
+      "removeImage": "Remove",
+      "uploading": "Uploading...",
+      "photoPermissionDenied": "Permission to access photos was denied.",
+      "imageUploadError": "Could not upload image. Please try again."
     }
   },
   "garments": {
@@ -503,6 +673,7 @@
     "deleteMeasurement": "Delete measurement",
     "deleteConfirm": "Are you sure you want to delete this garment? This action cannot be undone.",
     "deleteError": "Could not delete garment.",
+    "reorderError": "Failed to save the new order. Please try again.",
     "cannotUndo": "This action cannot be undone.",
     "pageTitle": "Garments",
     "loadingList": "Loading garments...",
@@ -519,7 +690,23 @@
     "duplicateAsLocal": "Duplicate as local garment",
     "noMeasurementsYet": "No measurements defined yet. Add measurements to define how this garment is measured.",
     "addMeasurementFirst": "Add measurement",
-    "dragToReorder": "Drag to reorder"
+    "dragToReorder": "Drag to reorder",
+    "applicableStyles": "Applicable Style Options",
+    "applicableStylesHint": "Select which style categories apply to this garment type",
+    "alwaysIncluded": "Always included",
+    "updateCategoriesError": "Could not update style categories.",
+    "saveStyleCategories": "Save Style Options",
+    "lapel": {
+      "classic": "Classic",
+      "peaked": "Peaked",
+      "shawl": "Shawl"
+    },
+    "collar": {
+      "classic": "Classic",
+      "italian": "Italian",
+      "cutaway": "Cutaway",
+      "mandarin": "Mandarin"
+    }
   },
   "subscription": {
     "title": "Subscription",
@@ -528,6 +715,8 @@
     "selectPlan": "Select Plan",
     "monthly": "Monthly",
     "yearly": "Yearly",
+    "perMonth": "per month",
+    "perYear": "per year",
     "save": "Save",
     "unlimitedAccess": "Unlimited access to grow your business",
     "usageCount": "{{current}} of {{max}}",
@@ -541,14 +730,40 @@
     "upgradeToPro": "Upgrade to Pro",
     "manageBilling": "Manage billing",
     "paywallTitle": "Limit reached",
+    "paywallTitleUpgrade": "Upgrade to Pro",
     "paywallSubtitle": "You have reached the free plan limit",
     "paywallCta": "Upgrade to Pro to manage unlimited clients and orders.",
-    "freePlanLimitShort": "Free plan: up to {{maxClients}} clients and {{maxOrders}} orders",
+    "freePlanLimitShort": "Free plan: up to {{maxClients}} clients, {{maxOrders}} orders, {{maxTemplates}} garments",
     "clientLimitReached": "Client limit reached. Upgrade to Pro for unlimited clients.",
     "orderLimitReached": "Order limit reached. Upgrade to Pro for unlimited orders.",
+    "templateLimitReached": "You've reached the limit of garment types. Free plan allows up to 2. Upgrade to Pro for unlimited.",
     "customPdfProOnly": "Custom PDF templates are available on Pro plan.",
     "checkoutError": "Could not start checkout. Please try again.",
-    "priceLoading": "..."
+    "priceLoading": "...",
+    "restorePurchases": "Restore Purchases",
+    "subscribe": "Subscribe",
+    "subscribeTo": "Subscribe to {{plan}}",
+    "notNow": "Not Now",
+    "tailorCraftPro": "TailorCraft PRO",
+    "autoRenewal": {
+      "chargeDisclosure": "Payment will be charged to your Apple ID account at confirmation of purchase.",
+      "renewalDisclosure": "Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
+      "renewalCharge": "Account will be charged for renewal within 24 hours prior to the end of the current period.",
+      "manageDisclosure": "You can manage and cancel your subscriptions in your App Store account settings."
+    },
+    "legal": {
+      "privacyPolicy": "Privacy Policy",
+      "termsOfUse": "Terms of Use"
+    },
+    "proFeatures": {
+      "unlimitedClients": "Unlimited clients",
+      "unlimitedOrders": "Unlimited orders",
+      "pdfGeneration": "PDF generation",
+      "aiPreview": "AI preview"
+    },
+    "verifying": "Checking subscription…",
+    "sharedTemplatesProOnly": "Duplicating shared templates requires Pro subscription.",
+    "sharedTemplatesLimitReached": "Shared template limit reached ({{current}}/{{max}}). Upgrade to Pro for unlimited access."
   },
   "orderDraft": {
     "restoredTitle": "Unfinished order",
@@ -558,10 +773,24 @@
   },
   "orderHistoryItem": {
     "totalLabel": "Total",
-    "balanceLabel": "Balance",
+    "leftToPayLabel": "Left to pay",
+    "fullyPaid": "Paid",
     "item": "item",
     "items": "items",
-    "noItems": "No items"
+    "noItems": "No items",
+    "daysRemaining": "{{days}} days remaining",
+    "dueToday": "Due today",
+    "dueTomorrow": "Due tomorrow",
+    "overdue": "Overdue by {{days}} days"
+  },
+  "deadlineBar": {
+    "title": "Delivery Deadline",
+    "daysRemaining": "{{days}} days remaining",
+    "dueToday": "Due today",
+    "dueTomorrow": "Due tomorrow",
+    "overdue": "Overdue by {{days}} days",
+    "overdueWarning": "This order has passed its delivery deadline!",
+    "urgentWarning": "Delivery deadline approaching soon!"
   },
   "stepNav": {
     "back": "Back",
@@ -590,14 +819,62 @@
     "profile": "Profile"
   },
   "settings": {
+    "generalTitle": "General Settings",
+    "generalSettings": "General Settings",
+    "measurement": "Measurement",
+    "measurementDescription": "Preferred unit for measurements. Values are converted for display only.",
+    "centimetres": "Centimetres",
+    "inches": "Inches",
     "language": "Language",
     "languageDescription": "App language",
     "english": "English",
-    "romanian": "Romanian"
+    "romanian": "Romanian",
+    "deliveryDuration": "Default Delivery Time",
+    "deliveryDurationDescription": "Default time frame for order delivery. Used when creating new orders.",
+    "defaultDeliveryTime": "Default delivery period",
+    "week": "week",
+    "weeks": "weeks",
+    "theme": "Appearance",
+    "themeDescription": "Choose how the app looks. System follows your device settings.",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "phonePrefix": "Default Phone Prefix",
+    "phonePrefixDescription": "Default country code for new client phone numbers.",
+    "phonePrefix_": "None",
+    "phonePrefix_40": "Romania (+40)",
+    "phonePrefix_1": "USA/Canada (+1)",
+    "phonePrefix_44": "UK (+44)",
+    "phonePrefix_49": "Germany (+49)",
+    "phonePrefix_33": "France (+33)",
+    "phonePrefix_39": "Italy (+39)",
+    "phonePrefix_34": "Spain (+34)",
+    "homepage": "Homepage",
+    "homepageDescription": "Customize what appears on the home screen.",
+    "showRecentOrders": "Show recent orders",
+    "deadlineBar": "Order Deadline Progress",
+    "deadlineBarDescription": "Show a progress bar indicating time remaining until delivery deadline on orders.",
+    "showDeadlineBar": "Show deadline progress bar",
+    "warningDays": "Warning threshold",
+    "warningDaysDescription": "Days before deadline to show warning",
+    "day": "day",
+    "days": "days"
   },
   "account": {
     "title": "Account",
     "deleteAccount": "Delete Account",
+    "changePassword": {
+      "menuItem": "Change password",
+      "title": "Change password",
+      "subtitle": "Enter your current password and choose a new one.",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "enterCurrent": "Please enter your current password.",
+      "submit": "Update password",
+      "successTitle": "Password updated",
+      "successMessage": "Your password has been changed. Use your new password next time you sign in.",
+      "updateFailed": "Could not update password. Check your current password and try again."
+    },
     "delete": {
       "title": "Delete Account",
       "stepReauthTitle": "Confirm Your Identity",
@@ -655,7 +932,16 @@
     "insufficientPermissions": "Insufficient permissions.",
     "invalidRequest": "Invalid request.",
     "webhookSignatureInvalid": "Invalid webhook signature.",
-    "webhookNotConfigured": "Webhook is not configured."
+    "webhookNotConfigured": "Webhook is not configured.",
+    "serviceConfiguration": "AI service is misconfigured (e.g. missing API key).",
+    "orderNotFound": "Order not found.",
+    "orderDraft": "Order is draft.",
+    "orderIncomplete": "Order is incomplete for AI preview.",
+    "timeout": "Request timed out.",
+    "serviceUnavailable": "Service temporarily unavailable.",
+    "aiPreviewFailed": "AI preview generation failed.",
+    "orderIdRequired": "Order ID is required.",
+    "fetchFailed": "Fetching preview failed."
   },
   "apiMessages": {
     "account": {
@@ -669,7 +955,8 @@
       "deletionProcessError": "Unable to process deletion.",
       "cannotDeleteSelf": "Cannot delete your own account.",
       "deletionJobCompleted": "Account deletion job completed.",
-      "consentsRecorded": "Consents recorded."
+      "consentsRecorded": "Consents recorded.",
+      "passwordAlreadySet": "A password is already set for this account."
     },
     "gallery": {
       "idRequired": "Gallery item ID required.",
@@ -709,7 +996,11 @@
     "garmentTypes": {
       "idRequired": "Garment type ID required.",
       "notFound": "Garment type not found.",
-      "cannotModifyShared": "Garment type not found or cannot modify shared template."
+      "cannotModifyShared": "Garment type not found or cannot modify shared template.",
+      "deleteUsedInOrders": "Cannot delete: this garment type is used in {{count}} order(s). Disable it instead to hide from new orders.",
+      "deleteUsedInMeasurementSets": "Cannot delete: this garment type is used in {{count}} client measurement set(s). Disable it instead.",
+      "deleteSharedTemplate": "Cannot delete shared template. Shared templates are managed by the system.",
+      "deleteFailed": "Could not delete garment type. Try again later."
     }
   },
   "verifyEmail": {
@@ -724,7 +1015,11 @@
     "failedMessage": "Failed to verify email. The link may be invalid or expired.",
     "resendSuccess": "Verification email sent! Please check your inbox.",
     "resendError": "Failed to resend verification email.",
-    "pleaseLogin": "Please log in to resend verification email."
+    "pleaseLogin": "Please log in to resend verification email.",
+    "resendHint": "Enter your email to receive a new verification link.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "your@email.com",
+    "enterEmailToResend": "Please enter your email address to resend the verification link."
   },
   "stats": {
     "title": "Statistics",
@@ -910,6 +1205,10 @@
     "templateName": "Template name",
     "newTemplate": "New template",
     "noDocumentTemplates": "No document templates yet. Create one to build contract-style PDFs.",
+    "chooseTemplate": "Choose template",
+    "saveAsNew": "Save as new",
+    "deleteTemplate": "Delete template",
+    "deleteTemplateConfirm": "Delete this template? This cannot be undone.",
     "appearanceTitle": "Appearance",
     "appearanceHint": "Logo, colors, font and layout for your PDFs.",
     "contentTitle": "PDF content",
@@ -941,6 +1240,162 @@
       "termsLabel": "I have read and agree to the updated Terms & Conditions",
       "privacyLabel": "I have read and agree to the updated Privacy Policy",
       "accept": "Accept and Continue"
+    }
+  },
+  "feedback": {
+    "menuItem": "Send feedback",
+    "intro": "Share your thoughts, report a bug, or suggest a feature. We read every message.",
+    "messageLabel": "Your message",
+    "messagePlaceholder": "Tell us what's on your mind...",
+    "messageHint": "{{count}} / {{max}} characters",
+    "messageTooShort": "Please enter at least 10 characters.",
+    "messageTooLong": "Message must be at most 5000 characters.",
+    "submit": "Send feedback",
+    "thankYou": "Thank you!",
+    "successMessage": "We've received your feedback and will get back to you if needed.",
+    "sendMore": "Send another",
+    "sendError": "Failed to send. Please try again later.",
+    "tooManyRequests": "Too many submissions. Please try again in a while."
+  },
+  "newsletter": {
+    "menuItem": "Newsletter",
+    "title": "Newsletter",
+    "description": "Subscribe to get updates and news about TailorCraft, including app releases.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "your@email.com",
+    "button": "Subscribe",
+    "enterEmail": "Please enter your email address.",
+    "validEmail": "Please enter a valid email address.",
+    "thankYou": "Thank you!",
+    "successMessage": "You're subscribed. We'll keep you posted on releases and news.",
+    "subscribeAgain": "Subscribe another email",
+    "alreadySubscribedTitle": "Already subscribed",
+    "alreadySubscribedMessage": "This email is already subscribed to our newsletter.",
+    "tryAnotherEmail": "Try another email",
+    "sendError": "Failed to subscribe. Please try again later.",
+    "tooManyRequests": "Too many attempts. Please try again in a while."
+  },
+  "aiPreview": {
+    "sectionTitle": "AI Design Preview",
+    "emptyTitle": "AI Design Preview",
+    "emptySubtitle": "Generate a realistic preview of how this order's garments will look based on the client's measurements.",
+    "generateButton": "Generate Preview",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate Preview",
+    "regenerateMessage": "This will generate a new AI preview image, replacing the current one. Continue?",
+    "generating": "Generating...",
+    "generatingSubtext": "This may take up to 30 seconds",
+    "generationFailed": "Failed to generate preview. Please try again.",
+    "premiumRequired": "Premium Feature",
+    "premiumRequiredMessage": "AI Design Preview is a premium feature. Upgrade to Pro to use this feature.",
+    "premiumHint": "Pro feature",
+    "premiumDisclaimer": "AI Design Preview is available exclusively for Pro subscribers. Upgrade to unlock realistic garment previews based on your client's measurements.",
+    "draftHint": "Complete the order to generate a preview",
+    "draftDisclaimer": "AI Preview is not available for draft orders. Save the order to enable preview generation.",
+    "draftOrderMessage": "Cannot generate preview for draft orders. Please complete the order first.",
+    "generatedOn": "Generated on {{date}}",
+    "promptLabel": "Prompt used for preview",
+    "editPrompt": "Edit prompt",
+    "regenerateWithPrompt": "Regenerate with this prompt",
+    "promptPlaceholder": "Enter or edit the prompt text...",
+    "timeout": "Request Timed Out",
+    "timeoutMessage": "The preview generation took too long. Please try again.",
+    "incompleteOrder": "AI Preview unavailable",
+    "incompleteOrderDisclaimer": "To generate an accurate AI preview, complete the required client and garment information listed below.",
+    "pleaseComplete": "Please complete the following:",
+    "andMore": "and {{count}} more...",
+    "complete": "complete",
+    "incompleteModalTitle": "Order Incomplete",
+    "incompleteModalMessage": "AI Preview requires the following information to generate an accurate preview:",
+    "orderIncompleteNoGarment": "Add at least one garment type with measurements to this order to generate an AI preview.",
+    "fields": {
+      "gender": "Client gender",
+      "referenceImage": "Client reference image",
+      "garmentType": "Garment type",
+      "fitType": "Fit type",
+      "fabric": "Fabric material",
+      "color": "Fabric color",
+      "styleOptions": "Style options"
+    }
+  },
+  "catalog": {
+    "title": "Materials & Styles",
+    "subtitle": "Manage your fabric collection, buttons, lapels, and other style options for orders.",
+    "styleAndMaterials": "Styles & Materials",
+    "item": "item",
+    "items": "items",
+    "itemCount": "{{count}} items",
+    "universal": "Universal",
+    "noCategoriesYet": "No style categories yet. Add one to get started.",
+    "addCategory": "Add Category",
+    "editCategory": "Edit Category",
+    "enterCategoryName": "Please enter a category name",
+    "saveCategoryError": "Failed to save category",
+    "categoryName": "Category name",
+    "categoryNamePlaceholder": "e.g. Fabrics, Buttons",
+    "categoryDescription": "Description",
+    "categoryDescriptionPlaceholder": "Optional description for this category",
+    "categoryIcon": "Icon",
+    "deleteCategory": "Delete Category",
+    "deleteCategoryMessage": "Are you sure you want to delete \"{{name}}\"? All items in this category will also be deleted.",
+    "deleteCategoryError": "Failed to delete category",
+    "dragToReorder": "Drag to reorder",
+    "reorderError": "Failed to save new order",
+    "addItem": "Add Item",
+    "newItem": "New Item",
+    "editItem": "Edit Item",
+    "createItem": "Create Item",
+    "saveChanges": "Save Changes",
+    "deleteItem": "Delete Item",
+    "deleteItemConfirm": "Are you sure you want to delete \"{{name}}\"?",
+    "noItems": "No items in this category",
+    "noItemsYet": "No items yet. Add one to get started.",
+    "addFirstItem": "Add items to use them in orders",
+    "systemItem": "System default",
+    "cannotDeleteSystem": "System items cannot be deleted. You can disable them instead.",
+    "toggleError": "Failed to toggle item status",
+    "deleteError": "Failed to delete item",
+    "loadError": "Failed to load item",
+    "saveError": "Failed to save item",
+    "uploadError": "Failed to upload image",
+    "nameRequired": "Name is required",
+    "categoryRequired": "Category is required",
+    "itemName": "Name",
+    "itemNamePlaceholder": "e.g. Italian Wool Super 120s",
+    "itemCode": "Code",
+    "itemCodePlaceholder": "e.g. wool-super120",
+    "enterItemName": "Please enter an item name",
+    "saveItemError": "Failed to save item",
+    "itemDescription": "Description",
+    "itemDescriptionPlaceholder": "Optional description for this item",
+    "itemImage": "Image",
+    "itemColor": "Color",
+    "customColorPlaceholder": "#000000",
+    "imageUploadError": "Failed to upload image",
+    "imagePickerError": "Failed to open image picker",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional description for this item",
+    "color": "Color",
+    "colorHint": "Hex color code (e.g. #000000) for items without images",
+    "selectColor": "Select a color",
+    "addImage": "Add image",
+    "uploadImage": "Upload Image",
+    "selectItem": "Select an option",
+    "selectItems": "Select options",
+    "noSelection": "None selected",
+    "noItemsAvailable": "No items available",
+    "categories": {
+      "fabrics": "Fabrics",
+      "buttons": "Buttons",
+      "nasturi": "Buttons",
+      "lapels": "Lapels",
+      "pockets": "Pockets",
+      "collars": "Collars",
+      "cuffs": "Cuffs",
+      "vents": "Vents",
+      "linings": "Linings",
+      "closures": "Closures",
+      "threads": "Threads"
     }
   }
 }

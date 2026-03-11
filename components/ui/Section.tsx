@@ -1,9 +1,11 @@
 /**
- * Section block with optional title and header actions. Uses LayoutStyles.
+ * Section block with optional title and header actions.
+ * Uses theme-aware styles from ThemeContext.
  */
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { LayoutStyles, Typography, Spacing } from '@/constants/design';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getLayoutStyles, getTypography, Spacing } from '@/constants/design';
 
 export interface SectionProps {
   /** Section title (uses h3 typography) */
@@ -11,17 +13,21 @@ export interface SectionProps {
   /** Optional right-side actions (e.g. "See all" link) */
   headerRight?: React.ReactNode;
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   titleStyle?: TextStyle;
 }
 
 const SectionComponent = ({ title, headerRight, children, style, titleStyle }: SectionProps) => {
+  const { colors } = useTheme();
+  const layoutStyles = getLayoutStyles(colors);
+  const typography = getTypography(colors);
+
   return (
-    <View style={[LayoutStyles.section, style]}>
+    <View style={[layoutStyles.section, style]}>
       {(title != null || headerRight != null) && (
-        <View style={[LayoutStyles.sectionHeader, styles.sectionHeaderWithPadding, headerRight != null && styles.headerRow]}>
+        <View style={[layoutStyles.sectionHeader, styles.sectionHeaderWithPadding, headerRight != null && styles.headerRow]}>
           {title != null ? (
-            <Text style={[styles.sectionTitle, headerRight != null && styles.sectionTitleFlex, titleStyle]} numberOfLines={1}>
+            <Text style={[typography.h3, headerRight != null && styles.sectionTitleFlex, titleStyle]} numberOfLines={1}>
               {title}
             </Text>
           ) : null}
@@ -34,9 +40,6 @@ const SectionComponent = ({ title, headerRight, children, style, titleStyle }: S
 };
 
 const styles = StyleSheet.create({
-  sectionTitle: {
-    ...Typography.h3,
-  },
   sectionTitleFlex: {
     flex: 1,
     marginRight: Spacing.sm,

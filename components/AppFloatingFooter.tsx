@@ -19,7 +19,8 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { Colors, Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, getShadows, Spacing, Shadows } from '@/constants/design';
 
 const FOOTER_PADDING_H = 20;
 const FOOTER_PADDING_V = 16;
@@ -27,7 +28,6 @@ const CTA_HEIGHT = 52;
 const CTA_BORDER_RADIUS = 26;
 const CTA_PADDING_H = 28;
 
-/** Content height of the footer (no safe area). Use with bottomOffset: FOOTER_CONTENT_HEIGHT + insets.bottom */
 export const FOOTER_CONTENT_HEIGHT = CTA_HEIGHT + FOOTER_PADDING_V * 2;
 
 const springConfig = { damping: 15, stiffness: 400 };
@@ -40,9 +40,7 @@ export interface AppFloatingFooterProps {
   secondaryLabel?: string;
   onSecondaryPress?: () => void;
   secondaryDisabled?: boolean;
-  /** When provided, shown instead of the default back (chevron) icon. Use e.g. Share icon for share actions. */
   secondaryIcon?: React.ReactNode;
-  /** When true, the secondary button gets a border (e.g. for Share-style actions). */
   secondaryBordered?: boolean;
 }
 
@@ -59,6 +57,9 @@ export function AppFloatingFooter({
   secondaryIcon,
   secondaryBordered = false,
 }: AppFloatingFooterProps) {
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const shadows = getShadows(colors);
   const backScale = useSharedValue(1);
   const ctaScale = useSharedValue(1);
 
@@ -72,16 +73,16 @@ export function AppFloatingFooter({
 
   const glassBackground =
     Platform.OS === 'web' ? (
-      <View style={styles.glassFill} />
+      <View style={[styles.glassFill, { backgroundColor: colors.surface }]} />
     ) : (
       <>
         <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={styles.glassOverlay} />
+        <View style={[styles.glassOverlay, { backgroundColor: colors.surface }]} />
       </>
     );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface }]} edges={['bottom']}>
       <View style={styles.footer}>
         {glassBackground}
         <View style={styles.row}>
@@ -89,7 +90,7 @@ export function AppFloatingFooter({
             <AnimatedTouchable
               style={[
                 styles.backButton,
-                secondaryBordered && styles.secondaryButtonBordered,
+                secondaryBordered && [styles.secondaryButtonBordered, { backgroundColor: colors.surface, borderColor: colors.border }],
                 backAnimatedStyle,
                 secondaryDisabled && styles.backButtonDisabled,
               ]}
@@ -106,11 +107,13 @@ export function AppFloatingFooter({
               accessibilityLabel={secondaryLabel}
               accessibilityState={{ disabled: secondaryDisabled }}
             >
-              {secondaryIcon ?? <ChevronLeft size={20} color={Colors.textSecondary} strokeWidth={2.5} />}
+              {secondaryIcon ?? <ChevronLeft size={20} color={colors.textSecondary} strokeWidth={2.5} />}
               <Text
                 style={[
-                  secondaryBordered ? styles.secondaryButtonPillLabel : styles.backLabel,
-                  secondaryDisabled && (secondaryBordered ? styles.secondaryButtonPillLabelDisabled : styles.backLabelDisabled),
+                  secondaryBordered 
+                    ? { fontSize: 16, fontWeight: '600', color: colors.textPrimary } 
+                    : [typography.bodyBold, { fontWeight: '500', color: colors.textSecondary }],
+                  secondaryDisabled && { color: colors.textTertiary },
                 ]}
               >
                 {secondaryLabel}
@@ -121,7 +124,9 @@ export function AppFloatingFooter({
           <AnimatedTouchable
             style={[
               styles.ctaButton,
-              primaryDisabled && styles.ctaButtonDisabled,
+              { backgroundColor: colors.ctaGold },
+              shadows.ctaPill,
+              primaryDisabled && [styles.ctaButtonDisabled, { backgroundColor: colors.ctaGoldDisabled }],
               ctaAnimatedStyle,
             ]}
             onPress={onPrimaryPress}
@@ -140,11 +145,12 @@ export function AppFloatingFooter({
             accessibilityState={{ disabled: primaryDisabled || primaryLoading }}
           >
             {primaryLoading ? (
-              <ActivityIndicator size="small" color={Colors.textInverse} />
+              <ActivityIndicator size="small" color={colors.textInverse} />
             ) : (
               <Text
                 style={[
                   styles.ctaLabel,
+                  { color: colors.textInverse },
                   primaryDisabled && styles.ctaLabelDisabled,
                 ]}
               >
@@ -164,7 +170,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.surface,
   },
   footer: {
     paddingHorizontal: FOOTER_PADDING_H,
@@ -177,11 +182,9 @@ const styles = StyleSheet.create({
   },
   glassFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.surface,
   },
   glassOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.surface,
   },
   row: {
     flexDirection: 'row',
@@ -207,9 +210,7 @@ const styles = StyleSheet.create({
     height: CTA_HEIGHT,
     borderRadius: CTA_BORDER_RADIUS,
     paddingHorizontal: CTA_PADDING_H,
-    backgroundColor: Colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -217,43 +218,23 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Shadows.sm,
   },
-  backLabel: {
-    ...Typography.bodyBold,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-  },
-  backLabelDisabled: {
-    color: Colors.textTertiary,
-  },
-  secondaryButtonPillLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  secondaryButtonPillLabelDisabled: {
-    color: Colors.textTertiary,
-  },
   ctaButton: {
     height: CTA_HEIGHT,
     borderRadius: CTA_BORDER_RADIUS,
     paddingHorizontal: CTA_PADDING_H,
-    backgroundColor: Colors.ctaGold,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
-    ...Shadows.ctaPill,
   },
   ctaButtonDisabled: {
-    backgroundColor: Colors.ctaGoldDisabled,
     shadowOpacity: 0,
     elevation: 0,
   },
   ctaLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textInverse,
   },
   ctaLabelDisabled: {
-    color: 'rgba(255,255,255,0.7)',
+    opacity: 0.7,
   },
 });

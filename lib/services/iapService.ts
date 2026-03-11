@@ -9,7 +9,33 @@
 
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { ensureIapConnection } from '@/lib/services/iapConnection';
+import { ensureIapConnection, isIapConnectionFailed } from '@/lib/services/iapConnection';
+
+/** Set to true to log full purchase objects and token lengths (for IAP debugging). Keep false in production. */
+const IAP_DEBUG_LOGGING = __DEV__;
+
+/** Log purchase fields useful for debugging StoreKit 2 / receipt validation. Masks long strings. */
+function logPurchaseForDebug(productId: string, purchase: Record<string, unknown>): void {
+  if (!IAP_DEBUG_LOGGING) return;
+  const mask = (s: unknown) =>
+    typeof s === 'string' && s.length > 20 ? `${s.slice(0, 12)}...(${s.length})` : s;
+  const ios = purchase as {
+    originalTransactionIdentifierIOS?: string | null;
+    environmentIOS?: string | null;
+    expirationDateIOS?: number | null;
+  };
+  console.log('[iapService] purchaseUpdated', {
+    productId,
+    matched: purchase?.productId === productId,
+    purchaseState: purchase?.purchaseState,
+    transactionId: purchase?.transactionId ?? null,
+    originalTransactionId: ios?.originalTransactionIdentifierIOS ?? null,
+    hasPurchaseToken: !!purchase?.purchaseToken,
+    purchaseTokenPreview: mask(purchase?.purchaseToken),
+    environmentIOS: ios?.environmentIOS ?? null,
+    expirationDateIOS: ios?.expirationDateIOS ?? null,
+  });
+}
 
 /** Expo Go does not support NitroModules (react-native-iap); only use IAP in dev/build clients or bare workflow. */
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -88,20 +114,31 @@ export function requestSubscription(
 
   return new Promise((resolve) => {
     const subUpdated = iap.purchaseUpdatedListener((purchase) => {
+      if (IAP_DEBUG_LOGGING) {
+        console.log('[iapService] purchaseUpdatedListener fired', { productId, receivedProductId: purchase?.productId });
+      }
       if (purchase.productId === productId) {
         subUpdated.remove();
         subError.remove();
+        logPurchaseForDebug(productId, purchase as unknown as Record<string, unknown>);
         const like: PurchaseLike = {
           purchaseToken: purchase.purchaseToken ?? null,
           productId: purchase.productId,
           transactionId: 'transactionId' in purchase ? (purchase as { transactionId?: string | null }).transactionId : undefined,
         };
         listeners.onPurchaseUpdated(like);
+        const token = like.purchaseToken ?? (Platform.OS === 'ios' && like.transactionId ? like.transactionId : null);
+        if (IAP_DEBUG_LOGGING) {
+          console.log('[iapService] resolved success, token length for backend:', token?.length ?? 0);
+        }
         resolve({ success: true, purchase: like });
       }
     });
 
     const subError = iap.purchaseErrorListener((error: { code?: string; message?: string }) => {
+      if (IAP_DEBUG_LOGGING) {
+        console.log('[iapService] purchaseErrorListener', { code: error?.code, message: error?.message });
+      }
       subUpdated.remove();
       subError.remove();
       const code = String(error.code ?? 'E_UNKNOWN');
@@ -115,22 +152,29 @@ export function requestSubscription(
 
     Promise.resolve()
       .then(() => ensureIapConnection())
-      .then(() =>
-        iap.requestPurchase({
+      .then((connected) => {
+        if (!connected) throw new Error('Billing service unavailable');
+      })
+      .then(async () => {
+        const products = await iap.fetchProducts({ skus: [productId], type: 'subs' });
+        if (__DEV__) console.log('SUBSCRIPTIONS:', products);
+        return iap.requestPurchase({
           request: {
             apple: { sku: productId },
             google: { skus: [productId] },
           },
           type: 'subs',
-        })
-      )
+        });
+      })
       .catch((e: unknown) => {
         subUpdated.remove();
         subError.remove();
         const code = (e as { code?: string })?.code ?? 'E_REQUEST_FAILED';
         const message = e instanceof Error ? e.message : String(e);
+        const cancelled =
+          code.includes('CANCELLED') || message.toLowerCase().includes('cancelled');
         listeners.onPurchaseError({ code, message });
-        resolve({ success: false, code, message });
+        resolve({ success: false, code, message, cancelled });
       });
   });
 }
@@ -188,11 +232,12 @@ export async function acknowledgePurchaseAndroid(purchase: PurchaseLike): Promis
  * determined from this; backend GET /entitlements/me is the only source of truth.
  */
 export async function restorePurchases(): Promise<PurchaseLike[]> {
-  if (!isIAPAvailable) return [];
+  if (!isIAPAvailable || isIapConnectionFailed()) return [];
   const iap = getIap();
   if (!iap) return [];
   try {
-    await ensureIapConnection();
+    const connected = await ensureIapConnection();
+    if (!connected) return [];
     const purchases = await iap.getAvailablePurchases({
       alsoPublishToEventListenerIOS: false,
       onlyIncludeActiveItemsIOS: true,

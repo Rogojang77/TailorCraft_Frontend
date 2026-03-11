@@ -13,29 +13,27 @@ import {
   FlatList,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { GestureHandlerRootView, PanGestureHandler, State } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Input } from '@/components/ui/Input';
-import { useFocusEffect } from 'expo-router';
-import { Plus, Grid3X3, List, X, Trash2, ChevronLeft, ChevronRight, ChevronDown, FolderEdit } from 'lucide-react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Plus, Grid3X3, List, X, Trash2, ChevronDown, FolderEdit } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { api, apiFetch, uploadImage, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
+import { ZoomableImageViewer } from '@/components/ZoomableImageViewer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { InlineSpinner } from '@/components/InlineSpinner';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
-import {
-  MODAL_ANIMATION_DURATION_OPEN,
-  MODAL_INITIAL_SCALE,
-} from '@/constants/modalAnimation';
+import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GALLERY_VIEW_MODE_KEY = 'gallery:viewMode';
@@ -55,7 +53,7 @@ type GalleryItem = {
   description: string | null;
 };
 
-// Image Viewer Component
+// Image Viewer Component using ZoomableImageViewer
 const ImageViewer = memo<{
   visible: boolean;
   items: GalleryItem[];
@@ -64,209 +62,54 @@ const ImageViewer = memo<{
   onDeleteRequest: (item: GalleryItem) => void;
 }>(({ visible, items, initialIndex, onClose, onDeleteRequest }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const currentIndexRef = useRef(initialIndex);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(MODAL_INITIAL_SCALE)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  const onGestureEvent = Animated.event(
-    [{ nativeEvent: { translationY: translateY } }],
-    { useNativeDriver: true }
-  );
-
-  const handleGestureStateChange = (event: any) => {
-    if (event.nativeEvent.oldState === State.ACTIVE) {
-      const { translationY: ty } = event.nativeEvent;
-
-      if (ty > 120) {
-        Animated.timing(translateY, {
-          toValue: 1000,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          translateY.setValue(0);
-          onClose();
-        });
-      } else {
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
 
   useEffect(() => {
     if (visible) {
       setCurrentIndex(initialIndex);
-      currentIndexRef.current = initialIndex;
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: MODAL_ANIMATION_DURATION_OPEN,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: MODAL_ANIMATION_DURATION_OPEN,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(MODAL_INITIAL_SCALE);
     }
   }, [visible, initialIndex]);
 
-  useEffect(() => {
-    // Update ref when index changes
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
+  const images = useMemo(() => 
+    items.map(item => ({
+      uri: item.image,
+      title: item.title,
+      description: item.description || undefined,
+      category: item.categoryName,
+    })),
+    [items]
+  );
 
-  const currentItem = items[currentIndex];
-
-  const handleNext = () => {
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+  const handleDelete = useCallback((index: number) => {
+    const item = items[index];
+    if (item) {
+      onClose();
+      setTimeout(() => onDeleteRequest(item), 300);
     }
-  };
+  }, [items, onClose, onDeleteRequest]);
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+  const handleIndexChange = useCallback((index: number) => {
+    setCurrentIndex(index);
+  }, []);
 
-  if (!visible || !currentItem) return null;
+  if (items.length === 0) return null;
 
   return (
-    <Modal
+    <ZoomableImageViewer
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
-      <GestureHandlerRootView style={{ flex: 1 }}>
-      <Animated.View
-        style={[
-          styles.imageViewerContainer,
-          {
-            opacity: Animated.multiply(
-              fadeAnim,
-              Animated.subtract(
-                1,
-                translateY.interpolate({
-                  inputRange: [0, 300],
-                  outputRange: [0, 0.6],
-                  extrapolate: 'clamp',
-                })
-              )
-            ),
-          },
-        ]}
-      >
+      images={images}
+      initialIndex={initialIndex}
+      onClose={onClose}
+      onIndexChange={handleIndexChange}
+      headerRight={(index) => (
         <TouchableOpacity
-          style={styles.imageViewerBackdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <Animated.View
-          style={[
-            styles.imageViewerContent,
-            {
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
+          style={styles.imageViewerDeleteBtn}
+          onPress={() => handleDelete(index)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {/* Close Button */}
-          <TouchableOpacity
-            style={styles.imageViewerCloseBtn}
-            onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <X size={24} color="#FFFFFF" strokeWidth={2.5} />
-          </TouchableOpacity>
-
-          {/* Delete Button */}
-          <TouchableOpacity
-            style={styles.imageViewerDeleteBtn}
-            onPress={() => {
-              onClose();
-              setTimeout(() => onDeleteRequest(currentItem), 300);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />
-          </TouchableOpacity>
-
-          {/* Navigation Buttons */}
-          {currentIndex > 0 && (
-            <TouchableOpacity
-              style={[styles.imageViewerNavBtn, styles.imageViewerNavBtnLeft]}
-              onPress={handlePrev}
-            >
-              <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-          {currentIndex < items.length - 1 && (
-            <TouchableOpacity
-              style={[styles.imageViewerNavBtn, styles.imageViewerNavBtnRight]}
-              onPress={handleNext}
-            >
-              <ChevronRight size={28} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-
-          {/* Image */}
-          <PanGestureHandler
-            onGestureEvent={onGestureEvent}
-            onHandlerStateChange={handleGestureStateChange}
-            activeOffsetY={[-20, 20]}
-            failOffsetX={[-30, 30]}
-          >
-            <Animated.View
-              style={[
-                styles.imageViewerImageContainer,
-                { transform: [{ translateY }] },
-              ]}
-            >
-              <Image
-                source={{ uri: currentItem.image }}
-                style={styles.imageViewerImage}
-                resizeMode="contain"
-              />
-            </Animated.View>
-          </PanGestureHandler>
-
-          {/* Info Panel */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-            style={styles.imageViewerInfoGradient}
-          >
-            <View style={styles.imageViewerInfo}>
-              <Text style={styles.imageViewerTitle}>{currentItem.title}</Text>
-              {currentItem.description && (
-                <Text style={styles.imageViewerDescription}>{currentItem.description}</Text>
-              )}
-              <View style={styles.imageViewerCategory}>
-                <Text style={styles.imageViewerCategoryText}>
-                  {currentItem.categoryName}
-                </Text>
-              </View>
-              {items.length > 1 && (
-                <Text style={styles.imageViewerCounter}>
-                  {currentIndex + 1} / {items.length}
-                </Text>
-              )}
-            </View>
-          </LinearGradient>
-        </Animated.View>
-      </Animated.View>
-      </GestureHandlerRootView>
-    </Modal>
+          <Trash2 size={20} color="#FFFFFF" strokeWidth={2.5} />
+        </TouchableOpacity>
+      )}
+    />
   );
 });
 
@@ -278,7 +121,8 @@ const GalleryItemCard = memo<{
   viewMode: 'grid' | 'list';
   onDeleteRequest: (item: GalleryItem) => void;
   onView: (item: GalleryItem) => void;
-}>(({ item, viewMode, onDeleteRequest, onView }) => {
+  colors: ReturnType<typeof useTheme>['colors'];
+}>(({ item, viewMode, onDeleteRequest, onView, colors }) => {
   const handleDelete = useCallback((e: any) => {
     e.stopPropagation();
     onDeleteRequest(item);
@@ -306,14 +150,14 @@ const GalleryItemCard = memo<{
 
   return (
     <TouchableOpacity
-      style={styles.listItem}
+      style={[styles.listItem, { backgroundColor: colors.surface }]}
       onPress={handlePress}
       activeOpacity={0.9}
     >
       <View style={styles.galleryItemImageContainer}>
         <Image
           source={{ uri: item.image }}
-          style={styles.listImage}
+          style={[styles.listImage, { backgroundColor: colors.borderLight }]}
           resizeMode="cover"
         />
         <LinearGradient
@@ -331,7 +175,7 @@ const GalleryItemCard = memo<{
         </TouchableOpacity>
       </View>
       <View style={styles.listInfo}>
-        <Text style={styles.itemTitle} numberOfLines={2}>
+        <Text style={[styles.itemTitle, { color: colors.textPrimary }]} numberOfLines={2}>
           {item.title}
         </Text>
         {item.description && (
@@ -339,8 +183,8 @@ const GalleryItemCard = memo<{
             {item.description}
           </Text>
         )}
-        <View style={styles.itemCategoryBadge}>
-          <Text style={styles.itemCategoryText}>
+        <View style={[styles.itemCategoryBadge, { backgroundColor: colors.primaryLight }]}>
+          <Text style={[styles.itemCategoryText, { color: colors.primaryDark }]}>
             {item.categoryName}
           </Text>
         </View>
@@ -352,8 +196,12 @@ const GalleryItemCard = memo<{
 GalleryItemCard.displayName = 'GalleryItemCard';
 
 export default function GalleryTab() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ openAdd?: string }>();
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [viewModeLoaded, setViewModeLoaded] = useState(false);
   const [categories, setCategories] = useState<GalleryCategory[]>([]);
@@ -398,6 +246,16 @@ export default function GalleryTab() {
 
     AsyncStorage.setItem(GALLERY_VIEW_MODE_KEY, viewMode).catch(() => {});
   }, [viewMode, viewModeLoaded]);
+
+  // Open add-item modal when navigated from FAB with ?openAdd=1
+  useFocusEffect(
+    useCallback(() => {
+      if (params.openAdd === '1') {
+        setShowAddModal(true);
+        router.replace('/(tabs)/gallery');
+      }
+    }, [params.openAdd, router])
+  );
 
   const getFilterCategoryLabel = (id: string) =>
     id === ALL_CATEGORIES_ID ? t('gallery.categories.all') : (categories.find((c) => c.id === id)?.name ?? id);
@@ -678,52 +536,51 @@ export default function GalleryTab() {
 
   return (
     <ScreenContainer noPadding>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('gallery.title')}</Text>
-        <View style={styles.headerActions}>
+      {/* Actions Row */}
+      <View style={styles.actionsRow}>
+        <View style={styles.viewModeButtons}>
           <TouchableOpacity
-            style={[styles.viewButton, viewMode === 'grid' && styles.activeViewButton]}
+            style={[styles.viewButton, { backgroundColor: viewMode === 'grid' ? colors.primary : colors.borderLight }, viewMode === 'grid' && styles.activeViewButton]}
             onPress={() => setViewMode('grid')}
             activeOpacity={0.7}
           >
-            <Grid3X3 size={18} color={viewMode === 'grid' ? Colors.textInverse : Colors.textSecondary} strokeWidth={2.5} />
+            <Grid3X3 size={18} color={viewMode === 'grid' ? colors.textInverse : colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.viewButton, viewMode === 'list' && styles.activeViewButton]}
+            style={[styles.viewButton, { backgroundColor: viewMode === 'list' ? colors.primary : colors.borderLight }, viewMode === 'list' && styles.activeViewButton]}
             onPress={() => setViewMode('list')}
             activeOpacity={0.7}
           >
-            <List size={18} color={viewMode === 'list' ? Colors.textInverse : Colors.textSecondary} strokeWidth={2.5} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.addButton} 
-            onPress={handleAddItem}
-            activeOpacity={0.8}
-          >
-            <Plus size={20} color={Colors.textInverse} strokeWidth={2.5} />
+            <List size={18} color={viewMode === 'list' ? colors.textInverse : colors.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={handleAddItem}
+          activeOpacity={0.8}
+        >
+          <Plus size={20} color={colors.textInverse} strokeWidth={2.5} />
+        </TouchableOpacity>
       </View>
 
       {/* Category dropdown */}
-      <View style={styles.categoriesWrapper}>
+      <View style={[styles.categoriesWrapper, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.categoryDropdownTrigger}
+          style={[styles.categoryDropdownTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => setCategoryDropdownOpen(true)}
           activeOpacity={0.7}
         >
-          <Text style={styles.categoryDropdownTriggerText} numberOfLines={1}>
+          <Text style={[styles.categoryDropdownTriggerText, { color: colors.textPrimary }]} numberOfLines={1}>
             {getFilterCategoryLabel(activeCategoryId)}
           </Text>
-          <ChevronDown size={20} color={Colors.textSecondary} strokeWidth={2} />
+          <ChevronDown size={20} color={colors.textSecondary} strokeWidth={2} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.manageCategoriesBtn}
           onPress={() => { fetchCategories(); setShowCategoriesModal(true); }}
         >
-          <FolderEdit size={18} color={Colors.primary} strokeWidth={2} />
-          <Text style={styles.manageCategoriesText}>{t('gallery.manageCategories')}</Text>
+          <FolderEdit size={18} color={colors.primary} strokeWidth={2} />
+          <Text style={[styles.manageCategoriesText, { color: colors.primary }]}>{t('gallery.manageCategories')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -739,7 +596,7 @@ export default function GalleryTab() {
           activeOpacity={1}
           onPress={() => setCategoryDropdownOpen(false)}
         >
-          <View style={styles.categoryDropdownPanel}>
+          <View style={[styles.categoryDropdownPanel, { backgroundColor: colors.surface }]}>
             <ScrollView
               style={styles.categoryDropdownScroll}
               keyboardShouldPersistTaps="handled"
@@ -749,7 +606,7 @@ export default function GalleryTab() {
                   key={id}
                   style={[
                     styles.categoryDropdownOption,
-                    activeCategoryId === id && styles.categoryDropdownOptionActive,
+                    activeCategoryId === id && [styles.categoryDropdownOptionActive, { backgroundColor: colors.primaryLight }],
                   ]}
                   onPress={() => {
                     setActiveCategoryId(id);
@@ -759,7 +616,8 @@ export default function GalleryTab() {
                   <Text
                     style={[
                       styles.categoryDropdownOptionText,
-                      activeCategoryId === id && styles.categoryDropdownOptionTextActive,
+                      { color: colors.textPrimary },
+                      activeCategoryId === id && [styles.categoryDropdownOptionTextActive, { color: colors.primary }],
                     ]}
                   >
                     {getFilterCategoryLabel(id)}
@@ -778,7 +636,7 @@ export default function GalleryTab() {
         </View>
       ) : galleryItems.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>{t('gallery.empty')}</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('gallery.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -790,7 +648,7 @@ export default function GalleryTab() {
           contentContainerStyle={viewMode === 'grid' ? styles.cleanGridContainer : styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
           // Performance optimizations for FlatList
           windowSize={5} // Render 5 screens worth of items (reduces memory)
@@ -803,6 +661,7 @@ export default function GalleryTab() {
               viewMode={viewMode}
               onDeleteRequest={handleDeleteRequest}
               onView={handleViewItem}
+              colors={colors}
             />
           )}
         />
@@ -815,14 +674,14 @@ export default function GalleryTab() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('gallery.addItem')}</Text>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('gallery.addItem')}</Text>
             <TouchableOpacity
               onPress={() => setShowAddModal(false)}
               style={styles.closeButton}
             >
-              <X size={24} color="#1F2937" />
+              <X size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -834,14 +693,14 @@ export default function GalleryTab() {
               {newItemImage ? (
                 <Image
                   source={{ uri: newItemImage }}
-                  style={styles.pickedImage}
+                  style={[styles.pickedImage, { backgroundColor: colors.border }]}
                   resizeMode="cover"
                   // Explicit dimensions prevent loading full-resolution images
                 />
               ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Plus size={32} color="#9CA3AF" />
-                  <Text style={styles.imagePlaceholderText}>{t('gallery.addImage')}</Text>
+                <View style={[styles.imagePlaceholder, { backgroundColor: colors.borderLight, borderColor: colors.border }]}>
+                  <Plus size={32} color={colors.textTertiary} />
+                  <Text style={[styles.imagePlaceholderText, { color: colors.textTertiary }]}>{t('gallery.addImage')}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -862,9 +721,9 @@ export default function GalleryTab() {
               numberOfLines={4}
             />
 
-            <Text style={styles.inputLabel}>{t('gallery.categoryLabel')}</Text>
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{t('gallery.categoryLabel')}</Text>
             {categories.length === 0 ? (
-              <Text style={styles.noCategoriesHint}>{t('gallery.createCategoryFirst')}</Text>
+              <Text style={[styles.noCategoriesHint, { color: colors.textSecondary }]}>{t('gallery.createCategoryFirst')}</Text>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
                 {categories.map((c) => (
@@ -872,6 +731,7 @@ export default function GalleryTab() {
                     key={c.id}
                     style={[
                       styles.categoryOption,
+                      { backgroundColor: newItemCategoryId === c.id ? colors.primary : colors.borderLight },
                       newItemCategoryId === c.id && styles.activeCategoryOption,
                     ]}
                     onPress={() => setNewItemCategoryId(c.id)}
@@ -879,6 +739,7 @@ export default function GalleryTab() {
                     <Text
                       style={[
                         styles.categoryOptionText,
+                        { color: newItemCategoryId === c.id ? colors.textInverse : colors.textSecondary },
                         newItemCategoryId === c.id && styles.activeCategoryOptionText,
                       ]}
                     >
@@ -890,14 +751,14 @@ export default function GalleryTab() {
             )}
 
             <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+              style={[styles.saveButton, { backgroundColor: colors.primary }, saving && styles.saveButtonDisabled]}
               onPress={handleSaveItem}
               disabled={saving}
             >
               {saving ? (
                 <InlineSpinner variant="inverse" />
               ) : (
-                <Text style={styles.saveButtonText}>{t('gallery.save')}</Text>
+                <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{t('gallery.save')}</Text>
               )}
             </TouchableOpacity>
           </KeyboardAwareScrollView>
@@ -929,11 +790,11 @@ export default function GalleryTab() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowCategoriesModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('gallery.manageCategories')}</Text>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('gallery.manageCategories')}</Text>
             <TouchableOpacity onPress={() => setShowCategoriesModal(false)} style={styles.closeButton}>
-              <X size={24} color="#1F2937" />
+              <X size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
           <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
@@ -962,15 +823,15 @@ export default function GalleryTab() {
                 style={styles.cancelEditBtn}
                 onPress={() => { setCategoryEditId(null); setCategoryNameInput(''); }}
               >
-                <Text style={styles.cancelEditText}>{t('common.cancel')}</Text>
+                <Text style={[styles.cancelEditText, { color: colors.primary }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             )}
-            <Text style={styles.inputLabel}>{t('gallery.yourCategories')}</Text>
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{t('gallery.yourCategories')}</Text>
             {categories.length === 0 ? (
-              <Text style={styles.noCategoriesHint}>{t('gallery.noCategoriesYet')}</Text>
+              <Text style={[styles.noCategoriesHint, { color: colors.textSecondary }]}>{t('gallery.noCategoriesYet')}</Text>
             ) : (
               categories.map((c) => (
-                <View key={c.id} style={styles.categoryRow}>
+                <View key={c.id} style={[styles.categoryRow, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity
                     style={styles.categoryRowName}
                     onPress={() => {
@@ -978,9 +839,9 @@ export default function GalleryTab() {
                       setCategoryNameInput(c.name);
                     }}
                   >
-                    <Text style={styles.categoryRowNameText}>{c.name}</Text>
+                    <Text style={[styles.categoryRowNameText, { color: colors.textPrimary }]}>{c.name}</Text>
                     {c.itemCount != null && c.itemCount > 0 && (
-                      <Text style={styles.categoryRowCount}>{c.itemCount}</Text>
+                      <Text style={[styles.categoryRowCount, { color: colors.textTertiary }]}>{c.itemCount}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -988,7 +849,7 @@ export default function GalleryTab() {
                     onPress={() => setCategoryDeleteTarget(c)}
                     disabled={(c.itemCount ?? 0) > 0}
                   >
-                    <Trash2 size={18} color={(c.itemCount ?? 0) > 0 ? '#9CA3AF' : '#EF4444'} strokeWidth={2} />
+                    <Trash2 size={18} color={(c.itemCount ?? 0) > 0 ? colors.textTertiary : colors.error} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
               ))
@@ -1015,14 +876,15 @@ export default function GalleryTab() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    ...HeaderStyles.container,
-    paddingBottom: Spacing.md,
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  title: {
-    ...Typography.h2,
-  },
-  headerActions: {
+  viewModeButtons: {
     flexDirection: 'row',
     gap: Spacing.sm,
   },
@@ -1032,10 +894,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.borderLight,
   },
   activeViewButton: {
-    backgroundColor: Colors.primary,
     ...Shadows.primary,
   },
   addButton: {
@@ -1049,7 +909,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xs,
     paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
@@ -1062,15 +921,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     minHeight: 44,
   },
   categoryDropdownTriggerText: {
     ...Typography.body,
-    color: Colors.textPrimary,
     fontWeight: '500',
     flex: 1,
   },
@@ -1081,7 +937,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   categoryDropdownPanel: {
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     maxHeight: 320,
     ...Shadows.lg,
@@ -1095,14 +950,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   categoryDropdownOptionActive: {
-    backgroundColor: Colors.primaryLight,
   },
   categoryDropdownOptionText: {
     ...Typography.body,
-    color: Colors.textPrimary,
   },
   categoryDropdownOptionTextActive: {
-    color: Colors.primary,
     fontWeight: '600',
   },
   manageCategoriesBtn: {
@@ -1116,11 +968,9 @@ const styles = StyleSheet.create({
   manageCategoriesText: {
     ...Typography.label,
     fontWeight: '600',
-    color: Colors.primary,
   },
   noCategoriesHint: {
     ...Typography.body,
-    color: Colors.textSecondary,
     marginBottom: Spacing.md,
     fontStyle: 'italic',
   },
@@ -1136,7 +986,6 @@ const styles = StyleSheet.create({
   categorySubmitText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   cancelEditBtn: {
     alignSelf: 'flex-start',
@@ -1144,7 +993,6 @@ const styles = StyleSheet.create({
   },
   cancelEditText: {
     fontSize: 14,
-    color: Colors.primary,
     fontWeight: '500',
   },
   categoryRow: {
@@ -1154,7 +1002,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   categoryRowName: {
     flex: 1,
@@ -1162,11 +1009,9 @@ const styles = StyleSheet.create({
   categoryRowNameText: {
     ...Typography.body,
     fontWeight: '500',
-    color: Colors.textPrimary,
   },
   categoryRowCount: {
     ...Typography.small,
-    color: Colors.textTertiary,
     marginTop: Spacing.xxs,
   },
   categoryRowDelete: {
@@ -1179,7 +1024,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   listContainer: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
   },
   gridItem: {
@@ -1189,7 +1034,6 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 160,
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.md,
     overflow: 'hidden',
@@ -1217,13 +1061,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteIconShadow: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
-  },
+  deleteIconShadow: Platform.select({
+    android: {},
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.5,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+  }),
   gridImage: {
     width: '100%',
     aspectRatio: 1,
@@ -1231,7 +1078,6 @@ const styles = StyleSheet.create({
   listImage: {
     width: 100,
     minHeight: 160,
-    backgroundColor: Colors.borderLight,
   },
   gridInfo: {
     padding: Spacing.md,
@@ -1243,7 +1089,6 @@ const styles = StyleSheet.create({
   itemTitle: {
     ...Typography.h3,
     fontSize: 16,
-    color: Colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   itemDescription: {
@@ -1256,49 +1101,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm + 2,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primaryLight,
   },
   itemCategoryText: {
     fontSize: 9,
     fontWeight: '600',
-    color: Colors.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  // Image Viewer Styles
-  imageViewerContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.98)',
-  },
-  imageViewerBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  imageViewerContent: {
-    flex: 1,
-    position: 'relative',
-  },
-  imageViewerCloseBtn: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backdropFilter: 'blur(10px)',
-  },
+  // Image Viewer Delete Button Style
   imageViewerDeleteBtn: {
-    position: 'absolute',
-    top: 50,
-    right: 72,
-    zIndex: 10,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -1306,87 +1117,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageViewerNavBtn: {
-    position: 'absolute',
-    top: '50%',
-    zIndex: 10,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ translateY: -25 }],
-  },
-  imageViewerNavBtnLeft: {
-    left: 20,
-  },
-  imageViewerNavBtnRight: {
-    right: 20,
-  },
-  imageViewerImageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-    paddingBottom: 200,
-  },
-  imageViewerImage: {
-    width: '100%',
-    height: '100%',
-    maxWidth: Dimensions.get('window').width,
-  },
-  imageViewerInfoGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 40,
-    paddingBottom: 40,
-    paddingHorizontal: 24,
-  },
-  imageViewerInfo: {
-    paddingBottom: 20,
-  },
-  imageViewerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 12,
-    letterSpacing: -0.5,
-  },
-  imageViewerDescription: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  imageViewerCategory: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.md - 2,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: 'rgba(196, 160, 45, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(196, 160, 45, 0.4)',
-    marginBottom: Spacing.md,
-  },
-  imageViewerCategoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  imageViewerCounter: {
-    ...Typography.caption,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500',
-    marginTop: Spacing.sm,
-  },
   modalContainer: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1395,12 +1127,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   modalTitle: {
     ...Typography.h2,
     fontSize: 20,
-    color: Colors.textPrimary,
   },
   closeButton: {
     padding: 4,
@@ -1419,29 +1149,24 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.border,
     borderStyle: 'dashed',
     borderRadius: BorderRadius.md,
   },
   imagePlaceholderText: {
     marginTop: Spacing.sm,
     ...Typography.body,
-    color: Colors.textTertiary,
     fontWeight: '500',
   },
   pickedImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.border,
   },
   inputLabel: {
     ...Typography.label,
     fontWeight: '600',
-    color: Colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   categorySelector: {
@@ -1451,22 +1176,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.borderLight,
     marginRight: Spacing.sm,
   },
   activeCategoryOption: {
-    backgroundColor: Colors.primary,
   },
   categoryOptionText: {
     ...Typography.caption,
     fontWeight: '600',
-    color: Colors.textSecondary,
   },
   activeCategoryOptionText: {
-    color: Colors.textInverse,
   },
   saveButton: {
-    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: 'center',
@@ -1479,7 +1199,6 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     ...Typography.bodyBold,
-    color: Colors.textInverse,
   },
   centerContainer: {
     flex: 1,
@@ -1489,7 +1208,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
   emptyState: {
@@ -1498,6 +1216,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...Typography.body,
-    color: Colors.textSecondary,
   },
 });

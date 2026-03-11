@@ -12,18 +12,18 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Check, AlertTriangle } from 'lucide-react-native';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { api, apiFetch } from '@/lib/api';
-import { fetchGarmentTypesList } from '@/lib/apiCache';
-import { normalizeGarmentTypeRecord } from '@/lib/api-mappers';
+import { fetchGarmentTypesList, normalizeGarmentTypeRecord } from '@/lib/api';
 import type { GarmentTypeRecord, MeasurementDefinitionRecord } from '@/types/templates';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useI18n } from '@/lib/i18n';
-import { FullScreenLoader } from '@/components/FullScreenLoader';
-import { Header } from '@/components/layout/Header';
+import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
+import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
 import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
-import { Colors, Spacing, Typography, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { Spacing, Typography, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 
 /** Client-side filter: only garments that are enabled (active) for new orders. */
 function isEnabled(garment: GarmentTypeRecord): boolean {
@@ -33,6 +33,7 @@ function isEnabled(garment: GarmentTypeRecord): boolean {
 export default function NewOrderScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  const { colors } = useTheme();
   const { draftOrder, orderMode, orderIdToEdit, setSelectedGarmentIds, loadOrderData } = useOrderDraft();
   const { checkCanCreateOrder, getLimitMessages } = useSubscription();
   const isCreating = orderMode === 'create';
@@ -174,8 +175,8 @@ export default function NewOrderScreen() {
     }
   }, [orderMode, draftOrder.customer.id, router]);
 
-  const enabledGarments = garments.filter(isEnabled);
-  const disabledGarments = garments.filter((g) => !isEnabled(g));
+  const enabledGarments = garments.filter(isEnabled).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const disabledGarments = garments.filter((g) => !isEnabled(g)).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const selectedSet = new Set(draftOrder.selectedGarmentIds);
   const selectedAmongEnabled = draftOrder.selectedGarmentIds.filter((id) =>
     enabledGarments.some((g) => g.id === id)
@@ -184,12 +185,20 @@ export default function NewOrderScreen() {
     (id) => !enabledGarments.some((g) => g.id === id)
   );
 
-  const toggleGarment = (garmentId: string, isEnabled: boolean) => {
-    if (!isEnabled) return; // Don't allow toggling disabled garments
-    const next = selectedSet.has(garmentId)
-      ? draftOrder.selectedGarmentIds.filter((id) => id !== garmentId)
-      : [...draftOrder.selectedGarmentIds, garmentId];
-    setSelectedGarmentIds(next);
+  const toggleGarment = (garmentId: string, isGarmentEnabled: boolean) => {
+    if (!isGarmentEnabled) return;
+    let next: string[];
+    if (selectedSet.has(garmentId)) {
+      next = draftOrder.selectedGarmentIds.filter((id) => id !== garmentId);
+    } else {
+      next = [...draftOrder.selectedGarmentIds, garmentId];
+    }
+    const sortedNext = next.sort((a, b) => {
+      const garmentA = enabledGarments.find((g) => g.id === a);
+      const garmentB = enabledGarments.find((g) => g.id === b);
+      return (garmentA?.sortOrder ?? 0) - (garmentB?.sortOrder ?? 0);
+    });
+    setSelectedGarmentIds(sortedNext);
   };
 
   const canContinue =
@@ -208,16 +217,13 @@ export default function NewOrderScreen() {
   }
 
   const title = orderMode === 'edit' ? t('newOrder.index.editOrderTitle') : t('newOrder.index.newOrderTitle');
+  useDynamicTitle(title);
+  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
 
   if (loading && garments.length === 0) {
     return (
       <ScreenContainer noPadding>
-        <Header
-          title={title}
-          onBack={() => router.replace('/(tabs)/orders')}
-          backAccessibilityLabel={t('common.back')}
-        />
-        <FullScreenLoader message={t('common.loading')} />
+        <ListSkeletonLoader variant="card" count={4} />
       </ScreenContainer>
     );
   }
@@ -225,11 +231,6 @@ export default function NewOrderScreen() {
   if (!loading && garmentsLoadError) {
     return (
       <ScreenContainer noPadding>
-        <Header
-          title={title}
-          onBack={() => router.replace('/(tabs)/orders')}
-          backAccessibilityLabel={t('common.back')}
-        />
         <View style={styles.errorWrapper}>
           <ErrorText style={styles.loadErrorText}>{garmentsLoadError}</ErrorText>
           <Button
@@ -248,28 +249,15 @@ export default function NewOrderScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Header
-        title={title}
-        onBack={() => router.replace('/(tabs)/orders')}
-        backAccessibilityLabel={t('common.back')}
-      />
-
       <View style={styles.contentWrapper}>
-        <KeyboardAwareScrollView
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: footerBottomOffset }]}
-          keyboardShouldPersistTaps="handled"
-          bottomOffset={footerBottomOffset}
-        >
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Selectează articolele de inclus în comandă (cel puțin unul)
           </Text>
 
           {hasDisabledSelected && (
-            <View style={styles.warningBanner}>
-              <AlertTriangle size={20} color={Colors.warning} />
-              <Text style={styles.warningText}>
+            <View style={[styles.warningBanner, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
+              <AlertTriangle size={20} color={colors.warning} />
+              <Text style={[styles.warningText, { color: colors.textSecondary }]}>
                 Unul sau mai multe articole selectate nu mai sunt disponibile. Deselectează-le pentru a continua.
               </Text>
             </View>
@@ -279,7 +267,7 @@ export default function NewOrderScreen() {
             <EmptyState
               title={t('newOrder.index.noItemsAvailable')}
               message="Nu există articole disponibile momentan. Adaugă un articol înainte de a crea o comandă."
-              style={styles.emptyState}
+              style={[styles.emptyState, { backgroundColor: colors.surface }]}
             />
           ) : (
             <View style={styles.list}>
@@ -289,23 +277,23 @@ export default function NewOrderScreen() {
                 return (
                   <TouchableOpacity
                     key={garment.id}
-                    style={[styles.card, selected && styles.cardSelected]}
+                    style={[styles.garmentItem, selected && { backgroundColor: colors.primaryLight }]}
                     onPress={() => toggleGarment(garment.id, true)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                      {selected ? <Check size={20} color={Colors.textInverse} strokeWidth={2.5} /> : null}
+                    <View style={[styles.checkbox, { borderColor: colors.border }, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                      {selected ? <Check size={20} color={colors.textInverse} strokeWidth={2.5} /> : null}
                     </View>
-                    <View style={styles.cardContent}>
-                      <Text style={styles.cardTitle}>{garment.name}</Text>
-                      <View style={styles.cardMeta}>
+                    <View style={styles.garmentContent}>
+                      <Text style={[styles.garmentTitle, { color: colors.textPrimary }]}>{garment.name}</Text>
+                      <View style={styles.garmentMeta}>
                         {measurementCount > 0 && (
-                          <Text style={styles.measurementCount}>
+                          <Text style={[styles.measurementCount, { color: colors.textSecondary }]}>
                             {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
                           </Text>
                         )}
                         {garment.description ? (
-                          <Text style={styles.cardDescription} numberOfLines={1}>
+                          <Text style={[styles.garmentDescription, { color: colors.textSecondary }]} numberOfLines={1}>
                             {garment.description}
                           </Text>
                         ) : null}
@@ -318,26 +306,26 @@ export default function NewOrderScreen() {
                 <>
                   {enabledGarments.length > 0 && (
                     <View style={styles.sectionDivider}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>{t('newOrder.index.disabledItems')}</Text>
-                      <View style={styles.dividerLine} />
+                      <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                      <Text style={[styles.dividerText, { color: colors.textTertiary }]}>{t('newOrder.index.disabledItems')}</Text>
+                      <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
                     </View>
                   )}
                   {disabledGarments.map((garment) => {
                     const measurementCount = measurementCounts[garment.id] ?? 0;
                     return (
-                      <View key={garment.id} style={[styles.card, styles.cardDisabled]}>
-                        <View style={[styles.checkbox, styles.checkboxDisabled]} />
-                        <View style={styles.cardContent}>
-                          <Text style={[styles.cardTitle, styles.cardTitleDisabled]}>{garment.name}</Text>
-                          <View style={styles.cardMeta}>
+                      <View key={garment.id} style={[styles.garmentItem, { opacity: 0.6 }]}>
+                        <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: colors.background, opacity: 0.5 }]} />
+                        <View style={styles.garmentContent}>
+                          <Text style={[styles.garmentTitle, { color: colors.textTertiary }]}>{garment.name}</Text>
+                          <View style={styles.garmentMeta}>
                             {measurementCount > 0 && (
-                              <Text style={styles.measurementCountDisabled}>
+                              <Text style={[styles.measurementCount, { color: colors.textTertiary }]}>
                                 {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
                               </Text>
                             )}
                             {garment.description ? (
-                              <Text style={styles.cardDescriptionDisabled} numberOfLines={1}>
+                              <Text style={[styles.garmentDescription, { color: colors.textTertiary }]} numberOfLines={1}>
                                 {garment.description}
                               </Text>
                             ) : null}
@@ -352,18 +340,16 @@ export default function NewOrderScreen() {
           )}
 
           {isCreating && !canCreateOrder && (
-            <Text style={styles.limitMessage}>{limitMsgs.orderLimitReached}</Text>
+            <Text style={[styles.limitMessage, { color: colors.textSecondary }]}>{limitMsgs.orderLimitReached}</Text>
           )}
           {selectedAmongEnabled.length === 0 && enabledGarments.length > 0 && (
-            <View style={styles.explanationBanner}>
-              <AlertTriangle size={18} color={Colors.textSecondary} />
-              <Text style={styles.explanationText}>
+            <View style={[styles.explanationBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <AlertTriangle size={18} color={colors.textSecondary} />
+              <Text style={[styles.explanationText, { color: colors.textSecondary }]}>
                 Selectează cel puțin un articol pentru a continua
               </Text>
             </View>
           )}
-        </KeyboardAwareScrollView>
-
         <AppFloatingFooter
           primaryLabel={t('newOrder.index.continue')}
           onPrimaryPress={handleContinue}
@@ -389,6 +375,7 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
+    paddingTop: Spacing.md,
   },
   content: {
     flex: 1,
@@ -398,7 +385,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...Typography.body,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
@@ -411,70 +397,48 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: Colors.warning + '20',
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.warning,
   },
   warningText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     flex: 1,
   },
   emptyState: {
     marginHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md,
     ...Shadows.sm,
   },
   list: {
     paddingHorizontal: Spacing.md,
+    gap: Spacing.md,
   },
-  card: {
+  garmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    ...Shadows.md,
-  },
-  cardSelected: {
-    borderColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
   },
   checkbox: {
     width: 32,
     height: 32,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
-    borderColor: Colors.border,
     marginRight: Spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  checkboxDisabled: {
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
-    opacity: 0.5,
-  },
-  cardContent: {
+  garmentContent: {
     flex: 1,
   },
-  cardTitle: {
-    ...Typography.h3,
+  garmentTitle: {
+    ...Typography.body,
+    fontWeight: '500',
   },
-  cardTitleDisabled: {
-    color: Colors.textTertiary,
-  },
-  cardMeta: {
+  garmentMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
@@ -482,27 +446,11 @@ const styles = StyleSheet.create({
   },
   measurementCount: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     fontSize: 12,
   },
-  measurementCountDisabled: {
+  garmentDescription: {
     ...Typography.caption,
-    color: Colors.textTertiary,
-    fontSize: 12,
-  },
-  cardDescription: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
     flex: 1,
-  },
-  cardDescriptionDisabled: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    flex: 1,
-  },
-  cardDisabled: {
-    opacity: 0.6,
-    borderColor: Colors.border,
   },
   sectionDivider: {
     flexDirection: 'row',
@@ -513,11 +461,9 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border,
   },
   dividerText: {
     ...Typography.caption,
-    color: Colors.textTertiary,
     marginHorizontal: Spacing.md,
   },
   explanationBanner: {
@@ -527,19 +473,15 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   explanationText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     flex: 1,
   },
   limitMessage: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
@@ -553,7 +495,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
 });

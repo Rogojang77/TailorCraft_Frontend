@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useI18n } from '@/lib/i18n';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 /**
  * Modal shown when a draft was restored from storage. User must choose:
@@ -17,6 +19,9 @@ import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/
  */
 export function DraftRestoredBanner() {
   const { t } = useI18n();
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const router = useRouter();
   const { draftStatus, acknowledgeRestoredDraft, clearDraft } = useOrderDraft();
 
   const visible = draftStatus === 'restored';
@@ -27,6 +32,7 @@ export function DraftRestoredBanner() {
 
   const handleDeleteDraft = () => {
     clearDraft();
+    router.replace('/new-order/client-data');
   };
 
   if (!visible) {
@@ -42,25 +48,31 @@ export function DraftRestoredBanner() {
       onRequestClose={handleContinue}
     >
       <TouchableWithoutFeedback onPress={handleContinue}>
-        <View style={styles.backdrop}>
+        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
           <TouchableWithoutFeedback>
-            <View style={styles.card}>
-              <Text style={styles.title}>{t('orderDraft.restoredTitle')}</Text>
-              <Text style={styles.message}>{t('orderDraft.restoredMessage')}</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <Text style={[typography.h3, styles.title]}>{t('orderDraft.restoredTitle')}</Text>
+              <Text style={[typography.body, { color: colors.textSecondary }, styles.message]}>
+                {t('orderDraft.restoredMessage')}
+              </Text>
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.secondaryButton}
                   onPress={handleDeleteDraft}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.secondaryText}>{t('orderDraft.deleteDraft')}</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textSecondary }]}>
+                    {t('orderDraft.deleteDraft')}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.primaryButton}
+                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
                   onPress={handleContinue}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.primaryText}>{t('orderDraft.continue')}</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textInverse }]}>
+                    {t('orderDraft.continue')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -74,7 +86,6 @@ export function DraftRestoredBanner() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: Colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.md,
@@ -82,18 +93,14 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xxl,
     ...Shadows.lg,
   },
   title: {
-    ...Typography.h3,
     marginBottom: Spacing.sm,
   },
   message: {
-    ...Typography.body,
-    color: Colors.textSecondary,
     marginBottom: Spacing.xl,
     lineHeight: 22,
   },
@@ -109,20 +116,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  secondaryText: {
-    ...Typography.bodyBold,
-    color: Colors.textSecondary,
-  },
   primaryButton: {
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
-  },
-  primaryText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
   },
 });

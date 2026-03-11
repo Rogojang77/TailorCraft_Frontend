@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { ActivityIndicator } from 'react-native';
-import { Colors } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface InlineSpinnerProps {
   /** Use 'inverse' for dark backgrounds (e.g. primary button). */
@@ -17,6 +17,7 @@ export function InlineSpinner({
   variant = 'default',
   size = 'small',
 }: InlineSpinnerProps) {
-  const color = variant === 'inverse' ? Colors.textInverse : Colors.primary;
+  const { colors } = useTheme();
+  const color = variant === 'inverse' ? colors.textInverse : colors.primary;
   return <ActivityIndicator size={size} color={color} />;
 }

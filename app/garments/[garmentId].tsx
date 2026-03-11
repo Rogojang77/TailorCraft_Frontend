@@ -17,28 +17,32 @@ import { Plus, Edit, Trash2, Copy, GripVertical } from 'lucide-react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import type { DragEndParams } from 'react-native-draggable-flatlist';
 import { api, apiFetch, ApiError, HttpStatus } from '@/lib/api';
-import { invalidateGarmentTypesCache } from '@/lib/apiCache';
-import { getGarmentTypeIdFromPostResponse, normalizeGarmentTypeRecord } from '@/lib/api-mappers';
+import { invalidateGarmentTypesCache, getGarmentTypeIdFromPostResponse, normalizeGarmentTypeRecord } from '@/lib/api';
 import type {
   GarmentTypeRecord,
   MeasurementDefinitionRecord,
   CreateMeasurementDefinitionPayload,
   UpdateMeasurementDefinitionPayload,
 } from '@/types/templates';
-import { useSubscription } from '@/contexts/SubscriptionContext';
+import type {
+  GarmentCatalogCategory,
+  GarmentCatalogCategoryListResponse,
+} from '@/types/catalog';
 import { useTemplates } from '@/contexts/TemplatesContext';
 import { TemplateSourceBadge } from '@/components/TemplateSourceBadge';
 import { MeasurementDefinitionEditorModal } from '@/components/MeasurementDefinitionEditorModal';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
+import { GarmentCatalogSection } from '@/components/GarmentCatalogSection';
 import { Button } from '@/components/ui/Button';
-import { Header } from '@/components/layout/Header';
+import { useDynamicTitle } from '@/contexts/PageTitleContext';
 import { Loader } from '@/components/ui/Loader';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Section } from '@/components/ui/Section';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useI18n } from '@/lib/i18n';
 import { getUnitDisplay } from '@/constants/units';
-import { Colors, Spacing, Typography, BorderRadius, Shadows, CompactLayoutStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, Typography, BorderRadius, Shadows, CompactLayoutStyles } from '@/constants/design';
 
 function inputTypeLabel(type: string): string {
   const map: Record<string, string> = {
@@ -79,6 +83,7 @@ function sortDefinitionsByDisplayOrder(
 
 export default function GarmentDetailScreen() {
   const { t } = useI18n();
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ garmentId: string }>();
   const router = useRouter();
   const rawId = (params.garmentId as string) ?? '';
@@ -96,36 +101,41 @@ export default function GarmentDetailScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
-  const { sharedTemplateUsageStatus } = useSubscription();
+  const [catalogCategories, setCatalogCategories] = useState<GarmentCatalogCategory[]>([]);
   const { isDuplicated, duplicateTemplate } = useTemplates();
-  const duplicateStatus = sharedTemplateUsageStatus();
 
   const insets = useSafeAreaInsets();
   const isShared = garment ? (garment.source === 'shared' || garment.source === 'api') : false;
   const isDisabled = garment?.status === 'disabled';
   const canToggleStatus =
     garment && (!isShared || (garment.templateId && isDuplicated(garment.templateId)));
-  const canEdit =
+  const canEdit = !!(
     garment &&
     !isDisabled &&
-    (!isShared || (garment.templateId && isDuplicated(garment.templateId)));
+    (!isShared || (garment.templateId && isDuplicated(garment.templateId)))
+  );
+
+  useDynamicTitle(garment?.name ?? t('garments.singleTitle'));
+
   const fetchGarment = useCallback(async () => {
     if (!garmentId) return;
     try {
       setError(null);
-      const [garmentRes, defsRes] = await Promise.all([
+      const [garmentRes, defsRes, catalogRes] = await Promise.all([
         apiFetch(api.garmentTypes(garmentId)).then(normalizeGarmentTypeRecord),
         apiFetch<
           | MeasurementDefinitionRecord[]
           | {
-            measurementDefinitions?: MeasurementDefinitionRecord[];
-            definitions?: MeasurementDefinitionRecord[];
-            measurements?: MeasurementDefinitionRecord[];
-          }
+              measurementDefinitions?: MeasurementDefinitionRecord[];
+              definitions?: MeasurementDefinitionRecord[];
+              measurements?: MeasurementDefinitionRecord[];
+            }
         >(api.garmentTypeDefinitions(garmentId)),
+        apiFetch<GarmentCatalogCategoryListResponse>(api.garmentCatalog.categories(garmentId, true)),
       ]);
       setGarment(garmentRes);
       setEditingName(garmentRes.name ?? '');
+      setCatalogCategories(catalogRes.categories);
       const raw = Array.isArray(defsRes)
         ? defsRes
         : (defsRes.measurementDefinitions ?? defsRes.definitions ?? defsRes.measurements ?? []);
@@ -199,13 +209,20 @@ export default function GarmentDetailScreen() {
     [garmentId, garment, canToggleStatus]
   );
 
+  const handleCatalogCategoriesChange = useCallback(
+    (categories: GarmentCatalogCategory[]) => {
+      setCatalogCategories(categories);
+    },
+    []
+  );
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchGarment();
   }, [fetchGarment]);
 
   const handleDuplicate = useCallback(async () => {
-    if (!garmentId || !duplicateStatus.allowed) return;
+    if (!garmentId) return;
     try {
       const res = await apiFetch<unknown>(api.garmentTypes(), {
         method: 'POST',
@@ -229,7 +246,7 @@ export default function GarmentDetailScreen() {
         e instanceof Error ? e.message : t('garments.duplicateError')
       );
     }
-  }, [garmentId, garment?.name, duplicateStatus.allowed, duplicateTemplate, router]);
+  }, [garmentId, garment?.name, duplicateTemplate, router, fetchGarment, t]);
 
   const nextDisplayOrder = useMemo(
     () => getNextDisplayOrder(definitions),
@@ -340,11 +357,6 @@ export default function GarmentDetailScreen() {
   if (!garmentId) {
     return (
       <ScreenContainer noPadding>
-        <Header
-          title={t('garments.singleTitle')}
-          onBack={() => router.back()}
-          backAccessibilityLabel={t('common.back')}
-        />
         <View style={styles.centered}>
           <ErrorText>{t('garments.garmentIdMissing')}</ErrorText>
         </View>
@@ -354,13 +366,6 @@ export default function GarmentDetailScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Header
-        title={garment?.name ?? '…'}
-        onBack={() => router.back()}
-        backAccessibilityLabel={t('common.back')}
-        titleNumberOfLines={1}
-      />
-
       {loading ? (
         <Loader message={t('common.loading')} style={styles.centered} />
       ) : error || !garment ? (
@@ -380,26 +385,26 @@ export default function GarmentDetailScreen() {
               style={styles.draggableList}
               contentContainerStyle={styles.draggableListContent}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
               }
               ListHeaderComponent={
                 <>
-                  <View style={styles.headerCard}>
+                  <View style={[styles.headerCard, { backgroundColor: colors.surface }]}>
                     {canToggleStatus && (
                       <View style={styles.statusRow}>
-                        <Text style={styles.statusRowLabel}>{t('garments.enabled')}</Text>
+                        <Text style={[styles.statusRowLabel, { color: colors.textPrimary }]}>{t('garments.enabled')}</Text>
                         <Switch
                           value={garment.status === 'active'}
                           onValueChange={(v) => handleStatusToggle(v)}
-                          trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                          thumbColor={garment.status === 'active' ? Colors.primary : Colors.surface}
+                          trackColor={{ false: colors.border, true: colors.primaryLight }}
+                          thumbColor={garment.status === 'active' ? colors.primary : colors.surface}
                         />
                       </View>
                     )}
                     {!canToggleStatus && (
                       <View style={styles.badges}>
-                        <View style={[styles.statusBadge, isDisabled && styles.statusDisabled]}>
-                          <Text style={styles.statusText}>{statusLabel(garment.status)}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: colors.success + '24' }, isDisabled && { backgroundColor: colors.textTertiary + '24' }]}>
+                          <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status)}</Text>
                         </View>
                         {(garment.source === 'shared' || garment.source === 'api') && (
                           <TemplateSourceBadge source={garment.source} />
@@ -412,54 +417,73 @@ export default function GarmentDetailScreen() {
                       </View>
                     )}
                     {garment.orderCount != null && garment.orderCount > 0 && (
-                      <Text style={styles.orderCount}>{t('garments.usedInOrders', { count: garment.orderCount })}</Text>
+                      <Text style={[styles.orderCount, { color: colors.textSecondary }]}>{t('garments.usedInOrders', { count: garment.orderCount })}</Text>
                     )}
                     {isShared && !isDuplicated(garment.templateId ?? garment.id) && (
-                      <View style={styles.sharedNotice}>
-                        <Text style={styles.sharedNoticeText}>
+                      <View style={[styles.sharedNotice, { borderTopColor: colors.border }]}>
+                        <Text style={[styles.sharedNoticeText, { color: colors.textSecondary }]}>
                           {t('garments.sharedTemplateNotice')}
                         </Text>
                         <Button
                           variant="secondary"
                           size="sm"
                           onPress={handleDuplicate}
-                          disabled={!duplicateStatus.allowed}
-                          leftIcon={<Copy size={16} color={duplicateStatus.allowed ? Colors.primary : Colors.textTertiary} />}
+                          leftIcon={<Copy size={16} color={colors.primary} />}
                           style={styles.duplicateBtn}
                         >
                           {t('garments.duplicateAsLocal')}
                         </Button>
-                        {!duplicateStatus.allowed && duplicateStatus.message ? (
-                          <Text style={styles.limitHint}>{duplicateStatus.message}</Text>
-                        ) : null}
                       </View>
                     )}
                   </View>
-                  <Section title={t('garments.sectionMeasurements')} style={CompactLayoutStyles.compactSection}>
+
+                  {/* Style & Materials Section */}
+                  <GarmentCatalogSection
+                    garmentId={garmentId}
+                    categories={catalogCategories}
+                    canEdit={canEdit}
+                    onCategoriesChange={handleCatalogCategoriesChange}
+                    onRefresh={fetchGarment}
+                  />
+
+                  <Section
+                    title={t('garments.sectionMeasurements')}
+                    headerRight={
+                      canEdit ? (
+                        <TouchableOpacity onPress={handleAddMeasurement} style={styles.addMeasurementHeaderBtn}>
+                          <Plus size={18} color={colors.primary} />
+                          <Text style={[styles.addMeasurementHeaderText, { color: colors.primary }]}>
+                            {t('garments.addMeasurementFirst')}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : undefined
+                    }
+                    style={CompactLayoutStyles.compactSection}
+                  >
                     <View />
                   </Section>
                 </>
               }
               renderItem={({ item: def, drag, isActive }) => (
               <ScaleDecorator activeScale={1.02}>
-                <View style={[styles.defRow, isActive && styles.defRowActive]}>
+                <View style={[styles.defRow, { backgroundColor: colors.surface }, isActive && styles.defRowActive]}>
                   <TouchableOpacity
                     onLongPress={drag}
                     style={styles.dragHandle}
                     accessibilityLabel={t('garments.dragToReorder')}
                   >
-                    <GripVertical size={20} color={Colors.textTertiary} />
+                    <GripVertical size={20} color={colors.textTertiary} />
                   </TouchableOpacity>
                   <View style={styles.defMain}>
-                    <Text style={styles.defLabel}>{def.label}</Text>
+                    <Text style={[styles.defLabel, { color: colors.textPrimary }]}>{def.label}</Text>
                     <View style={styles.defMeta}>
-                      <Text style={styles.defMetaText}>{inputTypeLabel(def.inputType)}</Text>
+                      <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType)}</Text>
                       {(def.unitKey || def.unit) && (
-                        <Text style={styles.defMetaText}>
+                        <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
                           {getUnitDisplay(def.unitKey ?? undefined) ?? def.unit ?? ''}
                         </Text>
                       )}
-                      <Text style={styles.defMetaText}>
+                      <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
                         {def.required ? t('common.required') : t('common.optional')}
                       </Text>
                     </View>
@@ -469,7 +493,7 @@ export default function GarmentDetailScreen() {
                       variant="ghost"
                       size="sm"
                       onPress={() => handleEditMeasurement(def)}
-                      leftIcon={<Edit size={16} color={Colors.primary} />}
+                      leftIcon={<Edit size={16} color={colors.primary} />}
                       style={styles.defActionBtn}
                     >
                       {t('common.edit')}
@@ -478,10 +502,10 @@ export default function GarmentDetailScreen() {
                       variant="ghost"
                       size="sm"
                       onPress={() => { setDeleteError(null); setDeleteTarget(def); }}
-                      leftIcon={<Trash2 size={16} color={Colors.error} />}
+                      leftIcon={<Trash2 size={16} color={colors.error} />}
                       style={styles.defActionBtn}
                     >
-                      <Text style={[styles.defActionText, { color: Colors.error }]}>{t('garments.defActionDelete')}</Text>
+                      <Text style={[styles.defActionText, { color: colors.error }]}>{t('garments.defActionDelete')}</Text>
                     </Button>
                   </View>
                 </View>
@@ -489,19 +513,6 @@ export default function GarmentDetailScreen() {
             )}
           />
         </GestureHandlerRootView>
-          {canEdit ? (
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
-              <Button
-                variant="primary"
-                size="lg"
-                onPress={handleAddMeasurement}
-                leftIcon={<Plus size={18} color={Colors.textInverse} />}
-                style={styles.addButton}
-              >
-                {t('garments.addMeasurementFirst')}
-              </Button>
-            </View>
-          ) : null}
         </View>
       ) : (
         <View style={styles.mainWithFooter}>
@@ -509,25 +520,25 @@ export default function GarmentDetailScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.content}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
         >
-          <View style={styles.headerCard}>
+          <View style={[styles.headerCard, { backgroundColor: colors.surface }]}>
             {canToggleStatus && (
               <View style={styles.statusRow}>
-                <Text style={styles.statusRowLabel}>{t('garments.enabled')}</Text>
+                <Text style={[styles.statusRowLabel, { color: colors.textPrimary }]}>{t('garments.enabled')}</Text>
                 <Switch
                   value={garment.status === 'active'}
                   onValueChange={(v) => handleStatusToggle(v)}
-                  trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                  thumbColor={garment.status === 'active' ? Colors.primary : Colors.surface}
+                  trackColor={{ false: colors.border, true: colors.primaryLight }}
+                  thumbColor={garment.status === 'active' ? colors.primary : colors.surface}
                 />
               </View>
             )}
             {!canToggleStatus && (
               <View style={styles.badges}>
-                <View style={[styles.statusBadge, isDisabled && styles.statusDisabled]}>
-                  <Text style={styles.statusText}>{statusLabel(garment.status)}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: colors.success + '24' }, isDisabled && { backgroundColor: colors.textTertiary + '24' }]}>
+                  <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status)}</Text>
                 </View>
                 {(garment.source === 'shared' || garment.source === 'api') && (
                   <TemplateSourceBadge source={garment.source} />
@@ -540,31 +551,49 @@ export default function GarmentDetailScreen() {
               </View>
             )}
             {garment.orderCount != null && garment.orderCount > 0 && (
-              <Text style={styles.orderCount}>{t('garments.usedInOrders', { count: garment.orderCount })}</Text>
+              <Text style={[styles.orderCount, { color: colors.textSecondary }]}>{t('garments.usedInOrders', { count: garment.orderCount })}</Text>
             )}
             {isShared && !isDuplicated(garment.templateId ?? garment.id) && (
-              <View style={styles.sharedNotice}>
-                <Text style={styles.sharedNoticeText}>
+              <View style={[styles.sharedNotice, { borderTopColor: colors.border }]}>
+                <Text style={[styles.sharedNoticeText, { color: colors.textSecondary }]}>
                   {t('garments.sharedTemplateNotice')}
                 </Text>
                 <Button
                   variant="secondary"
                   size="sm"
                   onPress={handleDuplicate}
-                  disabled={!duplicateStatus.allowed}
-                  leftIcon={<Copy size={16} color={duplicateStatus.allowed ? Colors.primary : Colors.textTertiary} />}
+                  leftIcon={<Copy size={16} color={colors.primary} />}
                   style={styles.duplicateBtn}
                 >
                   {t('garments.duplicateAsLocal')}
                 </Button>
-                {!duplicateStatus.allowed && duplicateStatus.message ? (
-                  <Text style={styles.limitHint}>{duplicateStatus.message}</Text>
-                ) : null}
               </View>
             )}
           </View>
 
-          <Section title={t('garments.sectionMeasurements')} style={CompactLayoutStyles.compactSection}>
+          {/* Style & Materials Section */}
+          <GarmentCatalogSection
+            garmentId={garmentId}
+            categories={catalogCategories}
+            canEdit={canEdit}
+            onCategoriesChange={handleCatalogCategoriesChange}
+            onRefresh={fetchGarment}
+          />
+
+          <Section
+            title={t('garments.sectionMeasurements')}
+            headerRight={
+              canEdit ? (
+                <TouchableOpacity onPress={handleAddMeasurement} style={styles.addMeasurementHeaderBtn}>
+                  <Plus size={18} color={colors.primary} />
+                  <Text style={[styles.addMeasurementHeaderText, { color: colors.primary }]}>
+                    {t('garments.addMeasurementFirst')}
+                  </Text>
+                </TouchableOpacity>
+              ) : undefined
+            }
+            style={CompactLayoutStyles.compactSection}
+          >
             {sortedDefinitions.length === 0 ? (
               <EmptyState
                 title={t('garments.noMeasurementsYet')}
@@ -573,18 +602,18 @@ export default function GarmentDetailScreen() {
             ) : (
               <>
                 {sortedDefinitions.map((def) => (
-                  <View key={def.id} style={styles.defRow}>
+                  <View key={def.id} style={[styles.defRow, { backgroundColor: colors.surface }]}>
                     <View style={styles.defMain}>
-                      <Text style={styles.defLabel}>{def.label}</Text>
+                      <Text style={[styles.defLabel, { color: colors.textPrimary }]}>{def.label}</Text>
                       <View style={styles.defMeta}>
-                        <Text style={styles.defMetaText}>{inputTypeLabel(def.inputType)}</Text>
+                        <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType)}</Text>
                         {(def.unitKey || def.unit) && (
-                          <Text style={styles.defMetaText}>
+                          <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
                             {getUnitDisplay(def.unitKey ?? undefined) ?? def.unit ?? ''}
                           </Text>
                         )}
-                        <Text style={styles.defMetaText}>
-                          {def.required ? 'Required' : 'Optional'}
+                        <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
+                          {def.required ? t('common.required') : t('common.optional')}
                         </Text>
                       </View>
                     </View>
@@ -594,19 +623,6 @@ export default function GarmentDetailScreen() {
             )}
           </Section>
         </ScrollView>
-          {canEdit ? (
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
-              <Button
-                variant="primary"
-                size="lg"
-                onPress={handleAddMeasurement}
-                leftIcon={<Plus size={18} color={Colors.textInverse} />}
-                style={styles.addButton}
-              >
-                {t('garments.addMeasurementFirst')}
-              </Button>
-            </View>
-          ) : null}
         </View>
       )}
 
@@ -660,42 +676,35 @@ const styles = StyleSheet.create({
   headerTitleInput: {
     flex: 1,
     ...Typography.h3,
-    color: Colors.textPrimary,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
   },
   headerCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg, // 14px cards
-    padding: Spacing.md, // 16px card internal padding
-    marginHorizontal: Spacing.md, // 16px horizontal margin (replaces content padding for this card)
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     ...Shadows.sm,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Reduced: last item in card doesn't need full md spacing
+    justifyContent: 'space-between',
   },
   statusRowLabel: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
   },
   badges: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     flexWrap: 'wrap',
-    marginBottom: Spacing.xs, // Reduced: tighter spacing within card
+    marginBottom: Spacing.xs,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.success + '24',
-  },
-  statusDisabled: {
-    backgroundColor: Colors.textTertiary + '24',
   },
   statusText: {
     ...Typography.small,
@@ -703,27 +712,19 @@ const styles = StyleSheet.create({
   },
   orderCount: {
     ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs, // Reduced: tighter spacing within card
+    marginBottom: Spacing.xs,
   },
   sharedNotice: {
-    marginTop: Spacing.md, // Single source: marginTop only (removed redundant paddingTop)
+    marginTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: Spacing.md, // Padding for content after border
+    paddingTop: Spacing.md,
   },
   sharedNoticeText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs, // Reduced: tighter spacing within notice section
+    marginBottom: Spacing.xs,
   },
   duplicateBtn: {
     alignSelf: 'flex-start',
-  },
-  limitHint: {
-    ...Typography.caption,
-    color: Colors.warning,
-    marginTop: Spacing.xs,
   },
   draggableRoot: {
     flex: 1,
@@ -743,21 +744,18 @@ const styles = StyleSheet.create({
   mainWithFooter: {
     flex: 1,
   },
-  footer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    backgroundColor: Colors.background,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+  addMeasurementHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
-  addButton: {
-    width: '100%',
+  addMeasurementHeaderText: {
+    ...Typography.captionBold,
   },
   defRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginHorizontal: Spacing.md,
@@ -787,7 +785,6 @@ const styles = StyleSheet.create({
   },
   defMetaText: {
     ...Typography.small,
-    color: Colors.textSecondary,
   },
   defActions: {
     flexDirection: 'row',
@@ -800,6 +797,5 @@ const styles = StyleSheet.create({
   },
   defActionText: {
     ...Typography.captionBold,
-    color: Colors.primary,
   },
 });

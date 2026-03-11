@@ -5,21 +5,21 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { Colors, Spacing, BorderRadius, Shadows } from '@/constants/design';
-
-const SKELETON_BASE = Colors.border;
-const SKELETON_HIGHLIGHT = Colors.borderLight;
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 function SkeletonBar({
   width,
   height = 12,
   style,
   animatedOpacity,
+  skeletonBase,
 }: {
   width: number | string;
   height?: number;
   style?: object;
   animatedOpacity: Animated.Value;
+  skeletonBase: string;
 }) {
   return (
     <Animated.View
@@ -29,6 +29,7 @@ function SkeletonBar({
           width: typeof width === 'number' ? width : width,
           height,
           opacity: animatedOpacity,
+          backgroundColor: skeletonBase,
         },
         style,
       ]}
@@ -36,41 +37,43 @@ function SkeletonBar({
   );
 }
 
-function SkeletonRow({ animatedOpacity }: { animatedOpacity: Animated.Value }) {
+function SkeletonRow({ animatedOpacity, colors }: { animatedOpacity: Animated.Value; colors: { border: string; borderLight: string } }) {
+  const skeletonBase = colors.border;
   return (
-    <View style={styles.row}>
-      <Animated.View style={[styles.avatar, { opacity: animatedOpacity }]} />
+    <View style={[styles.row, { borderBottomColor: colors.borderLight }]}>
+      <Animated.View style={[styles.avatar, { opacity: animatedOpacity, backgroundColor: skeletonBase }]} />
       <View style={styles.rowContent}>
-        <SkeletonBar width="70%" height={14} animatedOpacity={animatedOpacity} />
-        <SkeletonBar width="90%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 8 }} />
-        <SkeletonBar width="60%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 6 }} />
+        <SkeletonBar width="70%" height={14} animatedOpacity={animatedOpacity} skeletonBase={skeletonBase} />
+        <SkeletonBar width="90%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 8 }} skeletonBase={skeletonBase} />
+        <SkeletonBar width="60%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 6 }} skeletonBase={skeletonBase} />
       </View>
     </View>
   );
 }
 
-function SkeletonCard({ animatedOpacity }: { animatedOpacity: Animated.Value }) {
+function SkeletonCard({ animatedOpacity, colors }: { animatedOpacity: Animated.Value; colors: { surface: string; border: string } }) {
+  const skeletonBase = colors.border;
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface }]}>
       <View style={styles.cardHeader}>
-        <SkeletonBar width="60%" height={14} animatedOpacity={animatedOpacity} />
-        <SkeletonBar width={60} height={20} animatedOpacity={animatedOpacity} />
+        <SkeletonBar width="60%" height={14} animatedOpacity={animatedOpacity} skeletonBase={skeletonBase} />
+        <SkeletonBar width={60} height={20} animatedOpacity={animatedOpacity} skeletonBase={skeletonBase} />
       </View>
-      <SkeletonBar width="100%" animatedOpacity={animatedOpacity} style={{ marginTop: 12 }} />
+      <SkeletonBar width="100%" animatedOpacity={animatedOpacity} style={{ marginTop: 12 }} skeletonBase={skeletonBase} />
       <View style={styles.cardFooter}>
-        <SkeletonBar width={80} animatedOpacity={animatedOpacity} />
-        <SkeletonBar width={90} animatedOpacity={animatedOpacity} />
+        <SkeletonBar width={80} animatedOpacity={animatedOpacity} skeletonBase={skeletonBase} />
+        <SkeletonBar width={90} animatedOpacity={animatedOpacity} skeletonBase={skeletonBase} />
       </View>
     </View>
   );
 }
 
-function SkeletonGridItem({ animatedOpacity }: { animatedOpacity: Animated.Value }) {
+function SkeletonGridItem({ animatedOpacity, skeletonBase }: { animatedOpacity: Animated.Value; skeletonBase: string }) {
   return (
     <View style={styles.gridItem}>
-      <Animated.View style={[styles.gridImage, { opacity: animatedOpacity }]} />
-      <SkeletonBar width="80%" height={12} animatedOpacity={animatedOpacity} style={{ marginTop: 8 }} />
-      <SkeletonBar width="50%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 4 }} />
+      <Animated.View style={[styles.gridImage, { opacity: animatedOpacity, backgroundColor: skeletonBase }]} />
+      <SkeletonBar width="80%" height={12} animatedOpacity={animatedOpacity} style={{ marginTop: 8 }} skeletonBase={skeletonBase} />
+      <SkeletonBar width="50%" height={10} animatedOpacity={animatedOpacity} style={{ marginTop: 4 }} skeletonBase={skeletonBase} />
     </View>
   );
 }
@@ -86,6 +89,7 @@ export function ListSkeletonLoader({
   variant = 'row',
   count = 6,
 }: ListSkeletonLoaderProps) {
+  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -107,13 +111,21 @@ export function ListSkeletonLoader({
     return () => animation.stop();
   }, [opacity]);
 
-  const Item = variant === 'grid' ? SkeletonGridItem : variant === 'card' ? SkeletonCard : SkeletonRow;
-
   if (variant === 'grid') {
     return (
       <View style={styles.gridContainer}>
         {Array.from({ length: count }).map((_, i) => (
-          <SkeletonGridItem key={i} animatedOpacity={opacity} />
+          <SkeletonGridItem key={i} animatedOpacity={opacity} skeletonBase={colors.border} />
+        ))}
+      </View>
+    );
+  }
+
+  if (variant === 'card') {
+    return (
+      <View style={styles.container}>
+        {Array.from({ length: count }).map((_, i) => (
+          <SkeletonCard key={i} animatedOpacity={opacity} colors={colors} />
         ))}
       </View>
     );
@@ -122,7 +134,7 @@ export function ListSkeletonLoader({
   return (
     <View style={styles.container}>
       {Array.from({ length: count }).map((_, i) => (
-        <Item key={i} animatedOpacity={opacity} />
+        <SkeletonRow key={i} animatedOpacity={opacity} colors={colors} />
       ))}
     </View>
   );
@@ -130,7 +142,7 @@ export function ListSkeletonLoader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
   },
   row: {
@@ -138,27 +150,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: SKELETON_BASE,
   },
   rowContent: {
     flex: 1,
     marginLeft: Spacing.md,
   },
   bar: {
-    backgroundColor: SKELETON_BASE,
     borderRadius: BorderRadius.sm,
   },
   card: {
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
-    marginHorizontal: Spacing.xl,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     ...Shadows.md,
   },
@@ -185,6 +193,5 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: BorderRadius.md,
-    backgroundColor: SKELETON_BASE,
   },
 });

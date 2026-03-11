@@ -5,14 +5,17 @@
 
 import { getUnitDisplay } from '@/constants/units';
 import { File, Paths } from 'expo-file-system';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform, InteractionManager } from 'react-native';
+import { savePdfToFolderAsync } from '@/utils/androidPdfSave';
 import {
   getSnapshotEntriesInDefinitionOrder,
   getSnapshotDisplayLabel,
   type SnapshotDefinitionRef,
 } from '@/utils/snapshotDisplay';
+import { formatMeasurementValueForDisplay } from '@/lib/measurement';
 
 /* ============================= */
 /*            TYPES              */
@@ -23,6 +26,14 @@ export type PDFMeasurementDefinition = SnapshotDefinitionRef & {
   inputType?: string;
   options?: string[];
 };
+
+/** Resolved catalog item for PDF display */
+export interface PDFCatalogItem {
+  name: string;
+  color?: string | null;
+  categoryCode: string;
+  categoryName?: string;
+}
 
 export interface PDFOrderData {
   id: string;
@@ -41,6 +52,15 @@ export interface PDFOrderData {
 
   /** When set, PDF uses definition order, API labels (diacritics), and resolves select options. */
   measurementDefinitionsByGarment?: Record<string, PDFMeasurementDefinition[]> | null;
+
+  /** Display order of garment IDs (from Garments screen). When set, sections follow this order. */
+  garmentOrder?: string[];
+
+  /** Catalog selections per garment: garmentId -> categoryCode -> itemId(s) */
+  catalogSelections?: Record<string, Record<string, string | string[]>> | null;
+
+  /** Resolved catalog items by ID for display */
+  resolvedCatalogItems?: Record<string, PDFCatalogItem> | null;
 
   total?: number;
   advance?: number;
@@ -67,6 +87,8 @@ export interface PDFLabels {
   email: string;
   specialInstructions: string;
   generatedOn: string;
+  /** Label for catalog selections section, e.g. "Styles & Materials" */
+  stylesAndMaterials?: string;
   /** e.g. "Order {{number}}" — used for share dialog title. */
   shareDialogTitle?: string;
 }
@@ -117,6 +139,7 @@ const DEFAULT_LABELS: PDFLabels = {
   email: 'Email:',
   specialInstructions: 'Special Instructions',
   generatedOn: 'Generated on',
+  stylesAndMaterials: 'Styles & Materials',
 };
 
 function generateHTML(
@@ -130,8 +153,12 @@ function generateHTML(
   const measurementSections: string[] = [];
   const measurements = order.measurements ?? {};
   const definitionsByGarment = order.measurementDefinitionsByGarment ?? {};
+  const measurementGarmentIds = order.garmentOrder?.length
+    ? order.garmentOrder.filter((id) => measurements[id])
+    : Object.keys(measurements);
 
-  for (const [garmentId, entries] of Object.entries(measurements)) {
+  for (const garmentId of measurementGarmentIds) {
+    const entries = measurements[garmentId];
     if (!entries || typeof entries !== 'object') continue;
 
     const garmentTitle = garmentDisplayNames[garmentId] ?? garmentId;
@@ -146,7 +173,7 @@ function generateHTML(
               const isSelect = def?.inputType === 'select' && def?.options?.length;
               const displayValue = isSelect
                 ? resolveSelectDisplayValue(value, def?.options)
-                : value;
+                : formatMeasurementValueForDisplay(value);
               return `
         <tr>
           <td class="label">${safe(label)}</td>
@@ -161,20 +188,71 @@ function generateHTML(
               ([key, value]) => `
         <tr>
           <td class="label">${safe(key)}</td>
-          <td class="value">${safe(value)}</td>
+          <td class="value">${safe(formatMeasurementValueForDisplay(value))}</td>
         </tr>
       `
             )
             .join('');
 
     measurementSections.push(`
-      <div class="section">
-        <h3>${safe(garmentTitle)}</h3>
-        <table class="measurements">
-          ${rows}
-        </table>
+      <div class="section-wrapper">
+        <div class="section">
+          <h3>${safe(garmentTitle)}</h3>
+          <table class="measurements">
+            ${rows}
+          </table>
+        </div>
       </div>
     `);
+  }
+
+  // Generate catalog selections sections
+  const catalogSections: string[] = [];
+  const catalogSelections = order.catalogSelections ?? {};
+  const resolvedCatalogItems = order.resolvedCatalogItems ?? {};
+  const catalogGarmentIds = order.garmentOrder?.length
+    ? order.garmentOrder.filter((id) => catalogSelections[id] && Object.keys(catalogSelections[id]).length > 0)
+    : Object.keys(catalogSelections);
+
+  for (const garmentId of catalogGarmentIds) {
+    const selections = catalogSelections[garmentId];
+    if (!selections || typeof selections !== 'object' || Object.keys(selections).length === 0) continue;
+
+    const garmentTitle = garmentDisplayNames[garmentId] ?? garmentId;
+    const stylesLabel = labels.stylesAndMaterials ?? DEFAULT_LABELS.stylesAndMaterials;
+
+    const rows = Object.entries(selections)
+      .map(([categoryCode, itemIdOrIds]) => {
+        const itemId = Array.isArray(itemIdOrIds) ? itemIdOrIds[0] : itemIdOrIds;
+        if (!itemId) return '';
+        const item = resolvedCatalogItems[itemId];
+        const categoryLabel = item?.categoryName ?? categoryCode;
+        const itemName = item?.name ?? itemId;
+        const colorSwatch = item?.color
+          ? `<span style="display:inline-block;width:12px;height:12px;background-color:${safe(item.color)};border:1px solid #ccc;border-radius:2px;margin-right:6px;vertical-align:middle;"></span>`
+          : '';
+        return `
+        <tr>
+          <td class="label">${safe(categoryLabel)}</td>
+          <td class="value">${colorSwatch}${safe(itemName)}</td>
+        </tr>
+      `;
+      })
+      .filter(Boolean)
+      .join('');
+
+    if (rows) {
+      catalogSections.push(`
+      <div class="section-wrapper">
+        <div class="section">
+          <h3>${safe(garmentTitle)} - ${safe(stylesLabel)}</h3>
+          <table class="measurements">
+            ${rows}
+          </table>
+        </div>
+      </div>
+    `);
+    }
   }
 
   return `
@@ -183,6 +261,11 @@ function generateHTML(
 <head>
 <meta charset="utf-8" />
 <style>
+  @page {
+    size: 595px 842px;
+    margin: 72px 24px 48px 24px;
+  }
+
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -198,17 +281,19 @@ function generateHTML(
     right: 0;
     z-index: 10;
     background: #fff;
-    padding: 15px 30px 12px;
+    padding: 12px 24px 10px;
     box-sizing: border-box;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .main-content {
-    padding: 30px;
-    padding-top: 60px;
-    padding-bottom: 56px;
+    padding: 24px;
+    padding-top: 50px;
+    padding-bottom: 50px;
     box-sizing: border-box;
   }
 
@@ -238,17 +323,37 @@ function generateHTML(
   }
 
   .meta-row {
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 
   .meta-label {
     font-weight: 600;
     display: inline-block;
-    width: 120px;
+  }
+
+   /* ============================= */
+  /*          SECTIONS             */
+  /* ============================= */
+
+  .sections-grid {
+    font-size: 0;
+  }
+
+  .section-wrapper {
+    width: 48%;
+    display: inline-block;
+    vertical-align: top;
+    margin-right: 2%;
+    margin-bottom: 20px;
+    font-size: 12px;
+    box-sizing: border-box;
+
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .section {
-    margin-top: 25px;
+    margin-top: 10px;
   }
 
   .section h3 {
@@ -257,14 +362,20 @@ function generateHTML(
     border-bottom: 2px solid #000;
     padding-bottom: 5px;
     margin-bottom: 10px;
+    page-break-after: avoid;
   }
 
-  table.measurements {
+  table {
     width: 100%;
     border-collapse: collapse;
+    page-break-inside: avoid;
   }
 
-  table.measurements td {
+  tr {
+    page-break-inside: avoid;
+  }
+
+  table td {
     padding: 5px 6px;
     border-bottom: 1px solid #ddd;
   }
@@ -302,12 +413,17 @@ function generateHTML(
     left: 0;
     right: 0;
     z-index: 10;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: #fff;
-    padding: 12px 50px;
+    padding: 0 24px;
     box-sizing: border-box;
-    text-align: center;
     font-size: 10px;
     color: #777;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 </style>
 </head>
@@ -315,13 +431,12 @@ function generateHTML(
   <div class="header">
     <div class="company-info-container">
       <div class="company-name">${safe(company.name)}</div>
-      <div class="company-info">
-        ${safe(company.owner ?? '')}<br/>
-        ${safe(company.phone ?? '')} ${company.email ? `| ${safe(company.email)}` : ''}<br/>
-        ${safe(company.address ?? '')}
-      </div>
     </div>
     ${company.logo ? `<img src="${company.logo}" class="logo" />` : ''}
+  </div>
+
+  <div class="footer">
+    ${labels.generatedOn} ${new Date().toLocaleDateString('ro-RO')} · ${safe(company.name ?? '')} · ${safe(company.owner ?? '')} · ${safe(company.phone ?? '')}
   </div>
 
   <div class="main-content">
@@ -355,24 +470,25 @@ function generateHTML(
       }
     </div>
 
+    <div class="sections-grid">
     ${measurementSections.join('')}
+    ${catalogSections.join('')}
+    </div>
 
     ${
       order.notes
         ? `
-      <div class="section">
-        <h3>${safe(labels.specialInstructions)}</h3>
-        <div class="notes-box">${safe(order.notes)}</div>
+      <div class="section-wrapper" style="width:100%;">
+        <div class="section">
+          <h3>${safe(labels.specialInstructions)}</h3>
+          <div class="notes-box">${safe(order.notes)}</div>
+        </div>
       </div>
       `
         : ''
     }
 
     </div>
-  </div>
-
-  <div class="footer">
-    ${labels.generatedOn} ${new Date().toLocaleDateString('ro-RO')}
   </div>
 </body>
 </html>
@@ -438,7 +554,9 @@ export async function shareOrderPDF(
 
   const orderTitle = getOrderTitle(order, resolvedLabels);
   const dialogTitle = orderTitle;
-  const fileName = `${sanitizeFileName(orderTitle)}.pdf`;
+  const timestamp = Date.now();
+  const uniqueSuffix = Math.random().toString(36).slice(2, 10);
+  const fileName = `${sanitizeFileName(orderTitle)}-${timestamp}-${uniqueSuffix}.pdf`;
 
   const sourceFile = new File(uri);
   const destFile = new File(Paths.dirname(uri), fileName);
@@ -462,4 +580,29 @@ export async function downloadOrderPDF(
   labels?: PDFLabels
 ) {
   return shareOrderPDF(order, company, garmentDisplayNames, labels);
+}
+
+/**
+ * Android only: open the native folder picker and save the order PDF to the selected folder.
+ * No-op on iOS. Use for "Save to folder" / "Save to Files" on Android.
+ */
+export async function saveOrderPdfToFolderAsync(
+  order: PDFOrderData,
+  company: PDFCompanyData,
+  garmentDisplayNames: GarmentDisplayNames,
+  labels?: PDFLabels
+): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const resolvedLabels = labels ?? DEFAULT_LABELS;
+  const { uri } = await createPDF(order, company, garmentDisplayNames, resolvedLabels);
+  const orderTitle = getOrderTitle(order, resolvedLabels);
+  const timestamp = Date.now();
+  const uniqueSuffix = Math.random().toString(36).slice(2, 10);
+  const fileName = `${sanitizeFileName(orderTitle)}-${timestamp}-${uniqueSuffix}.pdf`;
+  const base64 = await FileSystemLegacy.readAsStringAsync(uri, {
+    encoding: FileSystemLegacy.EncodingType.Base64,
+  });
+  await savePdfToFolderAsync(base64, fileName);
 }

@@ -12,7 +12,8 @@ import {
 import * as WebBrowser from 'expo-web-browser';
 import { AlertCircle } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
-import { Colors, Spacing, Typography, ButtonStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, getButtonStyles, Spacing } from '@/constants/design';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 import type { ConsentUpdateInfo } from '@/contexts/ConsentContext';
 
@@ -28,6 +29,9 @@ interface ConsentUpdateModalProps {
  */
 export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateModalProps) {
   const { t } = useI18n();
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const buttonStyles = getButtonStyles(colors);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,13 +63,13 @@ export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateMod
       transparent
       statusBarTranslucent
     >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlayDark }]}>
+        <View style={[styles.container, { backgroundColor: colors.surface }]}>
           <View style={styles.iconWrap}>
-            <AlertCircle size={48} color={Colors.primary} />
+            <AlertCircle size={48} color={colors.primary} />
           </View>
-          <Text style={styles.title}>{t('legal.updateModal.title')}</Text>
-          <Text style={styles.summary}>{info.summary}</Text>
+          <Text style={[typography.h3, styles.title]}>{t('legal.updateModal.title')}</Text>
+          <Text style={[typography.body, { color: colors.textSecondary }, styles.summary]}>{info.summary}</Text>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             <ConsentCheckbox
@@ -87,14 +91,14 @@ export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateMod
           </ScrollView>
 
           <TouchableOpacity
-            style={[styles.button, (!canAccept || isSubmitting) && styles.buttonDisabled]}
+            style={[buttonStyles.primary, (!canAccept || isSubmitting) && { opacity: 0.5 }]}
             onPress={handleAccept}
             disabled={!canAccept || isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={Colors.textInverse} />
+              <ActivityIndicator color={colors.textInverse} />
             ) : (
-              <Text style={styles.buttonText}>{t('legal.updateModal.accept')}</Text>
+              <Text style={[typography.bodyBold, { color: colors.textInverse }]}>{t('legal.updateModal.accept')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -106,13 +110,11 @@ export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateMod
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Colors.overlayDark,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
   },
   container: {
-    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: Spacing.xl,
     maxWidth: 400,
@@ -124,28 +126,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   title: {
-    ...Typography.h3,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   summary: {
-    ...Typography.body,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
   scroll: {
     maxHeight: 200,
     marginBottom: Spacing.lg,
-  },
-  button: {
-    ...ButtonStyles.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
   },
 });

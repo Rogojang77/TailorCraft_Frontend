@@ -1,10 +1,13 @@
 import { Tabs } from 'expo-router';
 import { Home, ShoppingBag, Image, User } from 'lucide-react-native';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Spacing, Typography } from '@/constants/design';
+import { Spacing, Typography } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   // Tab bar respects safe bottom inset (home indicator / nav bar). Hide tab bar when
@@ -17,20 +20,22 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textTertiary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: Colors.surface,
+          backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: Colors.border,
+          borderTopColor: colors.border,
           paddingTop: Spacing.sm,
           paddingBottom: tabBarPaddingBottom,
           height: tabBarHeight,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 8,
+          ...(Platform.OS === 'ios' && {
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 8,
+          }),
         },
         tabBarLabelStyle: {
           ...Typography.small,

@@ -8,24 +8,34 @@ import {
   Alert,
   RefreshControl,
   Switch,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { Plus, ChevronRight, Trash2 } from 'lucide-react-native';
+import { Plus, ChevronRight, Trash2, GripVertical } from 'lucide-react-native';
 import { api, apiFetch, ApiError, HttpStatus } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { fetchGarmentTypesList, invalidateGarmentTypesCache, deleteGarmentType } from '@/lib/apiCache';
-import { getGarmentTypeIdFromPostResponse, normalizeGarmentTypeRecord } from '@/lib/api-mappers';
+import {
+  fetchGarmentTypesList,
+  invalidateGarmentTypesCache,
+  deleteGarmentType,
+  getGarmentTypeIdFromPostResponse,
+  normalizeGarmentTypeRecord,
+} from '@/lib/api';
 import type { GarmentTypeRecord } from '@/types/templates';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useTemplates } from '@/contexts/TemplatesContext';
 import { TemplateSourceBadge } from '@/components/TemplateSourceBadge';
-import { Header } from '@/components/layout/Header';
+import { PaywallModal } from '@/components/subscription';
 import { Loader } from '@/components/ui/Loader';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
 
 function statusLabel(status: string): string {
   if (status === 'active') return 'Enabled';
@@ -36,14 +46,38 @@ function statusLabel(status: string): string {
 export default function GarmentsListScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  const { colors } = useTheme();
   const [garments, setGarments] = useState<GarmentTypeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { templateCreationStatus, sharedTemplateUsageStatus } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const { duplicateTemplate, isDuplicated } = useTemplates();
-  const createStatus = templateCreationStatus();
-  const duplicateStatus = sharedTemplateUsageStatus();
+  const { checkCanCreateTemplate, upgradeToPro } = useSubscription();
+
+  const canCreateTemplate = checkCanCreateTemplate();
+
+  const handleAddGarment = useCallback(() => {
+    if (canCreateTemplate) {
+      router.push('/garments/new');
+    } else {
+      setShowPaywall(true);
+    }
+  }, [canCreateTemplate, router]);
+
+  const handleUpgrade = useCallback(async (plan: 'monthly' | 'yearly') => {
+    setIsUpgrading(true);
+    try {
+      const result = await upgradeToPro(plan);
+      if (result.success) setShowPaywall(false);
+      else if (result.errorMessage) Alert.alert(t('common.error'), result.errorMessage);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('subscription.paywallCta'));
+    } finally {
+      setIsUpgrading(false);
+    }
+  }, [upgradeToPro, t]);
 
   const fetchGarments = useCallback(async (forceRefresh = false) => {
     try {
@@ -99,37 +133,6 @@ export default function GarmentsListScreen() {
     fetchGarments(true);
   }, [fetchGarments]);
 
-  const handleDuplicate = useCallback(
-    async (garment: GarmentTypeRecord) => {
-      if (!duplicateStatus.allowed) return;
-      if (garment.source === 'local') return;
-      try {
-        const res = await apiFetch<unknown>(api.garmentTypes(), {
-          method: 'POST',
-          body: JSON.stringify({
-            name: `Copy of ${garment.name}`,
-            copyFromId: garment.id,
-          }),
-        });
-        invalidateGarmentTypesCache();
-        const id = getGarmentTypeIdFromPostResponse(res);
-        duplicateTemplate(garment.id);
-        if (id) {
-          router.push(`/garments/${id}`);
-        } else {
-          Alert.alert(t('garments.duplicated'), t('garments.duplicatedMessage'));
-          fetchGarments(true);
-        }
-      } catch (e) {
-        Alert.alert(
-          t('common.error'),
-          e instanceof Error ? e.message : t('garments.duplicateError')
-        );
-      }
-    },
-    [duplicateStatus.allowed, duplicateTemplate, router, fetchGarments]
-  );
-
   const handleToggleStatus = useCallback(
     async (garment: GarmentTypeRecord, enabled: boolean) => {
       const isShared = garment.source === 'shared' || garment.source === 'api';
@@ -150,21 +153,97 @@ export default function GarmentsListScreen() {
     [fetchGarments, isDuplicated]
   );
 
+  const handleDragEnd = useCallback(async ({ data }: { data: GarmentTypeRecord[] }) => {
+    setGarments(data);
+    const updatePromises = data.map((garment, index) => {
+      if (garment.sortOrder !== index) {
+        return apiFetch(api.garmentTypes(garment.id), {
+          method: 'PUT',
+          body: JSON.stringify({ sortOrder: index }),
+        });
+      }
+      return Promise.resolve();
+    });
+    try {
+      await Promise.all(updatePromises);
+      invalidateGarmentTypesCache();
+    } catch (e) {
+      Alert.alert(t('common.error'), t('garments.reorderError'));
+      fetchGarments(true);
+    }
+  }, [fetchGarments, t]);
+
+  const renderGarmentItem = useCallback(({ item: g, drag, isActive }: RenderItemParams<GarmentTypeRecord>) => {
+    const isShared = g.source === 'shared' || g.source === 'api';
+    const canToggle = !isShared || (g.templateId && isDuplicated(g.templateId));
+    const isEnabled = g.status === 'active';
+
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }, isActive && styles.rowActive]}
+          onPress={() => router.push(`/garments/${g.id}`)}
+          activeOpacity={0.7}
+          disabled={isActive}
+        >
+          <View style={styles.rowContent}>
+            <TouchableOpacity
+              onLongPress={drag}
+              delayLongPress={100}
+              style={styles.dragHandle}
+              activeOpacity={0.7}
+            >
+              <GripVertical size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+            <View style={styles.rowMain}>
+              <Text style={[styles.rowName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {g.name}
+              </Text>
+              {(g.source === 'shared' || g.source === 'api') && (
+                <TemplateSourceBadge source={g.source} />
+              )}
+            </View>
+            <View style={styles.rowActions}>
+              {canToggle && (
+                <TouchableOpacity
+                  onPress={(e) => e.stopPropagation()}
+                  activeOpacity={1}
+                >
+                  <Switch
+                    value={isEnabled}
+                    onValueChange={(enabled) => {
+                      handleToggleStatus(g, enabled);
+                    }}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor={colors.surface}
+                    ios_backgroundColor={colors.border}
+                    style={styles.statusSwitch}
+                  />
+                </TouchableOpacity>
+              )}
+              <ChevronRight size={18} color={colors.textTertiary} />
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => handleDelete(g.id)}
+              >
+                <Trash2 size={18} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </ScaleDecorator>
+    );
+  }, [isDuplicated, router, handleToggleStatus, handleDelete, colors]);
+
   return (
     <ScreenContainer noPadding>
-      <Header
-        title={t('garments.pageTitle')}
-        onBack={() => router.back()}
-        backAccessibilityLabel={t('common.back')}
-      />
-
       {loading ? (
         <Loader message={t('garments.loadingList')} style={styles.centered} />
       ) : error ? (
         <ScrollView
           contentContainerStyle={styles.centered}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
         >
           <ErrorText>{error}</ErrorText>
@@ -181,97 +260,59 @@ export default function GarmentsListScreen() {
           <ScrollView
             contentContainerStyle={styles.emptyContainer}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
             }
           >
             <EmptyState
               title={t('home.noGarments.title')}
               message="You haven't created any garments yet. Create your first garment to define how you measure."
-              hint={!createStatus.allowed && createStatus.message ? createStatus.message : undefined}
             />
           </ScrollView>
           <TouchableOpacity
-            style={[styles.fab, !createStatus.allowed && styles.fabDisabled]}
-            onPress={() => router.push('/garments/new')}
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            onPress={handleAddGarment}
             activeOpacity={0.8}
-            disabled={!createStatus.allowed}
           >
-            <Plus size={24} color={Colors.textInverse} strokeWidth={2.5} />
+            <Plus size={24} color={colors.textInverse} strokeWidth={2.5} />
           </TouchableOpacity>
         </>
       ) : (
         <>
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />
-            }
-          >
-            {garments.map((g) => {
-              const isShared = g.source === 'shared' || g.source === 'api';
-              const canToggle = !isShared || (g.templateId && isDuplicated(g.templateId));
-              const isEnabled = g.status === 'active';
-              
-              return (
-                <TouchableOpacity
-                  key={g.id}
-                  style={styles.row}
-                  onPress={() => router.push(`/garments/${g.id}`)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowContent}>
-                    <View style={styles.rowMain}>
-                      <Text style={styles.rowName} numberOfLines={1}>
-                        {g.name}
-                      </Text>
-                      {(g.source === 'shared' || g.source === 'api') && (
-                        <TemplateSourceBadge source={g.source} />
-                      )}
-                    </View>
-                    <View style={styles.rowActions}>
-                      {canToggle && (
-                        <TouchableOpacity
-                          onPress={(e) => e.stopPropagation()}
-                          activeOpacity={1}
-                        >
-                          <Switch
-                            value={isEnabled}
-                            onValueChange={(enabled) => {
-                              handleToggleStatus(g, enabled);
-                            }}
-                            trackColor={{ false: Colors.border, true: Colors.primary }}
-                            thumbColor={Colors.surface}
-                            ios_backgroundColor={Colors.border}
-                            style={styles.statusSwitch}
-                          />
-                        </TouchableOpacity>
-                      )}
-                      <ChevronRight size={18} color={Colors.textTertiary} />
-                      <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={() => handleDelete(g.id)}
-                      >
-                        <Trash2 size={18} color={Colors.textTertiary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <GestureHandlerRootView style={styles.list}>
+            <DraggableFlatList
+              data={garments}
+              keyExtractor={(item) => item.id}
+              renderItem={renderGarmentItem}
+              onDragBegin={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+              onDragEnd={(params) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleDragEnd(params);
+              }}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+              }
+            />
+          </GestureHandlerRootView>
           
           {/* Floating Action Button */}
           <TouchableOpacity
-            style={[styles.fab, !createStatus.allowed && styles.fabDisabled]}
-            onPress={() => router.push('/garments/new')}
+            style={[styles.fab, { backgroundColor: colors.primary }]}
+            onPress={handleAddGarment}
             activeOpacity={0.8}
-            disabled={!createStatus.allowed}
           >
-            <Plus size={24} color={Colors.textInverse} strokeWidth={2.5} />
+            <Plus size={24} color={colors.textInverse} strokeWidth={2.5} />
           </TouchableOpacity>
         </>
       )}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onUpgrade={handleUpgrade}
+        loading={isUpgrading}
+      />
     </ScreenContainer>
   );
 }
@@ -301,12 +342,14 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   row: {
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
     ...Shadows.sm,
+  },
+  rowActive: {
+    ...Shadows.md,
+    opacity: 0.95,
   },
   rowContent: {
     flexDirection: 'row',
@@ -316,6 +359,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     minHeight: 64,
   },
+  dragHandle: {
+    paddingRight: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
   rowMain: {
     flex: 1,
     marginRight: Spacing.md,
@@ -324,7 +371,6 @@ const styles = StyleSheet.create({
   rowName: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textPrimary,
   },
   rowActions: {
     flexDirection: 'row',
@@ -341,13 +387,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadows.primary,
-    elevation: 8,
-  },
-  fabDisabled: {
-    opacity: 0.5,
+    ...(Platform.OS === 'ios' ? { elevation: 8 } : {}),
   },
 });

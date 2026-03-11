@@ -11,12 +11,13 @@ import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import * as WebBrowser from 'expo-web-browser';
 import { FileText, Shield, ChevronRight } from 'lucide-react-native';
-import { Header } from '@/components/layout/Header';
-import { Colors, Spacing, Typography, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, Typography, Shadows } from '@/constants/design';
 import { useI18n } from '@/lib/i18n';
 import { LEGAL_LAST_UPDATED, TERMS_URL, PRIVACY_POLICY_URL } from '@/constants/legal';
 
 export default function LegalScreen() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
 
@@ -42,49 +43,47 @@ export default function LegalScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Header title={t('legal.title')} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} />
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.intro}>{t('legal.intro')}</Text>
+        <Text style={[styles.intro, { color: colors.textSecondary }]}>{t('legal.intro')}</Text>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
-            style={styles.docRow}
+            style={[styles.docRow, { borderBottomColor: colors.border }]}
             onPress={() => openInBrowser(TERMS_URL)}
             activeOpacity={0.7}
           >
-            <View style={styles.docIcon}>
-              <FileText size={24} color={Colors.primary} />
+            <View style={[styles.docIcon, { backgroundColor: colors.primaryLight + '40' }]}>
+              <FileText size={24} color={colors.primary} />
             </View>
             <View style={styles.docContent}>
-              <Text style={styles.docTitle}>{t('legal.terms')}</Text>
-              <Text style={styles.docSublabel}>
+              <Text style={[styles.docTitle, { color: colors.textPrimary }]}>{t('legal.terms')}</Text>
+              <Text style={[styles.docSublabel, { color: colors.textSecondary }]}>
                 {t('legal.lastUpdated')}: {formatDate(LEGAL_LAST_UPDATED.terms)}
               </Text>
             </View>
-            <ChevronRight size={20} color={Colors.textSecondary} />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.docRow}
+            style={[styles.docRow, { borderBottomColor: colors.border }]}
             onPress={() => openInBrowser(PRIVACY_POLICY_URL)}
             activeOpacity={0.7}
           >
-            <View style={styles.docIcon}>
-              <Shield size={24} color={Colors.primary} />
+            <View style={[styles.docIcon, { backgroundColor: colors.primaryLight + '40' }]}>
+              <Shield size={24} color={colors.primary} />
             </View>
             <View style={styles.docContent}>
-              <Text style={styles.docTitle}>{t('legal.privacy')}</Text>
-              <Text style={styles.docSublabel}>
+              <Text style={[styles.docTitle, { color: colors.textPrimary }]}>{t('legal.privacy')}</Text>
+              <Text style={[styles.docSublabel, { color: colors.textSecondary }]}>
                 {t('legal.lastUpdated')}: {formatDate(LEGAL_LAST_UPDATED.privacyPolicy)}
               </Text>
             </View>
-            <ChevronRight size={20} color={Colors.textSecondary} />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>{t('legal.reviewAnytime')}</Text>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>{t('legal.reviewAnytime')}</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -98,11 +97,9 @@ const styles = StyleSheet.create({
   },
   intro: {
     ...Typography.body,
-    color: Colors.textSecondary,
     marginBottom: Spacing.lg,
   },
   section: {
-    backgroundColor: Colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
     ...Shadows.md,
@@ -112,13 +109,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   docIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.primaryLight + '40',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
@@ -128,11 +123,9 @@ const styles = StyleSheet.create({
   },
   docTitle: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
   },
   docSublabel: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
   footer: {
@@ -141,7 +134,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     textAlign: 'center',
   },
 });

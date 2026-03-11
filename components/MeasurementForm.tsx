@@ -4,18 +4,19 @@ import { Input } from '@/components/ui/Input';
 import type { MeasurementDefinition } from '@/constants/garments';
 import { optionsFromSizeRange } from '@/constants/garments';
 import { useI18n } from '@/lib/i18n';
-import { evaluateCalculatedFields } from '@/lib/calculatedFields';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
+  evaluateCalculatedFields,
   formatMeasurementValueForDisplay,
   normalizeMeasurementValue,
-} from '@/lib/measurementValues';
-import { resolveMeasurementDisplay } from '@/lib/measurementResolution';
-import {
+  resolveMeasurementDisplay,
   filterDefinitionsWithValidKey,
   safeDisplayOrder,
-} from '@/lib/measurementDefensive';
+} from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
-import { Colors, Spacing, Typography, BorderRadius } from '@/constants/design';
+import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { NumericMeasurementInput } from './NumericMeasurementInput';
 
 export interface MeasurementFormProps {
   definitions: MeasurementDefinition[];
@@ -27,6 +28,8 @@ export interface MeasurementFormProps {
   isReadOnly?: boolean;
   /** When true, use tighter vertical spacing between fields (e.g. on measurements screen). */
   compact?: boolean;
+  /** Optional: convert numeric values to this unit for display. Defaults to app preferred unit from General Settings. */
+  displayUnitKey?: string;
 }
 
 /**
@@ -41,8 +44,12 @@ export function MeasurementForm({
   twoColumns = true,
   isReadOnly = false,
   compact = false,
+  displayUnitKey: displayUnitKeyProp,
 }: MeasurementFormProps) {
   const { t } = useI18n();
+  const { preferredUnit } = useSettings();
+  const { colors } = useTheme();
+  const displayUnitKey = displayUnitKeyProp ?? preferredUnit;
   const safeDefs = useMemo(
     () => filterDefinitionsWithValidKey(definitions ?? []),
     [definitions]
@@ -70,6 +77,7 @@ export function MeasurementForm({
       def,
       raw,
       calculated,
+      displayUnitKey,
       t,
     });
     const placeholder = def.placeholder ?? (resolved.displayUnit ?? '');
@@ -77,7 +85,7 @@ export function MeasurementForm({
     const editable = !isReadOnly && !resolved.isCalculated;
 
     if (!editable) {
-      return <Text style={styles.readOnlyValue}>{displayStr}</Text>;
+      return <Text style={[styles.readOnlyValue, { color: colors.textSecondary }]}>{displayStr}</Text>;
     }
 
     const handleChange = (v: MeasurementValue) => {
@@ -105,11 +113,15 @@ export function MeasurementForm({
               {options.map((opt) => (
                 <TouchableOpacity
                   key={opt}
-                  style={[styles.optionButton, sel === opt && styles.selectedOption]}
+                  style={[
+                    styles.optionButton,
+                    { backgroundColor: colors.borderLight, borderColor: colors.border },
+                    sel === opt && { backgroundColor: colors.primary, borderColor: colors.primary }
+                  ]}
                   onPress={() => handleChange(opt)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.optionText, sel === opt && styles.selectedOptionText]}>
+                  <Text style={[styles.optionText, { color: colors.textSecondary }, sel === opt && { color: colors.textInverse }]}>
                     {opt}
                   </Text>
                 </TouchableOpacity>
@@ -121,11 +133,12 @@ export function MeasurementForm({
 
       case 'number':
         return (
-          <Input
+          <NumericMeasurementInput
             value={resolved.displayValue}
-            onChangeText={(text) => handleChange(text)}
+            onChange={(v) => handleChange(v)}
             placeholder={placeholder}
-            keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+            editable={editable}
+            step={0.5}
             containerStyle={styles.inputInField}
           />
         );
@@ -149,7 +162,6 @@ export function MeasurementForm({
             value={resolved.displayValue}
             onChangeText={(text) => handleChange(text)}
             placeholder={placeholder}
-            multiline={!!def.multiline}
             numberOfLines={def.multiline ? 4 : 1}
             containerStyle={styles.inputInField}
           />
@@ -159,7 +171,7 @@ export function MeasurementForm({
 
   const renderLabel = (def: MeasurementDefinition) => {
     const raw = safeValues[def.key] ?? def.defaultValue ?? '';
-    const resolved = resolveMeasurementDisplay({ def, raw, calculated, t });
+    const resolved = resolveMeasurementDisplay({ def, raw, calculated, displayUnitKey, t });
     const parts: string[] = [resolved.displayLabel];
     if (resolved.displayUnit) {
       parts.push(` (${resolved.displayUnit})`);
@@ -176,7 +188,7 @@ export function MeasurementForm({
 
   const renderSingleField = (def: MeasurementDefinition) => (
     <View style={fieldWrapperStyle}>
-      <Text style={styles.label}>
+      <Text style={[styles.label, { color: colors.textPrimary }]}>
         {renderLabel(def)}
       </Text>
       {renderInput(def)}
@@ -230,10 +242,13 @@ export function MeasurementDisplay({
   definitions,
   values,
   twoColumns = true,
-  displayUnitKey,
+  displayUnitKey: displayUnitKeyProp,
   compact = false,
 }: MeasurementDisplayProps) {
   const { t } = useI18n();
+  const { preferredUnit } = useSettings();
+  const { colors } = useTheme();
+  const displayUnitKey = displayUnitKeyProp ?? preferredUnit;
   const safeDefs = filterDefinitionsWithValidKey(definitions ?? []);
   const safeValues = values ?? {};
   const sorted = [...safeDefs].sort(
@@ -259,8 +274,8 @@ export function MeasurementDisplay({
       : resolved.displayLabel;
     return (
       <View style={rowStyle} key={def.key}>
-        <Text style={styles.displayLabel}>{label}</Text>
-        <Text style={styles.displayValue}>{resolved.displayValue}</Text>
+        <Text style={[styles.displayLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.displayValue, { color: colors.textPrimary }]}>{resolved.displayValue}</Text>
       </View>
     );
   };
@@ -300,11 +315,9 @@ const styles = StyleSheet.create({
   displayLabel: {
     ...Typography.captionBold,
     marginBottom: Spacing.xs,
-    color: Colors.textSecondary,
   },
   displayValue: {
     ...Typography.body,
-    color: Colors.textPrimary,
   },
   container: {
     gap: Spacing.lg,
@@ -359,25 +372,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.borderLight,
     borderWidth: 2,
-    borderColor: Colors.border,
     height: 48,
   },
   selectedOption: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
   },
   optionText: {
     ...Typography.captionBold,
-    color: Colors.textSecondary,
   },
   selectedOptionText: {
-    color: Colors.textInverse,
   },
   readOnlyValue: {
     ...Typography.body,
-    color: Colors.textSecondary,
     paddingVertical: Spacing.sm,
   },
 });

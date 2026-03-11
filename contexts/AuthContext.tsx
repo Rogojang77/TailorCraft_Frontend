@@ -14,6 +14,7 @@ export interface User {
   email: string;
   role: string;
   emailVerified?: boolean;
+  avatar?: string | null;
   /** When set, use for GET /api/garment-types?tailorId=... when user has no Tailor resolved server-side. */
   tailorId?: string;
 }
@@ -34,10 +35,23 @@ interface AuthContextType {
   isAuthenticated: boolean;
   /** True when the user previously opted in to biometric login; token is stored but not loaded until biometric succeeds. */
   isBiometricEnabled: boolean;
+  /** True when user signed up with Apple and must complete company details before using the app. Persisted so modal shows on next launch. */
+  needsCompanyDetails: boolean;
+  /** True when user signed up with Apple and must set a password (social-only account). Persisted so modal shows on next launch. */
+  needsPassword: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (data: SignupData) => Promise<{ user: User; accessToken: string }>;
+  /** Complete sign-in after receiving provider token (Google idToken or Apple identityToken). Returns needsCompanyDetails/needsPassword when backend signals Apple signup must complete flows. */
+  loginWithSocial: (
+    provider: 'google' | 'apple',
+    payload: { idToken?: string; identityToken?: string }
+  ) => Promise<{ needsCompanyDetails?: boolean; needsPassword?: boolean }>;
+  signup: (data: SignupData) => Promise<{ messageKey?: string }>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  /** Clear the needsCompanyDetails flag after user has completed company details. */
+  clearNeedsCompanyDetails: () => Promise<void>;
+  /** Clear the needsPassword flag after user has set a password (Apple signup flow). */
+  clearNeedsPassword: () => Promise<void>;
   /** Enable biometric login after a successful email/password login. Only stores the flag; tokens are already stored. */
   enableBiometricLogin: () => Promise<void>;
   /** Run biometric prompt, then restore session from stored token. */
@@ -53,13 +67,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const USER_KEY = 'user';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 const BIOMETRIC_ENABLED_KEY = 'biometricEnabled';
+const NEEDS_COMPANY_DETAILS_KEY = 'needsCompanyDetails';
+const NEEDS_PASSWORD_KEY = 'needsPassword';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [needsCompanyDetails, setNeedsCompanyDetails] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(false);
 
   // Load stored auth state on mount
   useEffect(() => {
@@ -68,13 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadStoredAuth = async () => {
     try {
-      const [storedToken, storedUser, biometricEnabled] = await Promise.all([
+      const [storedToken, storedUser, biometricEnabled, needsCompany, needsPass] = await Promise.all([
         SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
         SecureStore.getItemAsync(USER_KEY),
         SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY),
+        SecureStore.getItemAsync(NEEDS_COMPANY_DETAILS_KEY),
+        SecureStore.getItemAsync(NEEDS_PASSWORD_KEY),
       ]);
 
       const biometricOn = biometricEnabled === 'true';
+      setNeedsCompanyDetails(needsCompany === 'true');
+      setNeedsPassword(needsPass === 'true');
 
       if (biometricOn) {
         // User opted in to biometric: do not auto-load token; show login screen with "Login with Face ID / Fingerprint"
@@ -91,6 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const clearNeedsCompanyDetails = async () => {
+    await SecureStore.deleteItemAsync(NEEDS_COMPANY_DETAILS_KEY);
+    setNeedsCompanyDetails(false);
+  };
+
+  const clearNeedsPassword = async () => {
+    await SecureStore.deleteItemAsync(NEEDS_PASSWORD_KEY);
+    setNeedsPassword(false);
   };
 
   const login = async (email: string, password: string) => {
@@ -110,23 +143,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signup = async (data: SignupData): Promise<{ user: User; accessToken: string }> => {
-    try {
-      const response = await authService.signup(data);
-
-      await Promise.all([
-        SecureStore.setItemAsync(ACCESS_TOKEN_KEY, response.accessToken),
-        SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user)),
-      ]);
-
-      setAccessToken(response.accessToken);
-      setUser(response.user);
-
-      return response;
-    } catch (error: unknown) {
-      console.error('Signup error:', error);
-      throw error;
+  const loginWithSocial = async (
+    provider: 'google' | 'apple',
+    payload: { idToken?: string; identityToken?: string }
+  ): Promise<{ needsCompanyDetails?: boolean; needsPassword?: boolean }> => {
+    const response = await authService.socialLogin(provider, payload);
+    const toStore: Promise<void>[] = [
+      SecureStore.setItemAsync(ACCESS_TOKEN_KEY, response.accessToken),
+      SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user)),
+    ];
+    if (response.refreshToken) {
+      toStore.push(SecureStore.setItemAsync(REFRESH_TOKEN_KEY, response.refreshToken));
     }
+    if (response.needsCompanyDetails) {
+      toStore.push(SecureStore.setItemAsync(NEEDS_COMPANY_DETAILS_KEY, 'true'));
+      setNeedsCompanyDetails(true);
+    }
+    if (response.needsPassword) {
+      toStore.push(SecureStore.setItemAsync(NEEDS_PASSWORD_KEY, 'true'));
+      setNeedsPassword(true);
+    }
+    await Promise.all(toStore);
+    setAccessToken(response.accessToken);
+    setUser(response.user);
+    return { needsCompanyDetails: response.needsCompanyDetails, needsPassword: response.needsPassword };
+  };
+
+  const signup = async (data: SignupData): Promise<{ messageKey?: string }> => {
+    const response = await authService.signup(data);
+    // No tokens on signup — user must verify email before logging in
+    return { messageKey: response.messageKey };
   };
 
   const logout = async () => {
@@ -135,15 +181,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
+      // Clear all persisted storage - auth tokens
       await Promise.all([
         SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
         SecureStore.deleteItemAsync(USER_KEY),
+        SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
         SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY),
+        SecureStore.deleteItemAsync(NEEDS_COMPANY_DETAILS_KEY),
+        SecureStore.deleteItemAsync(NEEDS_PASSWORD_KEY),
       ]);
 
+      // Clear auth state - subscription state will be cleared by SubscriptionContext
+      // reacting to isAuthenticated becoming false
       setAccessToken(null);
       setUser(null);
       setIsBiometricEnabled(false);
+      setNeedsCompanyDetails(false);
+      setNeedsPassword(false);
     }
   };
 
@@ -194,12 +248,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshToken = async (): Promise<boolean> => {
     try {
-      const response = await authService.refresh();
+      const storedRefresh = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      const response = await authService.refresh(storedRefresh);
 
-      await Promise.all([
+      const toStore: Promise<void>[] = [
         SecureStore.setItemAsync(ACCESS_TOKEN_KEY, response.accessToken),
         SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user)),
-      ]);
+      ];
+      if (response.refreshToken) {
+        toStore.push(SecureStore.setItemAsync(REFRESH_TOKEN_KEY, response.refreshToken));
+      }
+      await Promise.all(toStore);
 
       setAccessToken(response.accessToken);
       setUser(response.user);
@@ -219,10 +278,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isAuthenticated: !!user && !!accessToken,
     isBiometricEnabled,
+    needsCompanyDetails,
+    needsPassword,
     login,
+    loginWithSocial,
     signup,
     logout,
     refreshToken,
+    clearNeedsCompanyDetails,
+    clearNeedsPassword,
     enableBiometricLogin,
     loginWithBiometric,
     getBiometricAvailability,

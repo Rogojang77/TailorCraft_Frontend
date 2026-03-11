@@ -2,13 +2,13 @@
   "expo": {
     "name": "Tailor Craft",
     "slug": "tailor-craft",
-    "version": "1.0.0",
+    "version": "1.1.1",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/Logo_primary.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/logo.png",
+      "image": "./assets/images/Logo_black.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -29,7 +29,9 @@
           "faceIDPermission": "Allow Tailor Craft to use Face ID to sign in quickly."
         }
       ],
-      "react-native-iap"
+      "expo-apple-authentication",
+      "react-native-iap",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
@@ -38,14 +40,17 @@
       "package": "com.rogojang77.tailorcraft",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ],
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "versionCode": 11
     },
     "ios": {
       "bundleIdentifier": "com.rogojang77.tailorcraft",
-      "buildNumber": "1",
-      "supportsTablet": true
+      "buildNumber": "16",
+      "supportsTablet": true,
+      "appleTeamId": "5Z9B528SHU"
     },
     "extra": {
       "router": {},

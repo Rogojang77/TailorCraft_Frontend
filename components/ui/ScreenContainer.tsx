@@ -14,7 +14,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Spacing } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing } from '@/constants/design';
 
 export interface ScreenContainerProps {
   children: React.ReactNode;
@@ -40,7 +41,7 @@ export interface ScreenContainerProps {
   showsVerticalScrollIndicator?: boolean;
 }
 
-const SAFE_EDGES: ('top' | 'left' | 'right')[] = ['top', 'left', 'right'];
+const SAFE_EDGES: ('left' | 'right')[] = ['left', 'right'];
 
 const ScreenContainerComponent = ({
   children,
@@ -55,12 +56,13 @@ const ScreenContainerComponent = ({
   contentContainerStyle,
   showsVerticalScrollIndicator = false,
 }: ScreenContainerProps) => {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const padding = contentPadding && !noPadding;
 
   const containerStyle: ViewStyle[] = [
-    styles.base,
-    ...(!noPadding ? [{ paddingHorizontal: Spacing.lg }] : []),
+    { flex: 1, backgroundColor: colors.background },
+    ...(!noPadding ? [{ paddingHorizontal: Spacing.md }] : []),
     ...(safeBottom ? [{ paddingBottom: insets.bottom }] : []),
     ...(centered ? [styles.centered] : []),
     ...(style ? [style] : []),
@@ -104,17 +106,10 @@ const ScreenContainerComponent = ({
 };
 
 const styles = StyleSheet.create({
-  base: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   flex1: {
     flex: 1,
   },
-  padded: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-  },
+  padded: {},
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -126,10 +121,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  scrollContentPadding: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-  },
+  scrollContentPadding: {},
   scrollCentered: {
     flexGrow: 1,
     justifyContent: 'center',

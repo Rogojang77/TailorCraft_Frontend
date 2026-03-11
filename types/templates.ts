@@ -51,6 +51,12 @@ export interface GarmentTypeRecord {
   source: TemplateSource;
   templateId?: string;
   sharedFromUserId?: string | null;
+  /** Number of catalog categories owned by this garment type. */
+  catalogCategoryCount?: number;
+  /** Catalog category IDs (from API). */
+  catalogCategoryIds?: string[] | null;
+  /** Display order for sorting garments in lists. */
+  sortOrder?: number;
   /** Read-only: number of orders using this garment (when available). */
   orderCount?: number;
   createdAt?: string;

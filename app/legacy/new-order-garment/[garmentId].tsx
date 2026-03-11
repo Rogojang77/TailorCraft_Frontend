@@ -11,20 +11,21 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, User, FileEdit, Copy } from 'lucide-react-native';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
-import type { TemplateLimitStatus } from '@/contexts/SubscriptionContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useTemplates } from '@/contexts/TemplatesContext';
 import { OrderStepNav } from '@/components/OrderStepNav';
 import { MeasurementForm, MeasurementDisplay } from '@/components/MeasurementForm';
 import { TemplateSourceBadge } from '@/components/TemplateSourceBadge';
-import { getLatestClientMeasurements } from '@/lib/clientMeasurements';
+import { getLatestClientMeasurements } from '@/lib/measurement';
 import { getEffectiveTemplateSource, getMeasurementFormReadOnly } from '@/lib/templateUtils';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
 import { getGarmentTypeById, getMeasurementDefinitions, GARMENT_TYPES } from '@/constants/garments';
-import { filterDefinitionsWithValidKey } from '@/lib/measurementDefensive';
-import { buildPersistableMeasurements } from '@/lib/persistableMeasurements';
-import { storageToMeasurementValue } from '@/lib/measurementValues';
+import {
+  filterDefinitionsWithValidKey,
+  buildPersistableMeasurements,
+  storageToMeasurementValue,
+} from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
 
 function isSnapshotEmpty(snap: Record<string, string>): boolean {
@@ -33,34 +34,28 @@ function isSnapshotEmpty(snap: Record<string, string>): boolean {
 }
 
 function DuplicateBlock({
-  createStatus,
   templateId,
   onDuplicate,
+  colors,
 }: {
-  createStatus: TemplateLimitStatus;
   templateId: string;
   onDuplicate: (id: string) => void;
+  colors: ReturnType<typeof useTheme>['colors'];
 }) {
-  const disabled = !createStatus.allowed;
   return (
-    <>
-      <TouchableOpacity
-        style={[duplicateButtonStyles.button, disabled && duplicateButtonStyles.buttonDisabled]}
-        onPress={() => {
-          if (createStatus.allowed) onDuplicate(templateId);
-        }}
-        activeOpacity={0.7}
-        disabled={disabled}
-      >
-        <Copy size={18} color={disabled ? Colors.textTertiary : Colors.primary} />
-        <Text style={[duplicateButtonStyles.text, disabled && duplicateButtonStyles.textDisabled]}>
-          Duplică ca șablon local
-        </Text>
-      </TouchableOpacity>
-      {disabled && createStatus.message ? (
-        <Text style={duplicateButtonStyles.limitFeedback}>{createStatus.message}</Text>
-      ) : null}
-    </>
+    <TouchableOpacity
+      style={[
+        duplicateButtonStyles.button,
+        { backgroundColor: `${colors.primaryLight}40`, borderColor: colors.primary },
+      ]}
+      onPress={() => onDuplicate(templateId)}
+      activeOpacity={0.7}
+    >
+      <Copy size={18} color={colors.primary} />
+      <Text style={[duplicateButtonStyles.text, { color: colors.primary }]}>
+        Duplică ca șablon local
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -74,40 +69,23 @@ const duplicateButtonStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.primaryLight + '40',
     borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    borderColor: Colors.border,
-    backgroundColor: Colors.borderLight,
   },
   text: {
     ...Typography.captionBold,
-    color: Colors.primary,
-  },
-  textDisabled: {
-    color: Colors.textTertiary,
-  },
-  limitFeedback: {
-    ...Typography.caption,
-    color: Colors.warning,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.lg,
   },
 });
 
 export default function GarmentFormScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ garmentId: string }>();
   const { draftOrder, updateMeasurements } = useOrderDraft();
 
   const garmentId = params.garmentId || '';
   const garmentType = getGarmentTypeById(garmentId);
   const { isDuplicated, duplicateTemplate } = useTemplates();
-  const { templateCreationStatus } = useSubscription();
 
   const effectiveSource = garmentType
     ? getEffectiveTemplateSource(garmentType, isDuplicated)
@@ -274,10 +252,10 @@ export default function GarmentFormScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <ArrowLeft size={22} color={Colors.textPrimary} strokeWidth={2.5} />
+            <ArrowLeft size={22} color={colors.textPrimary} strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.title}>{t('legacy.measurementsTitle', { name: garmentType.name })}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{t('legacy.measurementsTitle', { name: garmentType.name })}</Text>
             <TemplateSourceBadge source={effectiveSource} style={styles.sourceBadge} />
           </View>
           {isReadOnly ? (
@@ -288,25 +266,25 @@ export default function GarmentFormScreen() {
               onPress={handleSave}
               activeOpacity={0.7}
             >
-              <Save size={20} color={Colors.textInverse} />
+              <Save size={20} color={colors.textInverse} />
             </TouchableOpacity>
           )}
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {draftOrder.customer.id && (
-            <View style={[styles.section, styles.clientSection]}>
+            <View style={[styles.section, styles.clientSection, { backgroundColor: colors.surface, borderLeftColor: colors.info }]}>
               <View style={styles.sectionHeader}>
-                <User size={20} color={Colors.info} />
-                <Text style={styles.sectionTitle}>{t('legacy.clientDataSection')}</Text>
+                <User size={20} color={colors.info} />
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('legacy.clientDataSection')}</Text>
               </View>
-              <Text style={styles.sectionHint}>
+              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
                 {t('legacy.clientSectionHint')}
               </Text>
               {loadingClientLatest ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={Colors.info} />
-                  <Text style={styles.loadingText}>{t('legacy.loading')}</Text>
+                  <ActivityIndicator size="small" color={colors.info} />
+                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('legacy.loading')}</Text>
                 </View>
               ) : clientLatest && Object.keys(clientLatest).length > 0 ? (
                 <MeasurementDisplay
@@ -315,31 +293,31 @@ export default function GarmentFormScreen() {
                   twoColumns
                 />
               ) : (
-                <Text style={styles.emptyHint}>{t('legacy.emptyMeasurements')}</Text>
+                <Text style={[styles.emptyHint, { color: colors.textTertiary }]}>{t('legacy.emptyMeasurements')}</Text>
               )}
             </View>
           )}
 
-          <View style={styles.section}>
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
             <View style={styles.sectionHeader}>
-              <FileEdit size={20} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>
+              <FileEdit size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                 {t('legacy.forThisOrderSnapshot')}
                 {isReadOnly && (
-                  <Text style={styles.readOnlyHint}>{t('legacy.readOnlyHint')}</Text>
+                  <Text style={[styles.readOnlyHint, { color: colors.textTertiary }]}>{t('legacy.readOnlyHint')}</Text>
                 )}
               </Text>
             </View>
-            <Text style={styles.sectionHint}>
+            <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
               {isReadOnly
                 ? t('legacy.sharedReadOnlyHint')
                 : t('legacy.savedForOrderHint')}
             </Text>
             {isReadOnly && garmentType.templateMeta && (
               <DuplicateBlock
-                createStatus={templateCreationStatus()}
                 templateId={garmentType.templateMeta.templateId}
                 onDuplicate={duplicateTemplate}
+                colors={colors}
               />
             )}
             <MeasurementForm
@@ -400,14 +378,12 @@ const styles = StyleSheet.create({
   readOnlyHint: {
     ...Typography.caption,
     fontWeight: '400',
-    color: Colors.textTertiary,
   },
   content: {
     flex: 1,
   },
   section: {
-    backgroundColor: Colors.surface,
-    marginHorizontal: Spacing.xl,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
@@ -424,11 +400,9 @@ const styles = StyleSheet.create({
   },
   clientSection: {
     borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
   },
   sectionHint: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     marginBottom: Spacing.lg,
   },
   loadingRow: {
@@ -439,11 +413,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-    color: Colors.textSecondary,
   },
   emptyHint: {
     ...Typography.body,
-    color: Colors.textTertiary,
     fontStyle: 'italic',
     paddingVertical: Spacing.md,
   },

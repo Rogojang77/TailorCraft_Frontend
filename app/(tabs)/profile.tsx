@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Input } from '@/components/ui/Input';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -37,25 +38,30 @@ import {
   Trash2,
   Shield,
   FileText,
+  Lock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { usePremium } from '@/contexts/PremiumContext';
+import { useSubscription, usePremium } from '@/contexts/SubscriptionContext';
+import { useCompany } from '@/contexts/CompanyContext';
 import { useI18n } from '@/lib/i18n';
 import { api, apiFetch, uploadImage } from '@/lib/api';
-import { fetchCompanySettings, invalidateCompanyCache } from '@/lib/apiCache';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
-import { PaywallModal } from '@/components/PaywallModal';
-import { ProBadge } from '@/components/ProBadge';
+import { fetchCompanySettings, invalidateCompanyCache } from '@/lib/api';
+import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { PaywallModal } from '@/components/subscription';
 import { getDiagnostics } from '@/lib/diagnostics';
 
 export default function ProfileTab() {
-  const { t, locale, setLocale } = useI18n();
+  const { colors } = useTheme();
+  const { t } = useI18n();
   const router = useRouter();
+  const params = useLocalSearchParams<{ completeCompany?: string }>();
   const { isAuthenticated, logout, user } = useAuth();
+
   const { subscription, isLoading: subscriptionLoading, upgradeToPro, refreshSubscription, getUsageForDisplay, getLimitMessages } = useSubscription();
   const { isPremium } = usePremium();
+  const { refreshCompany } = useCompany();
   const [companyData, setCompanyData] = useState({
     name: '',
     owner: '',
@@ -79,6 +85,7 @@ export default function ProfileTab() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const hasOpenedCompleteCompanyModal = useRef(false);
 
   const fetchCompany = useCallback(async (forceRefresh = false) => {
     setCompanyLoading(true);
@@ -106,6 +113,23 @@ export default function ProfileTab() {
       fetchCompany(false);
     }, [isAuthenticated, fetchCompany])
   );
+
+  // When navigated with ?completeCompany=1 (e.g. after Apple signup), open company modal once and clear param.
+  useEffect(() => {
+    if (!params.completeCompany || companyLoading || hasOpenedCompleteCompanyModal.current) return;
+    hasOpenedCompleteCompanyModal.current = true;
+    setEditDraft({
+      name: companyData.name,
+      owner: companyData.owner,
+      phone: companyData.phone,
+      email: companyData.email,
+      address: companyData.address ?? '',
+      logo: companyData.logo,
+      logoUrl: companyData.logoUrl,
+    });
+    setShowEditModal(true);
+    router.replace('/(tabs)/profile');
+  }, [params.completeCompany, companyLoading, companyData.name, companyData.owner, companyData.phone, companyData.email, companyData.address, companyData.logo, companyData.logoUrl, router]);
 
   const handleEditModalImagePicker = async () => {
     try {
@@ -175,6 +199,7 @@ export default function ProfileTab() {
         logoUrl: logoUrl ?? null,
         logo: null,
       }));
+      await refreshCompany();
       setShowEditModal(false);
       Alert.alert(t('common.success'), t('profile.alerts.saveSuccess'));
     } catch (e) {
@@ -233,38 +258,17 @@ export default function ProfileTab() {
 
   return (
     <ScreenContainer noPadding>
-      {/* Header: long-press on title opens diagnostics (production support) */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.titleContainer}
-          onLongPress={() => setShowDiagnosticsModal(true)}
-          activeOpacity={1}
-          delayLongPress={600}
-        >
-          <Text style={styles.title}>{t('profile.title')}</Text>
-          <ProBadge size="sm" style={{ marginLeft: 8 }} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.editButtonLarge}
-          onPress={openEditModal}
-          activeOpacity={0.8}
-        >
-          <Edit size={16} color={Colors.textInverse} strokeWidth={2.5} />
-          <Text style={styles.editButtonText}>{t('profile.edit')}</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {companyLoading ? (
           <View style={styles.loadingSection}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>{t('profile.loadingCompany')}</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('profile.loadingCompany')}</Text>
           </View>
         ) : (
           <>
         {/* Company Logo (read-only on profile) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.companyLogo')}</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.companyLogo')}</Text>
           <View style={styles.logoWrapper}>
             <View style={styles.logoCardReadOnly}>
               {(companyData.logo ?? companyData.logoUrl) ? (
@@ -276,9 +280,9 @@ export default function ProfileTab() {
                   <View style={styles.logoGlow} />
                 </View>
               ) : (
-                <View style={styles.logoPlaceholderReadOnlyModern}>
-                  <Text style={styles.logoPlaceholderTitleReadOnly}>{t('profile.addCompanyLogoPlaceholder')}</Text>
-                  <Text style={styles.logoPlaceholderSubtitleReadOnly}>
+                <View style={[styles.logoPlaceholderReadOnlyModern, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+                  <Text style={[styles.logoPlaceholderTitleReadOnly, { color: colors.textPrimary }]}>{t('profile.addCompanyLogoPlaceholder')}</Text>
+                  <Text style={[styles.logoPlaceholderSubtitleReadOnly, { color: colors.textSecondary }]}>
                     {t('profile.logoPlaceholderSubtitle')}
                   </Text>
                 </View>
@@ -288,81 +292,93 @@ export default function ProfileTab() {
         </View>
 
         {/* Company Information (read-only on profile) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.companyInfo')}</Text>
-          <View style={styles.infoRow}>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleNoMargin, { color: colors.textPrimary }]}>{t('profile.companyInfo')}</Text>
+            <TouchableOpacity
+              style={[styles.editCompanyButton, { backgroundColor: colors.primaryLight }]}
+              onPress={openEditModal}
+              activeOpacity={0.7}
+            >
+              <Edit size={14} color={colors.primary} strokeWidth={2.5} />
+              <Text style={[styles.editCompanyButtonText, { color: colors.primary }]}>{t('common.edit')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.infoIcon}>
-              <Building size={18} color={Colors.textSecondary} />
+              <Building size={18} color={colors.textSecondary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{t('profile.companyName')}</Text>
-              <Text style={styles.infoValue}>{companyData.name || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.companyName')}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.name || '—'}</Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.infoIcon}>
-              <User size={18} color={Colors.textSecondary} />
+              <User size={18} color={colors.textSecondary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{t('profile.owner')}</Text>
-              <Text style={styles.infoValue}>{companyData.owner || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.owner')}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.owner || '—'}</Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.infoIcon}>
-              <Phone size={18} color={Colors.textSecondary} />
+              <Phone size={18} color={colors.textSecondary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{t('profile.phone')}</Text>
-              <Text style={styles.infoValue}>{companyData.phone || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.phone')}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.phone || '—'}</Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
             <View style={styles.infoIcon}>
-              <Mail size={18} color={Colors.textSecondary} />
+              <Mail size={18} color={colors.textSecondary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{t('profile.email')}</Text>
-              <Text style={styles.infoValue}>{companyData.email || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.email')}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.email || '—'}</Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, styles.infoRowLast]}>
             <View style={styles.infoIcon}>
-              <MapPin size={18} color={Colors.textSecondary} />
+              <MapPin size={18} color={colors.textSecondary} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{t('profile.address')}</Text>
-              <Text style={styles.infoValue}>{companyData.address || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.address')}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.address || '—'}</Text>
             </View>
           </View>
         </View>
 
         {/* Subscription Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.subscription')}</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.subscription')}</Text>
           
           {subscriptionLoading ? (
             <View style={styles.subscriptionLoading}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.subscriptionLoadingText}>{t('profile.loadingSubscription')}</Text>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.subscriptionLoadingText, { color: colors.textSecondary }]}>{t('subscription.verifying')}</Text>
             </View>
           ) : subscription ? (
             <>
               {/* Plan Badge */}
               <View style={[
                 styles.planBadgeContainer,
-                isPremium && styles.planBadgeContainerPro
+                { backgroundColor: colors.background, borderColor: colors.border },
+                isPremium && { backgroundColor: colors.primary, borderColor: colors.primary }
               ]}>
                 {isPremium && (
-                  <Crown size={18} color={Colors.textInverse} strokeWidth={2.5} />
+                  <Crown size={18} color={colors.textInverse} strokeWidth={2.5} />
                 )}
                 <Text style={[
                   styles.planBadgeText,
-                  isPremium && styles.planBadgeTextPro
+                  { color: colors.textPrimary },
+                  isPremium && { color: colors.textInverse }
                 ]}>
                   {!isPremium ? t('profile.planFree') : t('profile.planPro')}
                 </Text>
@@ -374,7 +390,7 @@ export default function ProfileTab() {
                 return (
                 <>
                   {/* Usage Limits for FREE plan */}
-                  <View style={styles.usageContainer}>
+                  <View style={[styles.usageContainer, { backgroundColor: colors.background }]}>
                     {(() => {
                       const maxC = usage.clients.max || 1;
                       const maxO = usage.orders.max || 1;
@@ -388,56 +404,60 @@ export default function ProfileTab() {
                         <>
                           <View style={styles.usageRow}>
                             <View style={styles.usageInfo}>
-                              <User size={16} color={Colors.textSecondary} />
-                              <Text style={styles.usageLabel}>{t('profile.clients')}</Text>
+                              <User size={16} color={colors.textSecondary} />
+                              <Text style={[styles.usageLabel, { color: colors.textSecondary }]}>{t('profile.clients')}</Text>
                               {clientsNearLimit && nextBlockingLimit === 'clients' && (
-                                <View style={styles.limitWarningBadge}>
-                                  <Text style={styles.limitWarningText}>{t('subscription.limitNear')}</Text>
+                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.warning }]}>
+                                  <Text style={[styles.limitWarningText, { color: colors.textInverse }]}>{t('subscription.limitNear')}</Text>
                                 </View>
                               )}
                             </View>
                             <View style={styles.usageProgressContainer}>
                               <View style={[
                                 styles.usageProgressBarContainer,
-                                clientsNearLimit && styles.usageProgressBarContainerWarning
+                                { backgroundColor: colors.borderLight },
+                                clientsNearLimit && { backgroundColor: `${colors.warning}20` }
                               ]}>
                                 <View
                                   style={[
                                     styles.usageProgressBar,
-                                    clientsNearLimit && styles.usageProgressBarWarning,
+                                    { backgroundColor: colors.primary },
+                                    clientsNearLimit && { backgroundColor: colors.warning },
                                     { width: `${clientsPercent}%` },
                                   ]}
                                 />
                               </View>
-                              <Text style={styles.usageCountSecondary}>
+                              <Text style={[styles.usageCountSecondary, { color: colors.textTertiary }]}>
                                 {usage.clients.current} / {usage.clients.max}
                               </Text>
                             </View>
                           </View>
                           <View style={styles.usageRow}>
                             <View style={styles.usageInfo}>
-                              <ShoppingBag size={16} color={Colors.textSecondary} />
-                              <Text style={styles.usageLabel}>{t('profile.orders')}</Text>
+                              <ShoppingBag size={16} color={colors.textSecondary} />
+                              <Text style={[styles.usageLabel, { color: colors.textSecondary }]}>{t('profile.orders')}</Text>
                               {ordersNearLimit && nextBlockingLimit === 'orders' && (
-                                <View style={styles.limitWarningBadge}>
-                                  <Text style={styles.limitWarningText}>{t('subscription.limitNear')}</Text>
+                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.warning }]}>
+                                  <Text style={[styles.limitWarningText, { color: colors.textInverse }]}>{t('subscription.limitNear')}</Text>
                                 </View>
                               )}
                             </View>
                             <View style={styles.usageProgressContainer}>
                               <View style={[
                                 styles.usageProgressBarContainer,
-                                ordersNearLimit && styles.usageProgressBarContainerWarning
+                                { backgroundColor: colors.borderLight },
+                                ordersNearLimit && { backgroundColor: `${colors.warning}20` }
                               ]}>
                                 <View
                                   style={[
                                     styles.usageProgressBar,
-                                    ordersNearLimit && styles.usageProgressBarWarning,
+                                    { backgroundColor: colors.primary },
+                                    ordersNearLimit && { backgroundColor: colors.warning },
                                     { width: `${ordersPercent}%` },
                                   ]}
                                 />
                               </View>
-                              <Text style={styles.usageCountSecondary}>
+                              <Text style={[styles.usageCountSecondary, { color: colors.textTertiary }]}>
                                 {usage.orders.current} / {usage.orders.max}
                               </Text>
                             </View>
@@ -448,20 +468,20 @@ export default function ProfileTab() {
                   </View>
 
                   {/* Upgrade Info */}
-                  <Text style={styles.subscriptionHint}>
+                  <Text style={[styles.subscriptionHint, { color: colors.textSecondary }]}>
                     {limitMsgs.freePlanLimitShort}
                   </Text>
 
                   {/* Upgrade Button */}
                   <TouchableOpacity 
-                    style={styles.upgradeButton}
+                    style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
                     onPress={handleUpgradeClick}
                     activeOpacity={0.8}
                   >
-                    <Crown size={16} color={Colors.textInverse} strokeWidth={2.5} />
-                    <Text style={styles.upgradeButtonText}>{t('profile.upgradeToPro')}</Text>
+                    <Crown size={16} color={colors.textInverse} strokeWidth={2.5} />
+                    <Text style={[styles.upgradeButtonText, { color: colors.textInverse }]}>{t('profile.upgradeToPro')}</Text>
                   </TouchableOpacity>
-                  <Text style={styles.upgradeValueStatement}>
+                  <Text style={[styles.upgradeValueStatement, { color: colors.textSecondary }]}>
                     Acces nelimitat pentru a-ți crește afacerea
                   </Text>
 
@@ -471,8 +491,8 @@ export default function ProfileTab() {
                     onPress={() => router.push('/subscription')}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.viewDetailsText}>{t('profile.viewSubscriptionDetails')}</Text>
-                    <ChevronRight size={16} color="#6B7280" />
+                    <Text style={[styles.viewDetailsText, { color: colors.textSecondary }]}>{t('profile.viewSubscriptionDetails')}</Text>
+                    <ChevronRight size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </>
                 );
@@ -480,27 +500,27 @@ export default function ProfileTab() {
                 <>
                   {/* Manage Subscription Button */}
                   <TouchableOpacity 
-                    style={styles.manageButton}
+                    style={[styles.manageButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                     onPress={() => router.push('/subscription')}
                     activeOpacity={0.7}
                   >
-                    <Settings size={18} color="#9CA3AF" />
-                    <Text style={styles.manageButtonText}>{t('profile.manageSubscription')}</Text>
+                    <Settings size={18} color={colors.textSecondary} />
+                    <Text style={[styles.manageButtonText, { color: colors.textSecondary }]}>{t('profile.manageSubscription')}</Text>
                   </TouchableOpacity>
                 </>
               )}
             </>
           ) : (
             <View style={styles.subscriptionError}>
-              <Text style={styles.subscriptionErrorText}>
+              <Text style={[styles.subscriptionErrorText, { color: colors.error }]}>
                 {t('profile.subscriptionLoadError')}
               </Text>
               <TouchableOpacity 
-                style={styles.retryButton}
+                style={[styles.retryButton, { backgroundColor: colors.background, borderColor: colors.border }]}
                 onPress={() => refreshSubscription(true)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
+                <Text style={[styles.retryButtonText, { color: colors.textPrimary }]}>{t('common.retry')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -508,129 +528,129 @@ export default function ProfileTab() {
           </>
         )}
 
-        {/* Language */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
-          <Text style={[styles.infoLabel, { marginBottom: Spacing.md }]}>{t('settings.languageDescription')}</Text>
-          <View style={styles.languageRow}>
-            <TouchableOpacity
-              style={[styles.languageOption, locale === 'en' && styles.languageOptionActive]}
-              onPress={() => {
-                if (locale !== 'en') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setLocale('en');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.radioButton, locale === 'en' && styles.radioButtonActive]}>
-                {locale === 'en' && <View style={styles.radioButtonInner} />}
-              </View>
-              <Globe size={16} color={Colors.textSecondary} />
-              <Text style={styles.languageOptionText}>
-                {t('settings.english')}
-              </Text>
-              {locale === 'en' && (
-                <Check size={16} color={Colors.primary} strokeWidth={3} />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.languageOption, locale === 'ro' && styles.languageOptionActive]}
-              onPress={() => {
-                if (locale !== 'ro') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setLocale('ro');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.radioButton, locale === 'ro' && styles.radioButtonActive]}>
-                {locale === 'ro' && <View style={styles.radioButtonInner} />}
-              </View>
-              <Globe size={16} color={Colors.textSecondary} />
-              <Text style={styles.languageOptionText}>
-                {t('settings.romanian')}
-              </Text>
-              {locale === 'ro' && (
-                <Check size={16} color={Colors.primary} strokeWidth={3} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Settings Menu */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.settings')}</Text>
-          
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.settings')}</Text>
+
           <TouchableOpacity 
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            onPress={() => router.push('/settings/general')}
+          >
+            <View style={styles.menuItemLeft}>
+              <Settings size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('settings.generalSettings')}</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
             onPress={() => router.push('/garments')}
           >
             <View style={styles.menuItemLeft}>
-              <LayoutTemplate size={20} color="#D4AF37" />
-              <Text style={styles.menuItemText}>{t('profile.garmentsTemplates')}</Text>
+              <LayoutTemplate size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('profile.garmentsTemplates')}</Text>
             </View>
-            <ChevronRight size={20} color="#9CA3AF" />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => router.push('/pdf-customize')}
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            onPress={() => {
+              if (isPremium) {
+                router.push('/pdf-customize');
+              } else {
+                setShowPaywall(true);
+              }
+            }}
           >
             <View style={styles.menuItemLeft}>
-              <FileText size={20} color="#D4AF37" />
-              <Text style={styles.menuItemText}>{t('pdf.customizePdf')}</Text>
+              <FileText size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('pdf.customizePdf')}</Text>
             </View>
-            <ChevronRight size={20} color="#9CA3AF" />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
             onPress={() => router.push('/account/legal')}
           >
             <View style={styles.menuItemLeft}>
-              <Shield size={20} color="#D4AF37" />
-              <Text style={styles.menuItemText}>{t('legal.menuItem')}</Text>
+              <Shield size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('legal.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color="#9CA3AF" />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
         </View>
 
         {/* Account */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('account.title')}</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.title')}</Text>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            onPress={() => router.push('/account/change-password')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <Lock size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('account.changePassword.menuItem')}</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            onPress={() => router.push('/account/feedback')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <Mail size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('feedback.menuItem')}</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            onPress={() => router.push('/account/newsletter')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemLeft}>
+              <Mail size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('newsletter.menuItem')}</Text>
+            </View>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
             onPress={() => router.push('/account/delete')}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <Trash2 size={20} color={Colors.error} />
-              <Text style={[styles.menuItemText, styles.deleteAccountText]}>{t('account.deleteAccount')}</Text>
+              <Trash2 size={20} color={colors.error} />
+              <Text style={[styles.menuItemText, { color: colors.error }]}>{t('account.deleteAccount')}</Text>
             </View>
-            <ChevronRight size={20} color={Colors.error} />
+            <ChevronRight size={20} color={colors.error} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
             onPress={handleLogout}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <LogOut size={20} color={Colors.error} />
-              <Text style={[styles.menuItemText, styles.logoutText]}>{t('profile.logout')}</Text>
+              <LogOut size={20} color={colors.error} />
+              <Text style={[styles.menuItemText, { color: colors.error }]}>{t('profile.logout')}</Text>
             </View>
-            <ChevronRight size={20} color={Colors.error} />
+            <ChevronRight size={20} color={colors.error} />
           </TouchableOpacity>
         </View>
 
         {/* App Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.aboutApp')}</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.aboutApp')}</Text>
           <View style={styles.appInfo}>
-            <Text style={styles.appName}>{t('profile.appName')}</Text>
-            <Text style={styles.appVersion}>{t('profile.version')}</Text>
-            <Text style={styles.appDescription}>
+            <Text style={[styles.appName, { color: colors.primaryLegacy }]}>{t('profile.appName')}</Text>
+            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>{t('profile.version')}</Text>
+            <Text style={[styles.appDescription, { color: colors.textSecondary }]}>
               {t('profile.appDescription')}
             </Text>
           </View>
@@ -655,15 +675,15 @@ export default function ProfileTab() {
         onRequestClose={handleCancelEdit}
       >
         <View style={styles.editModalOverlay}>
-            <View style={styles.editModalCard}>
-            <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>{t('profile.edit')}</Text>
+            <View style={[styles.editModalCard, { backgroundColor: colors.surface }]}>
+            <View style={[styles.editModalHeader, { borderBottomColor: colors.borderLight }]}>
+              <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>{t('profile.edit')}</Text>
               <TouchableOpacity
                 onPress={handleCancelEdit}
                 style={styles.editModalCloseBtn}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <X size={24} color={Colors.textSecondary} strokeWidth={2} />
+                <X size={24} color={colors.textSecondary} strokeWidth={2} />
               </TouchableOpacity>
             </View>
             <KeyboardAwareScrollView
@@ -672,10 +692,10 @@ export default function ProfileTab() {
               keyboardShouldPersistTaps="handled"
             >
               {/* Logo in modal */}
-              <Text style={styles.editModalSectionLabel}>{t('profile.companyLogo')}</Text>
+              <Text style={[styles.editModalSectionLabel, { color: colors.textSecondary }]}>{t('profile.companyLogo')}</Text>
               <View style={styles.editModalLogoRow}>
                 <TouchableOpacity
-                  style={styles.logoCard}
+                  style={[styles.logoCard, { backgroundColor: colors.surface }]}
                   onPress={handleEditModalImagePicker}
                   activeOpacity={0.8}
                 >
@@ -693,27 +713,27 @@ export default function ProfileTab() {
                           style={styles.logoGradientOverlay}
                         />
                       </View>
-                      <View style={styles.logoEditBadge}>
-                        <Camera size={18} color="#FFFFFF" />
-                        <Text style={styles.logoEditBadgeText}>{t('profile.change')}</Text>
+                      <View style={[styles.logoEditBadge, { backgroundColor: `${colors.primaryLegacy}F0` }]}>
+                        <Camera size={18} color={colors.textInverse} />
+                        <Text style={[styles.logoEditBadgeText, { color: colors.textInverse }]}>{t('profile.change')}</Text>
                       </View>
                     </>
                   ) : (
-                    <View style={styles.logoPlaceholderModern}>
-                      <Text style={styles.logoPlaceholderTitle}>{t('profile.addLogo')}</Text>
-                      <Text style={styles.logoPlaceholderSubtitle}>{t('profile.tapToSelect')}</Text>
+                    <View style={[styles.logoPlaceholderModern, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}>
+                      <Text style={[styles.logoPlaceholderTitle, { color: colors.warningText }]}>{t('profile.addLogo')}</Text>
+                      <Text style={[styles.logoPlaceholderSubtitle, { color: colors.warningTextDark }]}>{t('profile.tapToSelect')}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.editModalSectionLabel}>{t('profile.companyInfo')}</Text>
+              <Text style={[styles.editModalSectionLabel, { color: colors.textSecondary }]}>{t('profile.companyInfo')}</Text>
               <Input
                 label={t('profile.companyName')}
                 value={editDraft.name}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, name: text }))}
                 placeholder={t('profile.companyNamePlaceholder')}
-                leftIcon={<Building size={18} color={Colors.primary} />}
+                leftIcon={<Building size={18} color={colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -721,7 +741,7 @@ export default function ProfileTab() {
                 value={editDraft.owner}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, owner: text }))}
                 placeholder={t('profile.ownerPlaceholder')}
-                leftIcon={<User size={18} color={Colors.primary} />}
+                leftIcon={<User size={18} color={colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -730,7 +750,7 @@ export default function ProfileTab() {
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, phone: text }))}
                 placeholder={t('profile.phonePlaceholder')}
                 keyboardType="phone-pad"
-                leftIcon={<Phone size={18} color={Colors.primary} />}
+                leftIcon={<Phone size={18} color={colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -739,7 +759,7 @@ export default function ProfileTab() {
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, email: text }))}
                 placeholder={t('profile.emailPlaceholder')}
                 keyboardType="email-address"
-                leftIcon={<Mail size={18} color={Colors.primary} />}
+                leftIcon={<Mail size={18} color={colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -747,25 +767,25 @@ export default function ProfileTab() {
                 value={editDraft.address}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, address: text }))}
                 placeholder={t('profile.addressPlaceholder')}
-                leftIcon={<MapPin size={18} color={Colors.primary} />}
+                leftIcon={<MapPin size={18} color={colors.primary} />}
                 containerStyle={{ ...styles.inputGroup, ...styles.inputGroupLast }}
               />
             </KeyboardAwareScrollView>
-            <View style={styles.editModalActions}>
+            <View style={[styles.editModalActions, { borderTopColor: colors.borderLight }]}>
               <TouchableOpacity
-                style={styles.editModalCancelButton}
+                style={[styles.editModalCancelButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
                 onPress={handleCancelEdit}
                 activeOpacity={0.7}
               >
-                <Text style={styles.editModalCancelText}>{t('common.cancel')}</Text>
+                <Text style={[styles.editModalCancelText, { color: colors.textSecondary }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.editModalSaveButton}
+                style={[styles.editModalSaveButton, { backgroundColor: colors.primary }]}
                 onPress={handleSave}
                 activeOpacity={0.8}
               >
-                <Save size={18} color={Colors.textInverse} strokeWidth={2.5} />
-                <Text style={styles.editModalSaveText}>{t('common.save')}</Text>
+                <Save size={18} color={colors.textInverse} strokeWidth={2.5} />
+                <Text style={[styles.editModalSaveText, { color: colors.textInverse }]}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -785,33 +805,33 @@ export default function ProfileTab() {
           onPress={() => setShowDiagnosticsModal(false)}
         >
           <TouchableOpacity
-            style={styles.diagnosticsCard}
+            style={[styles.diagnosticsCard, { backgroundColor: colors.surface }]}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.diagnosticsTitle}>{t('profile.diagnosticsTitle')}</Text>
+            <Text style={[styles.diagnosticsTitle, { color: colors.textPrimary }]}>{t('profile.diagnosticsTitle')}</Text>
             {(() => {
               const d = getDiagnostics();
               const fmt = (ts: number) => new Date(ts).toISOString();
               return (
                 <View style={styles.diagnosticsBody}>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={styles.diagnosticsLabel}>{t('profile.diagnosticsSubscriptionFetch')}</Text>
-                    <Text style={styles.diagnosticsValue} numberOfLines={2}>
+                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsSubscriptionFetch')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]} numberOfLines={2}>
                       {d.lastSubscriptionFetch
                         ? `${d.lastSubscriptionFetch.result}${d.lastSubscriptionFetch.message ? `: ${d.lastSubscriptionFetch.message}` : ''} · ${fmt(d.lastSubscriptionFetch.timestamp)}`
                         : '—'}
                     </Text>
                   </View>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={styles.diagnosticsLabel}>{t('profile.diagnosticsAuthRefresh')}</Text>
-                    <Text style={styles.diagnosticsValue}>
+                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsAuthRefresh')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]}>
                       {d.lastAuthRefresh ? `${d.lastAuthRefresh.result} · ${fmt(d.lastAuthRefresh.timestamp)}` : '—'}
                     </Text>
                   </View>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={styles.diagnosticsLabel}>{t('profile.diagnosticsDraftRestore')}</Text>
-                    <Text style={styles.diagnosticsValue}>
+                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsDraftRestore')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]}>
                       {d.lastDraftRestore ? fmt(d.lastDraftRestore.timestamp) : '—'}
                     </Text>
                   </View>
@@ -822,7 +842,7 @@ export default function ProfileTab() {
               style={styles.diagnosticsClose}
               onPress={() => setShowDiagnosticsModal(false)}
             >
-              <Text style={styles.diagnosticsCloseText}>{t('common.close')}</Text>
+              <Text style={[styles.diagnosticsCloseText, { color: colors.primary }]}>{t('common.close')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -832,35 +852,8 @@ export default function ProfileTab() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   title: {
     ...Typography.h2,
-  },
-  editButtonLarge: {
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.full,
-    ...Shadows.primary,
-  },
-  editButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textInverse,
-    marginLeft: Spacing.xs,
   },
   editActions: {
     flexDirection: 'row',
@@ -869,17 +862,12 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     ...ButtonStyles.dangerIcon,
-    backgroundColor: '#FEF2F2',
     borderWidth: 1.5,
-    borderColor: Colors.error,
   },
   saveButton: {
     ...ButtonStyles.primaryIcon,
-    backgroundColor: Colors.success,
-    shadowColor: Colors.success,
   },
   editBanner: {
-    backgroundColor: '#FEF3C7',
     marginHorizontal: 20,
     marginBottom: 16,
     padding: 16,
@@ -887,12 +875,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderLeftWidth: 4,
-    borderLeftColor: '#D4AF37',
   },
   editBannerText: {
     flex: 1,
     fontSize: 14,
-    color: '#92400E',
     marginLeft: 12,
     fontWeight: '500',
   },
@@ -903,26 +889,21 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   editingBadge: {
-    backgroundColor: '#D4AF37',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   editingBadgeText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
   },
   sectionEditing: {
     borderWidth: 2,
-    borderColor: '#FEF3C7',
-    backgroundColor: '#FFFBEB',
   },
   content: {
     flex: 1,
   },
   section: {
-    backgroundColor: Colors.surface,
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
     borderRadius: BorderRadius.md,
@@ -934,6 +915,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: Spacing.md,
   },
+  sectionTitleNoMargin: {
+    marginBottom: 0,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  editCompanyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
+  },
+  editCompanyButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   logoWrapper: {
     alignItems: 'center',
     marginBottom: 8,
@@ -942,27 +944,29 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
     overflow: 'hidden',
     position: 'relative',
+    ...(Platform.OS === 'ios' && {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+      elevation: 8,
+    }),
   },
   logoCardReadOnly: {
     width: 160,
     height: 160,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
     overflow: 'hidden',
     position: 'relative',
+    ...(Platform.OS === 'ios' && {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 4,
+    }),
   },
   logoImageContainer: {
     width: '100%',
@@ -998,11 +1002,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 24,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 0,
+    ...(Platform.OS === 'ios' && {
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 0,
+    }),
   },
   logoEditBadge: {
     position: 'absolute',
@@ -1012,19 +1017,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.95)',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,
     gap: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    ...(Platform.OS === 'ios' && {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    }),
   },
   logoEditBadgeText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -1035,35 +1040,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#FEF9E7',
     borderWidth: 2,
-    borderColor: '#FDE68A',
     borderStyle: 'dashed',
   },
   logoPlaceholderIconContainer: {
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#FFFBEB',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    ...(Platform.OS === 'ios' && {
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
   },
   logoPlaceholderTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#92400E',
     marginBottom: 4,
     textAlign: 'center',
   },
   logoPlaceholderSubtitle: {
     fontSize: 12,
-    color: '#A16207',
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -1073,16 +1074,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.md,
-    backgroundColor: Colors.primaryLight,
     borderWidth: 2,
-    borderColor: Colors.primary,
     borderStyle: 'dashed',
   },
   logoPlaceholderIconContainerReadOnly: {
     width: 64,
     height: 64,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
@@ -1091,14 +1089,12 @@ const styles = StyleSheet.create({
   logoPlaceholderTitleReadOnly: {
     ...Typography.bodyBold,
     fontSize: 15,
-    color: Colors.textPrimary,
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   logoPlaceholderSubtitleReadOnly: {
     ...Typography.caption,
     fontSize: 12,
-    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: Spacing.sm,
@@ -1115,7 +1111,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   infoRowLast: {
     borderBottomWidth: 0,
@@ -1136,7 +1131,6 @@ const styles = StyleSheet.create({
   infoLabel: {
     ...Typography.small,
     fontSize: 11,
-    color: Colors.textTertiary,
     marginBottom: Spacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1144,7 +1138,6 @@ const styles = StyleSheet.create({
   infoValue: {
     ...Typography.bodyBold,
     fontSize: 17,
-    color: Colors.textPrimary,
     lineHeight: 24,
   },
   menuItem: {
@@ -1153,7 +1146,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -1161,7 +1153,6 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#1F2937',
     fontWeight: '500',
     marginLeft: 12,
   },
@@ -1172,17 +1163,14 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#D4AF37',
     marginBottom: 4,
   },
   appVersion: {
     fontSize: 14,
-    color: '#6B7280',
     marginBottom: 12,
   },
   appDescription: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -1196,14 +1184,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
     marginTop: 12,
   },
   logoutText: {
-    color: '#EF4444',
   },
   deleteAccountText: {
-    color: Colors.error,
   },
   // Subscription styles
   subscriptionLoading: {
@@ -1215,7 +1200,6 @@ const styles = StyleSheet.create({
   },
   subscriptionLoadingText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
   },
   subscriptionError: {
     alignItems: 'center',
@@ -1223,21 +1207,17 @@ const styles = StyleSheet.create({
   },
   subscriptionErrorText: {
     ...Typography.body,
-    color: Colors.error,
     textAlign: 'center',
     marginBottom: Spacing.md,
   },
   retryButton: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.background,
     borderRadius: BorderRadius.sm,
     borderWidth: 1.5,
-    borderColor: Colors.border,
   },
   retryButtonText: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
     fontSize: 14,
   },
   planBadgeContainer: {
@@ -1247,26 +1227,19 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.background,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.border,
     marginBottom: Spacing.lg,
   },
   planBadgeContainerPro: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
   },
   planBadgeText: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textPrimary,
   },
   planBadgeTextPro: {
-    color: Colors.textInverse,
   },
   usageContainer: {
-    backgroundColor: Colors.background,
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -1283,11 +1256,9 @@ const styles = StyleSheet.create({
   },
   usageLabel: {
     ...Typography.body,
-    color: Colors.textSecondary,
     fontSize: 14,
   },
   limitWarningBadge: {
-    backgroundColor: Colors.warning,
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
@@ -1296,7 +1267,6 @@ const styles = StyleSheet.create({
   limitWarningText: {
     ...Typography.small,
     fontSize: 9,
-    color: Colors.textInverse,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -1306,37 +1276,30 @@ const styles = StyleSheet.create({
   },
   usageProgressBarContainer: {
     height: 8,
-    backgroundColor: Colors.borderLight,
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
   },
   usageProgressBarContainerWarning: {
-    backgroundColor: `${Colors.warning}20`,
   },
   usageProgressBar: {
     height: '100%',
-    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.full,
   },
   usageProgressBarWarning: {
-    backgroundColor: Colors.warning,
   },
   usageCountSecondary: {
     ...Typography.caption,
     fontSize: 11,
-    color: Colors.textTertiary,
     textAlign: 'right',
   },
   subscriptionHint: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
     lineHeight: 20,
   },
   upgradeButton: {
     ...ButtonStyles.primary,
-    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1345,28 +1308,23 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     ...Typography.bodyBold,
-    color: Colors.textInverse,
     fontSize: 15,
   },
   upgradeValueStatement: {
     ...Typography.caption,
     fontSize: 12,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginTop: Spacing.sm,
     lineHeight: 16,
   },
   proConfirmation: {
-    backgroundColor: '#ECFDF5',
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.success,
   },
   proConfirmationText: {
     ...Typography.body,
-    color: '#065F46',
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -1376,13 +1334,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
   },
   manageButtonText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     fontWeight: '600',
   },
   viewDetailsButton: {
@@ -1395,7 +1350,6 @@ const styles = StyleSheet.create({
   },
   viewDetailsText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
     fontWeight: '600',
   },
   languageRow: {
@@ -1410,13 +1364,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
     minHeight: 56,
   },
   languageOptionActive: {
-    borderColor: Colors.primary,
-    backgroundColor: `${Colors.primary}08`,
     borderWidth: 2.5,
   },
   radioButton: {
@@ -1424,24 +1374,19 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioButtonActive: {
-    borderColor: Colors.primary,
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.primary,
   },
   languageOptionText: {
     ...Typography.bodyBold,
     fontSize: 15,
-    color: Colors.textPrimary,
     flex: 1,
   },
   // Diagnostics modal (production support)
@@ -1453,7 +1398,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   diagnosticsCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -1462,7 +1406,6 @@ const styles = StyleSheet.create({
   diagnosticsTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 16,
   },
   diagnosticsBody: {
@@ -1474,14 +1417,12 @@ const styles = StyleSheet.create({
   diagnosticsLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   diagnosticsValue: {
     fontSize: 14,
-    color: '#1F2937',
     lineHeight: 20,
   },
   diagnosticsClose: {
@@ -1492,7 +1433,6 @@ const styles = StyleSheet.create({
   diagnosticsCloseText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary,
   },
   // Edit Profile Modal
   editModalOverlay: {
@@ -1501,7 +1441,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   editModalCard: {
-    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -1515,7 +1454,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   editModalTitle: {
     ...Typography.h3,
@@ -1533,7 +1471,6 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     fontSize: 14,
     marginBottom: Spacing.sm,
-    color: Colors.textSecondary,
   },
   editModalLogoRow: {
     alignItems: 'center',
@@ -1546,22 +1483,18 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
   },
   editModalCancelButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editModalCancelText: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textSecondary,
   },
   editModalSaveButton: {
     flex: 1,
@@ -1571,12 +1504,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: 14,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primary,
     ...Shadows.primary,
   },
   editModalSaveText: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textInverse,
   },
 });

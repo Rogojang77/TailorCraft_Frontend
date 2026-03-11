@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Crown } from 'lucide-react-native';
-import { usePremium } from '@/contexts/PremiumContext';
-import { Colors, BorderRadius, Spacing } from '@/constants/design';
+import { usePremium } from '@/contexts/SubscriptionContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { BorderRadius } from '@/constants/design';
 
 interface ProBadgeProps {
   /**
@@ -34,20 +35,9 @@ interface ProBadgeProps {
  * 
  * A reusable badge that displays the user's Pro subscription status.
  * The badge automatically checks the subscription state and only renders when the user is on a Pro plan.
- * 
- * @example
- * // Default medium size badge
- * <ProBadge />
- * 
- * @example
- * // Small badge with custom styling
- * <ProBadge size="sm" style={{ marginLeft: 8 }} />
- * 
- * @example
- * // Custom label for future plans
- * <ProBadge label="ENTERPRISE" />
  */
 export function ProBadge({ size = 'md', style, label = 'PRO', showIfFree = false }: ProBadgeProps) {
+  const { colors } = useTheme();
   const { isPremium: isPro, loading } = usePremium();
 
   if (loading) return null;
@@ -56,12 +46,21 @@ export function ProBadge({ size = 'md', style, label = 'PRO', showIfFree = false
   const isSizeSmall = size === 'sm';
   const iconSize = isSizeSmall ? 12 : 14;
   const badgeStyle = isSizeSmall ? styles.badgeSmall : styles.badgeMedium;
-  const textStyle = isSizeSmall ? styles.textSmall : styles.textMedium;
+  const textFontSize = isSizeSmall ? 10 : 12;
   
   return (
-    <View style={[styles.badge, badgeStyle, style]} accessibilityLabel={`${label} subscription`} accessibilityRole="text">
-      <Crown size={iconSize} color={Colors.primary} strokeWidth={2.5} />
-      <Text style={[styles.text, textStyle]}>{label}</Text>
+    <View 
+      style={[
+        styles.badge, 
+        badgeStyle, 
+        { backgroundColor: colors.warningBg, borderColor: colors.primary },
+        style
+      ]} 
+      accessibilityLabel={`${label} subscription`} 
+      accessibilityRole="text"
+    >
+      <Crown size={iconSize} color={colors.primary} strokeWidth={2.5} />
+      <Text style={[styles.text, { color: colors.primary, fontSize: textFontSize }]}>{label}</Text>
     </View>
   );
 }
@@ -71,9 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.warningBg,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
     borderRadius: BorderRadius.full,
     gap: 4,
   },
@@ -86,14 +83,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   text: {
-    color: Colors.primary,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     letterSpacing: 0.5,
-  },
-  textSmall: {
-    fontSize: 10,
-  },
-  textMedium: {
-    fontSize: 12,
   },
 });

@@ -161,6 +161,13 @@ export async function updateDocumentTemplate(
   });
 }
 
+export async function deleteDocumentTemplate(id: string, accessToken: string): Promise<void> {
+  await apiFetch<{ success: boolean }>(api.pdf.templateById(id), {
+    method: 'DELETE',
+    token: accessToken,
+  });
+}
+
 export async function fetchPdfFields(accessToken?: string | null): Promise<PdfFieldsResponse> {
   return apiFetch<PdfFieldsResponse>(api.pdf.fields, { token: accessToken ?? undefined });
 }
@@ -212,14 +219,16 @@ export interface GeneratePdfResult {
 /** Shared fetch for PDF generate-custom. Throws ApiError on 403 CUSTOM_PDF_PRO_ONLY so UI can show upgrade modal. */
 async function fetchGenerateCustomPdf(
   orderId: string,
-  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null }
+  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null; responseFormat?: 'json' | 'pdf' }
 ): Promise<GeneratePdfResult> {
   const token = options?.accessToken ?? (await getStoredAccessToken());
   const url = api.pdf.generateCustom;
-  const body: { orderId: string; templateId?: string; mode?: 'classic' | 'custom' } = {
+  const wantRawPdf = options?.responseFormat === 'pdf';
+  const body: { orderId: string; templateId?: string; mode?: 'classic' | 'custom'; responseFormat?: 'json' | 'pdf' } = {
     orderId,
     ...(options?.mode ? { mode: options.mode } : {}),
     ...(options?.templateId ? { templateId: options.templateId } : {}),
+    ...(wantRawPdf ? { responseFormat: 'pdf' } : {}),
   };
   if (__DEV__) {
     console.log('[pdf] Generating PDF:', url, { orderId, hasToken: !!token });
@@ -228,9 +237,11 @@ async function fetchGenerateCustomPdf(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(wantRawPdf ? { Accept: 'application/pdf' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
+    cache: 'no-store',
   });
 
   if (!res.ok) {
@@ -308,12 +319,13 @@ async function fetchGenerateCustomPdf(
 /** Generate PDF for an order (uses backend generate-custom). On 403 CUSTOM_PDF_PRO_ONLY throws ApiError for upgrade modal. */
 export async function generatePdf(
   orderId: string,
-  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null }
+  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null; responseFormat?: 'json' | 'pdf' }
 ): Promise<GeneratePdfResult> {
   return fetchGenerateCustomPdf(orderId, {
     mode: options?.mode,
     templateId: options?.templateId,
     accessToken: options?.accessToken,
+    responseFormat: options?.responseFormat,
   });
 }
 
@@ -323,7 +335,7 @@ export async function generateCustomPdf(orderId: string, accessToken?: string | 
 }
 
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let result = '';
   for (let i = 0; i < bytes.length; i += 3) {

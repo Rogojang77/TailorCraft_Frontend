@@ -8,7 +8,8 @@ import { Header } from '@/components/layout/Header';
 import { Loader } from '@/components/ui/Loader';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
-import { Colors, Spacing, Typography } from '@/constants/design';
+import { Spacing, Typography } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
 import { TERMS_URL, PRIVACY_POLICY_URL } from '@/constants/legal';
 
@@ -17,6 +18,7 @@ type DocType = 'terms' | 'privacy';
 export default function LegalDocumentScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ type?: string; url?: string; title?: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export default function LegalDocumentScreen() {
       <ScreenContainer noPadding>
         <Header title={title} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} />
         <View style={styles.errorContainer}>
-          <AlertCircle size={48} color={Colors.error} />
+          <AlertCircle size={48} color={colors.error} />
           <ErrorText>{t('legalDocument.noUrl')}</ErrorText>
         </View>
       </ScreenContainer>
@@ -56,14 +58,14 @@ export default function LegalDocumentScreen() {
       <Header title={title} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} titleNumberOfLines={1} />
 
       {loading && (
-        <View style={styles.loadingOverlay}>
+        <View style={[styles.loadingOverlay, { backgroundColor: colors.background }]}>
           <Loader message={t('legalDocument.loading')} />
         </View>
       )}
 
       {error ? (
         <View style={styles.errorContainer}>
-          <AlertCircle size={48} color={Colors.error} />
+          <AlertCircle size={48} color={colors.error} />
           <ErrorText>{error}</ErrorText>
           <Button variant="primary" onPress={() => { setError(null); setLoading(true); }} style={styles.retryButton}>
             {t('legalDocument.retry')}
@@ -72,7 +74,7 @@ export default function LegalDocumentScreen() {
       ) : (
         <WebView
           source={{ uri }}
-          style={styles.webview}
+          style={[styles.webview, { backgroundColor: colors.surface }]}
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
           onError={(e) => {
@@ -94,7 +96,6 @@ export default function LegalDocumentScreen() {
 const styles = StyleSheet.create({
   webview: {
     flex: 1,
-    backgroundColor: Colors.surface,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -104,7 +105,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
   errorContainer: {
     flex: 1,

@@ -1,5 +1,6 @@
 /**
  * ScreenLayout — Reusable screen wrapper for safe area + keyboard handling.
+ * Uses theme-aware styles from ThemeContext.
  *
  * Uses react-native-keyboard-controller instead of KeyboardAvoidingView:
  *
@@ -24,7 +25,7 @@ import React, { memo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { Colors } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -66,6 +67,8 @@ const ScreenLayoutComponent = ({
   edges = DEFAULT_EDGES,
   showsVerticalScrollIndicator = false,
 }: ScreenLayoutProps) => {
+  const { colors } = useTheme();
+  
   const content = scrollable ? (
     <KeyboardAwareScrollView
       style={styles.scroll}
@@ -81,7 +84,7 @@ const ScreenLayoutComponent = ({
   );
 
   return (
-    <SafeAreaView style={[styles.root, style]} edges={edges}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }, style]} edges={edges}>
       {content}
     </SafeAreaView>
   );
@@ -90,7 +93,6 @@ const ScreenLayoutComponent = ({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   flex1: {
     flex: 1,

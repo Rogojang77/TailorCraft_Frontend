@@ -27,8 +27,9 @@ import type {
   UpdateMeasurementDefinitionPayload,
 } from '@/types/templates';
 import { useI18n } from '@/lib/i18n';
-import { UNIT_REGISTRY } from '@/constants/units';
-import { Colors, Spacing, Typography, BorderRadius } from '@/constants/design';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, Typography, BorderRadius } from '@/constants/design';
 
 const INPUT_TYPES: { value: MeasurementInputTypeApi; label: string }[] = [
   { value: 'number', label: 'Number' },
@@ -91,13 +92,14 @@ export function MeasurementDefinitionEditorModal({
   onSubmit,
 }: MeasurementDefinitionEditorModalProps) {
   const { t } = useI18n();
+  const { preferredUnit } = useSettings();
+  const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const [label, setLabel] = useState('');
   const [order, setOrder] = useState('');
   const [inputType, setInputType] = useState<MeasurementInputTypeApi>('number');
   const [optionsRaw, setOptionsRaw] = useState('');
   const [formula, setFormula] = useState('');
-  const [unitId, setUnitId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
 
@@ -119,7 +121,6 @@ export function MeasurementDefinitionEditorModal({
       setInputType((initial.inputType as MeasurementInputTypeApi) ?? 'number');
       setOptionsRaw(formatOptionsForInput(initial.options ?? []));
       setFormula(initial.formula ?? '');
-      setUnitId(initial.unitKey ?? '');
     } else {
       setLabel('');
       const defaultOrder =
@@ -128,7 +129,6 @@ export function MeasurementDefinitionEditorModal({
       setInputType('number');
       setOptionsRaw('');
       setFormula('');
-      setUnitId('');
     }
   }, [visible, mode, initial, suggestedDisplayOrder]);
 
@@ -171,7 +171,7 @@ export function MeasurementDefinitionEditorModal({
       if (inputType === 'calculated' && formula.trim()) {
         payload.formula = formula.trim();
       }
-      if (unitId) payload.unitKey = unitId;
+      payload.unitKey = preferredUnit;
       await onSubmit(payload);
       onClose();
     } catch (e) {
@@ -191,19 +191,19 @@ export function MeasurementDefinitionEditorModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, styles.centered]}>
+      <View style={[styles.overlay, styles.centered, { backgroundColor: colors.overlay }]}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={StyleSheet.absoluteFillObject} />
         </TouchableWithoutFeedback>
         <Animated.View
           entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
           exiting={modalExiting}
-          style={styles.card}
+          style={[styles.card, { backgroundColor: colors.surface }]}
         >
           <View style={styles.header}>
-            <Text style={styles.title}>{mode === 'add' ? t('modals.measurement.add') : t('modals.measurement.edit')}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{mode === 'add' ? t('modals.measurement.add') : t('modals.measurement.edit')}</Text>
             <Button variant="ghost" onPress={onClose} accessibilityLabel={t('common.close')}>
-              <X size={24} color={Colors.textPrimary} />
+              <X size={24} color={colors.textPrimary} />
             </Button>
           </View>
           <KeyboardAwareScrollView
@@ -234,15 +234,19 @@ export function MeasurementDefinitionEditorModal({
               />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>{t('modals.measurement.typeLabel')}</Text>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>{t('modals.measurement.typeLabel')}</Text>
               <View style={styles.typeRow}>
                 {INPUT_TYPES.map((opt) => (
                   <TouchableOpacity
                     key={opt.value}
-                    style={[styles.typeChip, inputType === opt.value && styles.typeChipActive]}
+                    style={[
+                      styles.typeChip,
+                      { backgroundColor: colors.borderLight },
+                      inputType === opt.value && { backgroundColor: colors.primaryLight + '60', borderWidth: 1, borderColor: colors.primary }
+                    ]}
                     onPress={() => setInputType(opt.value)}
                   >
-                    <Text style={[styles.typeChipText, inputType === opt.value && styles.typeChipTextActive]}>
+                    <Text style={[styles.typeChipText, { color: colors.textSecondary }, inputType === opt.value && { ...Typography.captionBold, color: colors.primary }]}>
                       {opt.label}
                     </Text>
                   </TouchableOpacity>
@@ -273,22 +277,6 @@ export function MeasurementDefinitionEditorModal({
                 />
               </View>
             )}
-            <View style={styles.field}>
-              <Text style={styles.label}>{t('modals.measurement.unitLabel')}</Text>
-              <View style={styles.unitRow}>
-                {Object.entries(UNIT_REGISTRY).map(([id, def]) => (
-                  <TouchableOpacity
-                    key={id}
-                    style={[styles.typeChip, unitId === id && styles.typeChipActive]}
-                    onPress={() => setUnitId(id)}
-                  >
-                    <Text style={[styles.typeChipText, unitId === id && styles.typeChipTextActive]}>
-                      {def.symbol ?? def.id ?? id}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
             <Button
               variant="primary"
               fullWidth
@@ -312,7 +300,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.overlay,
   },
   centered: {
     flex: 1,
@@ -324,7 +311,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     maxHeight: '85%',
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     ...Typography.body,
   },
@@ -367,11 +353,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  unitRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
   dependsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -381,35 +362,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.borderLight,
   },
   typeChipActive: {
-    backgroundColor: Colors.primaryLight + '60',
-    borderWidth: 1,
-    borderColor: Colors.primary,
   },
   typeChipText: {
     ...Typography.caption,
   },
   typeChipTextActive: {
     ...Typography.captionBold,
-    color: Colors.primary,
   },
   hint: {
     ...Typography.caption,
-    color: Colors.textTertiary,
   },
   helperText: {
     ...Typography.caption,
     fontSize: 12,
-    color: Colors.textSecondary,
     marginTop: Spacing.xs,
     lineHeight: 16,
   },
   exampleText: {
     ...Typography.caption,
     fontSize: 11,
-    color: Colors.textSecondary,
     marginTop: Spacing.xs,
     fontStyle: 'italic',
     lineHeight: 16,
@@ -422,11 +395,9 @@ const styles = StyleSheet.create({
   orderInput: {
     ...Typography.body,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.background,
     minWidth: 80,
     flex: 1,
   },
@@ -434,9 +405,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.background,
     borderWidth: 1,
-    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -448,7 +417,6 @@ const styles = StyleSheet.create({
   },
   advancedHeaderText: {
     ...Typography.captionBold,
-    color: Colors.textSecondary,
   },
   chevron: {
     transform: [{ rotate: '0deg' }],
@@ -460,7 +428,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
   },
   footer: {
     flexDirection: 'row',
@@ -468,11 +435,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   cancelText: {
     ...Typography.bodyBold,
-    color: Colors.textSecondary,
   },
   saveBtn: {
     marginTop: Spacing.sm,

@@ -5,6 +5,7 @@
     "success": "Succes",
     "cancel": "Anulare",
     "save": "Salvează",
+    "saving": "Se salvează...",
     "delete": "Șterge",
     "edit": "Editează",
     "close": "Închide",
@@ -20,7 +21,18 @@
     "optional": "Opțional",
     "lastUpdated": "Ultima actualizare",
     "confirm": "Confirmă",
-    "or": "Sau"
+    "or": "Sau",
+    "done": "Gata",
+    "back": "Înapoi",
+    "uploading": "Se încarcă..."
+  },
+  "errorBoundary": {
+    "title": "Ceva nu a mers bine",
+    "retry": "Încearcă din nou",
+    "goBack": "Înapoi"
+  },
+  "offline": {
+    "message": "Nu există conexiune la internet."
   },
   "home": {
     "greeting": "Bună ziua!",
@@ -50,6 +62,34 @@
       "missingFields": "Lipsesc: {{fields}}",
       "missingFieldsSeparator": ", ",
       "completeNow": "Completează acum"
+    },
+    "dashboard": {
+      "subtitle": "Gestiune Producție Atelier",
+      "clientsList": "Clienți",
+      "clientsCount": "{{count}} înregistrări",
+      "ordersList": "Comenzi",
+      "ordersCount": "{{count}} înregistrări",
+      "financial": "Financiar",
+      "financialSubtitle": "Sumar încasări"
+    },
+    "quickOverview": {
+      "activeOrders": "Comenzi Active",
+      "dueThisWeek": "{{count}} scadente săptămâna aceasta",
+      "gallery": "Galerie",
+      "totalClients": "Total Clienți",
+      "records": "{{count}} înregistrări",
+      "financial": "Financiar"
+    },
+    "needsAttention": {
+      "title": "Comenzi Recente",
+      "noOrders": "Nicio comandă recentă",
+      "viewAll": "Vezi toate"
+    },
+    "fab": {
+      "addClient": "Adaugă Client",
+      "logMeasurement": "Înregistrează Măsuri",
+      "createOrder": "Creează Comandă",
+      "addGalleryItem": "Adaugă item în galerie"
     }
   },
   "orders": {
@@ -57,7 +97,7 @@
     "addClient": "Adaugă client",
     "searchPlaceholder": "Caută după nume sau telefon...",
     "filterTitle": "Filtrează",
-    "filterReset": "Resetează filtrele",
+    "filterReset": "Resetează",
     "tabs": {
       "clients": "Clienți",
       "orderHistory": "Istoricul Comenzilor"
@@ -77,6 +117,10 @@
     "deleteSuccessOrder": "Comanda a fost ștearsă.",
     "deleteError": "Nu s-a putut șterge.",
     "filters": {
+      "presetsLabel": "Filtre rapide",
+      "presetActiveOrders": "Comenzi active",
+      "presetUnpaid": "Neplătite",
+      "presetPartiallyPaid": "Plătite parțial",
       "orderStatus": "Status comandă",
       "paymentStatus": "Status plată",
       "orderDate": "Data comenzii",
@@ -94,6 +138,7 @@
       "pending": "În așteptare",
       "inProgress": "În lucru",
       "completed": "Finalizat",
+      "delivered": "Livrat",
       "cancelled": "Anulat",
       "fullyPaid": "Plătite complet",
       "partiallyPaid": "Plătite parțial",
@@ -111,6 +156,16 @@
       "totalLabel": "Total: {{label}}",
       "advanceLabel": "Avans: {{label}}"
     }
+  },
+  "financial": {
+    "title": "Financiar",
+    "subtitle": "Sumar încasări atelier",
+    "totalOrders": "Total Comenzi",
+    "collected": "Încasat",
+    "outstanding": "De recuperat",
+    "clientBalances": "Situație Clienți",
+    "remaining": "Rest",
+    "noOutstanding": "Nicio sumă de recuperat."
   },
   "gallery": {
     "title": "Galerie",
@@ -175,7 +230,7 @@
     "companyNamePlaceholder": "Numele firmei",
     "ownerPlaceholder": "Numele proprietarului",
     "phonePlaceholder": "+40 7XX XXX XXX",
-    "emailPlaceholder": "contact@firma.ro",
+    "emailPlaceholder": "email@exemplu.com",
     "addressPlaceholder": "Adresa completă",
     "subscription": "Abonament",
     "planFree": "Plan Gratuit",
@@ -199,7 +254,7 @@
     "logout": "Deconectare",
     "aboutApp": "Despre Aplicație",
     "appName": "TailorCraft",
-    "version": "Versiunea 1.0.0",
+    "version": "Versiunea 1.1.1",
     "appDescription": "Aplicația profesională pentru croitori, dezvoltată pentru gestionarea eficientă a comenzilor și măsurătorilor.",
     "editBanner": "Modul de editare activat. Apasă pe câmpurile de mai jos pentru a le modifica.",
     "loadingCompany": "Se încarcă datele firmei...",
@@ -243,7 +298,53 @@
       "errorTitle": "Eroare",
       "enterBoth": "Introdu email-ul și parola",
       "loginFailed": "Conectare eșuată",
-      "invalidCredentials": "Email sau parolă incorectă. Încearcă din nou."
+      "invalidCredentials": "Email sau parolă incorectă. Încearcă din nou.",
+      "emailNotVerified": "Te rugăm să îți verifici email-ul înainte de a te conecta. Verifică căsuța de intrare pentru linkul de verificare.",
+      "forgotPassword": "Ai uitat parola?"
+    },
+    "forgotPassword": {
+      "title": "Recuperare parolă",
+      "subtitle": "Introdu email-ul și îți vom trimite un link pentru resetarea parolei.",
+      "enterEmail": "Te rugăm să introduci adresa de email.",
+      "sendResetLink": "Trimite link resetare",
+      "checkEmail": "Verifică email-ul",
+      "checkEmailDescription": "Dacă există un cont cu acest email, vei primi în curând un link pentru resetarea parolei.",
+      "backToLogin": "Înapoi la conectare",
+      "requestFailed": "Nu s-a putut trimite linkul. Încearcă din nou."
+    },
+    "changePassword": {
+      "invalidCurrentPassword": "Parola curentă este incorectă. Te rugăm să încerci din nou."
+    },
+    "resetPassword": {
+      "title": "Resetare parolă",
+      "subtitle": "Introdu noua parolă mai jos.",
+      "noToken": "Nu a fost furnizat un token de resetare.",
+      "invalidLink": "Link invalid sau expirat",
+      "invalidLinkDescription": "Acest link de resetare parolă este invalid sau a expirat. Solicită unul nou.",
+      "invalidOrExpiredToken": "Acest link este invalid sau a expirat. Solicită o nouă resetare a parolei.",
+      "submit": "Resetează parola",
+      "successTitle": "Parolă resetată",
+      "successDescription": "Parola ta a fost actualizată. Poți să te conectezi cu noua parolă.",
+      "resetFailed": "Nu s-a putut reseta parola. Linkul a putut expira."
+    },
+    "companyRequired": {
+      "title": "Completează datele companiei",
+      "message": "Te-ai înregistrat cu Apple. Te rugăm să completezi numele companiei, titularul, telefonul, emailul și adresa pentru a continua. Aceste informații sunt folosite pentru facturi și documente."
+    },
+    "applePasswordRequired": {
+      "title": "Adaugă o parolă",
+      "message": "Te-ai înregistrat cu Apple. Te rugăm să setezi o parolă pentru cont pentru a te putea conecta ulterior cu email dacă este nevoie.",
+      "passwordPlaceholder": "Introdu parola",
+      "confirmPasswordPlaceholder": "Confirmă parola",
+      "submit": "Salvează parola"
+    },
+    "social": {
+      "continueGoogle": "Continuă cu Google",
+      "continueApple": "Continuă cu Apple",
+      "cancelled": "Autentificarea a fost anulată.",
+      "error": "Autentificarea a eșuat. Încearcă din nou.",
+      "providerUnavailable": "Această metodă de conectare nu este disponibilă.",
+      "appleUnavailable": "Conectarea cu Apple nu este disponibilă aici. Încearcă pe un dispozitiv real conectat cu Apple ID sau folosește emailul pentru a te conecta."
     },
     "register": {
       "userAlreadyExists": "Există deja un utilizator cu acest email."
@@ -327,6 +428,39 @@
       "showPassword": "Arată parola"
     }
   },
+  "createOrder": {
+    "clientSection": "Client",
+    "searchClient": "Caută un client...",
+    "selectClient": "Selectează Client",
+    "searchClientPlaceholder": "Caută după nume sau telefon...",
+    "noClientsFound": "Niciun client găsit",
+    "addNewClient": "Adaugă Client Nou",
+    "garmentsSection": "Articole",
+    "garmentsHint": "Selectează articolele pentru această comandă",
+    "financialSection": "Plată",
+    "deliverySection": "Livrare",
+    "deliveryDate": "Data Livrării",
+    "notesSection": "Note",
+    "notesPlaceholder": "Adaugă instrucțiuni speciale sau note...",
+    "submitOrder": "Creează Comanda"
+  },
+  "garmentForm": {
+    "untitled": "Fără titlu",
+    "size": "Mărime",
+    "measurements": "Măsurători",
+    "designOptions": "Opțiuni Design",
+    "lapelType": "Tip Rever",
+    "lapelMaterial": "Material Rever",
+    "model": "Model",
+    "lining": "Căptușeală",
+    "liningPlaceholder": "ex. Mătase bleumarin",
+    "personalization": "Personalizare",
+    "collarEmbroidery": "Broderie Guler",
+    "collarEmbroideryPlaceholder": "ex. Inițiale",
+    "collarType": "Tip Guler",
+    "productionNotes": "Note Producție",
+    "productionNotesPlaceholder": "Adaugă note pentru producție..."
+  },
   "newOrder": {
     "title": "Comandă nouă",
     "selectGarments": "Selectează articole",
@@ -346,7 +480,7 @@
       "firstNamePlaceholder": "Introduceți numele",
       "lastNamePlaceholder": "Introduceți prenumele",
       "phonePlaceholder": "+40 7XX XXX XXX",
-      "emailPlaceholder": "client@email.com",
+      "emailPlaceholder": "email@exemplu.com",
       "notesPlaceholder": "Adăugați observații speciale...",
       "searchPlaceholder": "Caută după nume, telefon sau email...",
       "newClientDataSection": "Date client nou",
@@ -363,7 +497,11 @@
       "saveSuccess": "Datele clientului au fost salvate",
       "checkoutError": "Nu s-a putut deschide checkout-ul. Vă rugăm încercați din nou.",
       "emptySearchResults": "Nu s-au găsit clienți.",
-      "noClients": "Nu există clienți"
+      "noClients": "Nu există clienți",
+      "saveChangesToClientTitle": "Salvare modificări",
+      "saveChangesToClientMessage": "Ați modificat datele clientului. Doriți să salvați modificările în profilul clientului (pentru toate comenzile viitoare) sau doar pentru această comandă?",
+      "saveToClient": "Salvează în profilul clientului",
+      "onlyForThisOrder": "Doar pentru această comandă"
     },
     "summary": {
       "selectClient": "Selectați sau creați un client",
@@ -399,7 +537,9 @@
       "totalLabelRon": "Total (RON)",
       "saveChanges": "Salvează Modificările",
       "finalizeButton": "Finalizează Comanda",
-      "detailSeparator": " — "
+      "detailSeparator": " — ",
+      "deliverySection": "Predare",
+      "deliveryDateLabel": "Data estimată de predare"
     },
     "measurements": {
       "savedForOrder": "Valorile salvate aici sunt doar pentru această comandă.",
@@ -408,7 +548,13 @@
       "fromDraft": "Salvat pentru această comandă",
       "defaultValues": "Valori implicite",
       "forThisOrder": "Pentru această comandă",
-      "pageTitle": "Măsurători comandă"
+      "pageTitle": "Măsurători comandă",
+      "noMeasurementFields": "Acest articol nu are câmpuri de măsurători. Snapshot-ul va fi salvat gol."
+    },
+    "catalogSelections": {
+      "title": "Stiluri și Materiale",
+      "hint": "Selectează stofa, nasturii și alte opțiuni pentru o previzualizare AI mai bună.",
+      "forGarment": "Stiluri și Materiale pentru {{name}}"
     },
     "index": {
       "noItemsAvailable": "Niciun articol disponibil",
@@ -451,7 +597,11 @@
     "downloadAs": "Descarcă ca",
     "downloadCustomTemplate": "Șablon personalizat",
     "downloadClassicTemplate": "Șablon clasic",
+    "saveToFolder": "Salvează în folder",
     "measurementsForGarment": "Măsurători {{name}}",
+    "measurement": "măsurătoare",
+    "measurementsCount": "măsurători",
+    "stylesForGarment": "Stiluri și Materiale {{name}}",
     "orderDateLabel": "Comandă: {{date}}",
     "orderAlreadyCompleted": "Această comandă este deja finalizată și nu poate fi modificată.",
     "editTitle": "Editează Comanda",
@@ -463,7 +613,11 @@
     "notesLabel": "Note",
     "notesPlaceholder": "Note comandă (opțional)",
     "measurementsSection": "Măsurători",
-    "definitionsLoadError": "Nu s-au putut încărca măsurătorile. Verificați conexiunea și încercați din nou."
+    "definitionsLoadError": "Nu s-au putut încărca măsurătorile. Verificați conexiunea și încercați din nou.",
+    "deliveryDateLabel": "Data livrării",
+    "setDeliveryDate": "Setează data livrării",
+    "deliveryDateUpdated": "Data livrării a fost actualizată.",
+    "deliveryDateUpdateError": "Nu s-a putut actualiza data livrării."
   },
   "clients": {
     "new": {
@@ -475,7 +629,23 @@
       "firstNamePlaceholder": "Introduceți numele",
       "lastNamePlaceholder": "Introduceți prenumele",
       "phonePlaceholder": "+40 7XX XXX XXX",
-      "emailPlaceholder": "client@email.com"
+      "emailPlaceholder": "email@exemplu.com",
+      "addClient": "Adaugă Client"
+    },
+    "edit": {
+      "genderLabel": "Gen",
+      "gender": {
+        "male": "Masculin",
+        "female": "Feminin"
+      },
+      "referenceImageLabel": "Imagine de referință",
+      "referenceImageHint": "Încarcă o fotografie a clientului pentru generarea previzualizării AI",
+      "addReferenceImage": "Apasă pentru a adăuga imagine de referință",
+      "changeImage": "Schimbă",
+      "removeImage": "Șterge",
+      "uploading": "Se încarcă...",
+      "photoPermissionDenied": "Permisiunea de acces la poze a fost refuzată.",
+      "imageUploadError": "Nu s-a putut încărca imaginea. Încercați din nou."
     }
   },
   "garments": {
@@ -503,6 +673,7 @@
     "deleteMeasurement": "Șterge măsurătoare",
     "deleteConfirm": "Sigur ștergi acest articol? Această acțiune nu poate fi anulată.",
     "deleteError": "Nu s-a putut șterge articolul.",
+    "reorderError": "Nu s-a putut salva noua ordine. Te rugăm să încerci din nou.",
     "cannotUndo": "Această acțiune nu poate fi anulată.",
     "pageTitle": "Articole",
     "loadingList": "Se încarcă articolele...",
@@ -519,7 +690,23 @@
     "duplicateAsLocal": "Duplică ca articol local",
     "noMeasurementsYet": "Nicio măsurătoare definită încă. Adaugă măsurători pentru a defini cum se măsoară acest articol.",
     "addMeasurementFirst": "Adaugă măsurătoare",
-    "dragToReorder": "Trage pentru a reordona"
+    "dragToReorder": "Trage pentru a reordona",
+    "applicableStyles": "Opțiuni de stil aplicabile",
+    "applicableStylesHint": "Selectează categoriile de stil care se aplică acestui tip de articol",
+    "alwaysIncluded": "Întotdeauna incluse",
+    "updateCategoriesError": "Nu s-au putut actualiza categoriile de stil.",
+    "saveStyleCategories": "Salvează opțiunile de stil",
+    "lapel": {
+      "classic": "Clasic",
+      "peaked": "Șpiț",
+      "shawl": "Șal"
+    },
+    "collar": {
+      "classic": "Clasic",
+      "italian": "Italian",
+      "cutaway": "Rândunică",
+      "mandarin": "Mandarin"
+    }
   },
   "subscription": {
     "title": "Abonament",
@@ -528,6 +715,8 @@
     "selectPlan": "Selectează planul",
     "monthly": "Lunar",
     "yearly": "Anual",
+    "perMonth": "pe lună",
+    "perYear": "pe an",
     "save": "Economie",
     "unlimitedAccess": "Acces nelimitat pentru a-ți crește afacerea",
     "usageCount": "{{current}} din {{max}}",
@@ -541,14 +730,40 @@
     "upgradeToPro": "Upgrade la Pro",
     "manageBilling": "Gestionează facturarea",
     "paywallTitle": "Limită atinsă",
+    "paywallTitleUpgrade": "Treci la Pro",
     "paywallSubtitle": "Ai atins limita planului gratuit",
     "paywallCta": "Fă upgrade la Pro pentru a gestiona clienți și comenzi nelimitate.",
-    "freePlanLimitShort": "Plan gratuit: până la {{maxClients}} clienți și {{maxOrders}} comenzi",
+    "freePlanLimitShort": "Plan gratuit: până la {{maxClients}} clienți, {{maxOrders}} comenzi, {{maxTemplates}} articole",
     "clientLimitReached": "Ai atins limita de clienți. Fă upgrade la Pro pentru clienți nelimitați.",
     "orderLimitReached": "Ai atins limita de comenzi. Fă upgrade la Pro pentru comenzi nelimitate.",
+    "templateLimitReached": "Ai atins limita de tipuri de articole. Planul gratuit permite până la 2. Fă upgrade la Pro pentru nelimitat.",
     "customPdfProOnly": "Șabloanele PDF personalizate sunt disponibile în planul Pro.",
     "checkoutError": "Nu s-a putut deschide checkout-ul. Încercați din nou.",
-    "priceLoading": "..."
+    "priceLoading": "...",
+    "restorePurchases": "Restaurează achizițiile",
+    "subscribe": "Abonează-te",
+    "subscribeTo": "Abonează-te la {{plan}}",
+    "notNow": "Nu acum",
+    "tailorCraftPro": "TailorCraft PRO",
+    "autoRenewal": {
+      "chargeDisclosure": "Plata va fi percepută contului Apple ID la confirmarea achiziției.",
+      "renewalDisclosure": "Abonamentul se reînnoiește automat dacă nu este anulat cu cel puțin 24 de ore înainte de sfârșitul perioadei curente.",
+      "renewalCharge": "Contul va fi debitat pentru reînnoire în decurs de 24 de ore înainte de sfârșitul perioadei curente.",
+      "manageDisclosure": "Poți gestiona și anula abonamentele din setările contului App Store."
+    },
+    "legal": {
+      "privacyPolicy": "Politica de confidențialitate",
+      "termsOfUse": "Termeni și condiții"
+    },
+    "proFeatures": {
+      "unlimitedClients": "Clienți nelimitați",
+      "unlimitedOrders": "Comenzi nelimitate",
+      "pdfGeneration": "Generare PDF",
+      "aiPreview": "Previzualizare AI"
+    },
+    "verifying": "Se verifică abonamentul...",
+    "sharedTemplatesProOnly": "Duplicarea șabloanelor partajate necesită abonament Pro.",
+    "sharedTemplatesLimitReached": "Limită șabloane partajate atinsă ({{current}}/{{max}}). Faceți upgrade la Pro pentru acces nelimitat."
   },
   "orderDraft": {
     "restoredTitle": "Comandă neterminată",
@@ -558,10 +773,24 @@
   },
   "orderHistoryItem": {
     "totalLabel": "Total",
-    "balanceLabel": "Restant",
+    "leftToPayLabel": "De plătit",
+    "fullyPaid": "Plătit",
     "item": "articol",
     "items": "articole",
-    "noItems": "Niciun articol"
+    "noItems": "Niciun articol",
+    "daysRemaining": "{{days}} zile rămase",
+    "dueToday": "Predare azi",
+    "dueTomorrow": "Predare mâine",
+    "overdue": "Depășit cu {{days}} zile"
+  },
+  "deadlineBar": {
+    "title": "Termen de livrare",
+    "daysRemaining": "{{days}} zile rămase",
+    "dueToday": "Predare azi",
+    "dueTomorrow": "Predare mâine",
+    "overdue": "Depășit cu {{days}} zile",
+    "overdueWarning": "Această comandă a depășit termenul de livrare!",
+    "urgentWarning": "Termenul de livrare se apropie!"
   },
   "stepNav": {
     "back": "Înapoi",
@@ -590,14 +819,62 @@
     "profile": "Profil"
   },
   "settings": {
+    "generalTitle": "Setări generale",
+    "generalSettings": "Setări generale",
+    "measurement": "Măsurători",
+    "measurementDescription": "Unitatea preferată pentru măsurători. Valorile sunt convertite doar la afișare.",
+    "centimetres": "Centimetri",
+    "inches": "Inci",
     "language": "Limbă",
     "languageDescription": "Limba aplicației",
     "english": "Engleză",
-    "romanian": "Română"
+    "romanian": "Română",
+    "deliveryDuration": "Durată implicită de predare",
+    "deliveryDurationDescription": "Perioada implicită pentru predarea comenzilor. Folosită la crearea comenzilor noi.",
+    "defaultDeliveryTime": "Durata implicită de predare",
+    "week": "săptămână",
+    "weeks": "săptămâni",
+    "theme": "Aspect",
+    "themeDescription": "Alege cum arată aplicația. Sistem urmează setările dispozitivului.",
+    "themeSystem": "Sistem",
+    "themeLight": "Luminos",
+    "themeDark": "Întunecat",
+    "phonePrefix": "Prefix telefon implicit",
+    "phonePrefixDescription": "Codul de țară implicit pentru numerele de telefon ale clienților noi.",
+    "phonePrefix_": "Niciunul",
+    "phonePrefix_40": "România (+40)",
+    "phonePrefix_1": "SUA/Canada (+1)",
+    "phonePrefix_44": "Regatul Unit (+44)",
+    "phonePrefix_49": "Germania (+49)",
+    "phonePrefix_33": "Franța (+33)",
+    "phonePrefix_39": "Italia (+39)",
+    "phonePrefix_34": "Spania (+34)",
+    "homepage": "Pagina principală",
+    "homepageDescription": "Personalizează ce apare pe ecranul principal.",
+    "showRecentOrders": "Afișează comenzile recente",
+    "deadlineBar": "Progres termen livrare",
+    "deadlineBarDescription": "Afișează o bară de progres indicând timpul rămas până la termenul de livrare pentru comenzi.",
+    "showDeadlineBar": "Afișează bara de progres termen",
+    "warningDays": "Prag de avertizare",
+    "warningDaysDescription": "Zile înainte de termen pentru a afișa avertizarea",
+    "day": "zi",
+    "days": "zile"
   },
   "account": {
     "title": "Cont",
     "deleteAccount": "Șterge contul",
+    "changePassword": {
+      "menuItem": "Schimbă parola",
+      "title": "Schimbă parola",
+      "subtitle": "Introdu parola curentă și alege una nouă.",
+      "currentPassword": "Parola curentă",
+      "newPassword": "Parola nouă",
+      "enterCurrent": "Te rugăm să introduci parola curentă.",
+      "submit": "Actualizează parola",
+      "successTitle": "Parolă actualizată",
+      "successMessage": "Parola ta a fost schimbată. Folosește noua parolă la următoarea conectare.",
+      "updateFailed": "Nu s-a putut actualiza parola. Verifică parola curentă și încearcă din nou."
+    },
     "delete": {
       "title": "Șterge contul",
       "stepReauthTitle": "Confirmă identitatea",
@@ -655,7 +932,16 @@
     "insufficientPermissions": "Permisiuni insuficiente.",
     "invalidRequest": "Cerere invalidă.",
     "webhookSignatureInvalid": "Semnătură webhook invalidă.",
-    "webhookNotConfigured": "Webhook-ul nu este configurat."
+    "webhookNotConfigured": "Webhook-ul nu este configurat.",
+    "serviceConfiguration": "Serviciul AI este configurat incorect (ex. lipsește cheia API).",
+    "orderNotFound": "Comanda nu a fost găsită.",
+    "orderDraft": "Comanda este în draft.",
+    "orderIncomplete": "Comanda este incompletă pentru previzualizarea AI.",
+    "timeout": "Cererea a expirat.",
+    "serviceUnavailable": "Serviciul este temporar indisponibil.",
+    "aiPreviewFailed": "Generarea previzualizării AI a eșuat.",
+    "orderIdRequired": "ID-ul comenzii este obligatoriu.",
+    "fetchFailed": "Preluarea previzualizării a eșuat."
   },
   "apiMessages": {
     "account": {
@@ -669,7 +955,8 @@
       "deletionProcessError": "Nu s-a putut procesa ștergerea.",
       "cannotDeleteSelf": "Nu îți poți șterge propriul cont.",
       "deletionJobCompleted": "Procesarea ștergerii conturilor s-a încheiat.",
-      "consentsRecorded": "Consimțământele au fost înregistrate."
+      "consentsRecorded": "Consimțământele au fost înregistrate.",
+      "passwordAlreadySet": "O parolă este deja setată pentru acest cont."
     },
     "gallery": {
       "idRequired": "ID-ul itemului de galerie este obligatoriu.",
@@ -709,7 +996,11 @@
     "garmentTypes": {
       "idRequired": "ID-ul tipului de articol este obligatoriu.",
       "notFound": "Tipul de articol nu a fost găsit.",
-      "cannotModifyShared": "Tipul de articol nu a fost găsit sau nu se poate modifica șablonul partajat."
+      "cannotModifyShared": "Tipul de articol nu a fost găsit sau nu se poate modifica șablonul partajat.",
+      "deleteUsedInOrders": "Nu se poate șterge: acest tip de articol este folosit în {{count}} comandă/comenzi. Dezactivează-l pentru a-l ascunde de la comenzi noi.",
+      "deleteUsedInMeasurementSets": "Nu se poate șterge: acest tip de articol este folosit în {{count}} set(uri) de măsurători client. Dezactivează-l.",
+      "deleteSharedTemplate": "Nu se poate șterge șablonul partajat. Șabloanele partajate sunt gestionate de sistem.",
+      "deleteFailed": "Nu s-a putut șterge tipul de articol. Încearcă din nou."
     }
   },
   "verifyEmail": {
@@ -724,7 +1015,11 @@
     "failedMessage": "Verificarea email-ului a eșuat. Link-ul poate fi invalid sau expirat.",
     "resendSuccess": "Email de verificare trimis! Verifică căsuța de intrare.",
     "resendError": "Nu s-a putut retrimite emailul de verificare.",
-    "pleaseLogin": "Te rugăm să te conectezi pentru a retrimite emailul de verificare."
+    "pleaseLogin": "Te rugăm să te conectezi pentru a retrimite emailul de verificare.",
+    "resendHint": "Introdu adresa de email pentru a primi un link nou de verificare.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "email@exemplu.com",
+    "enterEmailToResend": "Introdu adresa de email pentru a retrimite linkul de verificare."
   },
   "stats": {
     "title": "Statistici",
@@ -910,6 +1205,10 @@
     "templateName": "Nume șablon",
     "newTemplate": "Șablon nou",
     "noDocumentTemplates": "Niciun șablon de document. Creează unul pentru PDF-uri tip contract.",
+    "chooseTemplate": "Alege șablon",
+    "saveAsNew": "Salvează ca nou",
+    "deleteTemplate": "Șterge șablonul",
+    "deleteTemplateConfirm": "Ștergi acest șablon? Acțiunea nu poate fi anulată.",
     "appearanceTitle": "Aspect",
     "appearanceHint": "Logo, culori, font și layout pentru PDF-urile tale.",
     "contentTitle": "Conținut PDF",
@@ -942,6 +1241,162 @@
       "termsLabel": "Am citit și sunt de acord cu Termenii și Condițiile actualizate",
       "privacyLabel": "Am citit și sunt de acord cu Politica de Confidențialitate actualizată",
       "accept": "Accept și continuă"
+    }
+  },
+  "feedback": {
+    "menuItem": "Trimite feedback",
+    "intro": "Spune-ne părerea ta, raportează o problemă sau sugerează o funcționalitate. Citim fiecare mesaj.",
+    "messageLabel": "Mesajul tău",
+    "messagePlaceholder": "Spune-ne ce ai pe suflet...",
+    "messageHint": "{{count}} / {{max}} caractere",
+    "messageTooShort": "Te rugăm să introduci cel puțin 10 caractere.",
+    "messageTooLong": "Mesajul poate avea maximum 5000 de caractere.",
+    "submit": "Trimite feedback",
+    "thankYou": "Mulțumim!",
+    "successMessage": "Am primit feedback-ul tău și vom reveni dacă e cazul.",
+    "sendMore": "Trimite altul",
+    "sendError": "Trimiterea a eșuat. Te rugăm să încerci mai târziu.",
+    "tooManyRequests": "Prea multe trimiteri. Te rugăm să încerci din nou în curând."
+  },
+  "newsletter": {
+    "menuItem": "Newsletter",
+    "title": "Newsletter",
+    "description": "Abonează-te pentru a primi actualizări și noutăți despre TailorCraft, inclusiv lansări ale aplicației.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "email@exemplu.com",
+    "button": "Abonează-te",
+    "enterEmail": "Te rugăm să introduci adresa de email.",
+    "validEmail": "Te rugăm să introduci o adresă de email validă.",
+    "thankYou": "Mulțumim!",
+    "successMessage": "Ești abonat. Te vom ține la curent cu lansări și noutăți.",
+    "subscribeAgain": "Abonează alt email",
+    "alreadySubscribedTitle": "Deja abonat",
+    "alreadySubscribedMessage": "Acest email este deja abonat la newsletter-ul nostru.",
+    "tryAnotherEmail": "Încearcă alt email",
+    "sendError": "Abonarea a eșuat. Te rugăm să încerci mai târziu.",
+    "tooManyRequests": "Prea multe încercări. Te rugăm să încerci din nou în curând."
+  },
+  "aiPreview": {
+    "sectionTitle": "Previzualizare AI Design",
+    "emptyTitle": "Previzualizare AI Design",
+    "emptySubtitle": "Generează o previzualizare realistă a modului în care vestimentația din această comandă va arăta pe baza măsurătorilor clientului.",
+    "generateButton": "Generează Previzualizare",
+    "regenerate": "Regenerează",
+    "regenerateTitle": "Regenerează Previzualizarea",
+    "regenerateMessage": "Aceasta va genera o nouă imagine de previzualizare AI, înlocuind-o pe cea curentă. Continuă?",
+    "generating": "Se generează...",
+    "generatingSubtext": "Poate dura până la 30 de secunde",
+    "generationFailed": "Nu s-a putut genera previzualizarea. Te rugăm să încerci din nou.",
+    "premiumRequired": "Funcție Premium",
+    "premiumRequiredMessage": "Previzualizarea AI Design este o funcție premium. Fă upgrade la Pro pentru a folosi această funcție.",
+    "premiumHint": "Funcție Pro",
+    "premiumDisclaimer": "Previzualizarea AI Design este disponibilă exclusiv pentru abonații Pro. Fă upgrade pentru a debloca previzualizări realiste ale vestimentației bazate pe măsurătorile clientului.",
+    "draftHint": "Finalizează comanda pentru a genera o previzualizare",
+    "draftDisclaimer": "Previzualizarea AI nu este disponibilă pentru comenzile în draft. Salvează comanda pentru a activa generarea previzualizării.",
+    "draftOrderMessage": "Nu se poate genera previzualizare pentru comenzi în draft. Te rugăm să finalizezi comanda întâi.",
+    "generatedOn": "Generat la {{date}}",
+    "promptLabel": "Prompt folosit pentru previzualizare",
+    "editPrompt": "Editează promptul",
+    "regenerateWithPrompt": "Regenerează cu acest prompt",
+    "promptPlaceholder": "Introdu sau editează textul promptului...",
+    "timeout": "Cererea a expirat",
+    "timeoutMessage": "Generarea previzualizării a durat prea mult. Te rugăm să încerci din nou.",
+    "incompleteOrder": "Previzualizare AI indisponibilă",
+    "incompleteOrderDisclaimer": "Pentru a genera o previzualizare AI precisă, completează informațiile necesare despre client și vestimentație listate mai jos.",
+    "pleaseComplete": "Te rugăm să completezi:",
+    "andMore": "și încă {{count}}...",
+    "complete": "complet",
+    "incompleteModalTitle": "Comandă incompletă",
+    "incompleteModalMessage": "Previzualizarea AI necesită următoarele informații pentru a genera o imagine precisă:",
+    "orderIncompleteNoGarment": "Adaugă cel puțin un tip de vestimentație cu măsurători la această comandă pentru a genera o previzualizare AI.",
+    "fields": {
+      "gender": "Genul clientului",
+      "referenceImage": "Imagine de referință client",
+      "garmentType": "Tip vestimentație",
+      "fitType": "Tip croială",
+      "fabric": "Material textil",
+      "color": "Culoare material",
+      "styleOptions": "Opțiuni de stil"
+    }
+  },
+  "catalog": {
+    "title": "Materiale și Stiluri",
+    "subtitle": "Gestionează colecția de materiale textile, nasturi, revere și alte opțiuni de stil pentru comenzi.",
+    "styleAndMaterials": "Stiluri și Materiale",
+    "item": "articol",
+    "items": "articole",
+    "itemCount": "{{count}} articole",
+    "universal": "Universal",
+    "noCategoriesYet": "Nicio categorie de stil încă. Adaugă una pentru a începe.",
+    "addCategory": "Adaugă Categorie",
+    "editCategory": "Editează Categoria",
+    "enterCategoryName": "Introdu numele categoriei",
+    "saveCategoryError": "Nu s-a putut salva categoria",
+    "categoryName": "Nume categorie",
+    "categoryNamePlaceholder": "ex. Materiale, Nasturi",
+    "categoryDescription": "Descriere",
+    "categoryDescriptionPlaceholder": "Descriere opțională pentru această categorie",
+    "categoryIcon": "Pictogramă",
+    "deleteCategory": "Șterge Categoria",
+    "deleteCategoryMessage": "Ești sigur că vrei să ștergi \"{{name}}\"? Toate articolele din această categorie vor fi șterse.",
+    "deleteCategoryError": "Nu s-a putut șterge categoria",
+    "dragToReorder": "Trage pentru a reordona",
+    "reorderError": "Nu s-a putut salva noua ordine",
+    "addItem": "Adaugă Articol",
+    "newItem": "Articol Nou",
+    "editItem": "Editează Articol",
+    "createItem": "Creează Articol",
+    "saveChanges": "Salvează Modificările",
+    "deleteItem": "Șterge Articol",
+    "deleteItemConfirm": "Ești sigur că vrei să ștergi \"{{name}}\"?",
+    "noItems": "Niciun articol în această categorie",
+    "noItemsYet": "Niciun articol încă. Adaugă unul pentru a începe.",
+    "addFirstItem": "Adaugă articole pentru a le folosi în comenzi",
+    "systemItem": "Implicit sistem",
+    "cannotDeleteSystem": "Articolele de sistem nu pot fi șterse. Le poți dezactiva în schimb.",
+    "toggleError": "Nu s-a putut schimba statusul articolului",
+    "deleteError": "Nu s-a putut șterge articolul",
+    "loadError": "Nu s-a putut încărca articolul",
+    "saveError": "Nu s-a putut salva articolul",
+    "uploadError": "Nu s-a putut încărca imaginea",
+    "nameRequired": "Numele este obligatoriu",
+    "categoryRequired": "Categoria este obligatorie",
+    "itemName": "Nume",
+    "itemNamePlaceholder": "ex. Lână Italiană Super 120s",
+    "itemCode": "Cod",
+    "itemCodePlaceholder": "ex. lana-super120",
+    "enterItemName": "Introdu numele articolului",
+    "saveItemError": "Nu s-a putut salva articolul",
+    "itemDescription": "Descriere",
+    "itemDescriptionPlaceholder": "Descriere opțională pentru acest articol",
+    "itemImage": "Imagine",
+    "itemColor": "Culoare",
+    "customColorPlaceholder": "#000000",
+    "imageUploadError": "Nu s-a putut încărca imaginea",
+    "imagePickerError": "Nu s-a putut deschide selectorul de imagini",
+    "description": "Descriere",
+    "descriptionPlaceholder": "Descriere opțională pentru acest articol",
+    "color": "Culoare",
+    "colorHint": "Cod culoare hex (ex. #000000) pentru articole fără imagini",
+    "selectColor": "Selectează o culoare",
+    "addImage": "Adaugă imagine",
+    "uploadImage": "Încarcă Imagine",
+    "selectItem": "Selectează o opțiune",
+    "selectItems": "Selectează opțiuni",
+    "noSelection": "Nicio selecție",
+    "noItemsAvailable": "Niciun articol disponibil",
+    "categories": {
+      "fabrics": "Materiale Textile",
+      "buttons": "Nasturi",
+      "nasturi": "Nasturi",
+      "lapels": "Revere",
+      "pockets": "Buzunare",
+      "collars": "Gulere",
+      "cuffs": "Manșete",
+      "vents": "Șlițuri",
+      "linings": "Căptușeli",
+      "closures": "Închideri",
+      "threads": "Ațe"
     }
   }
 }

@@ -1,0 +1,186 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
+import { useI18n } from '@/lib/i18n';
+import { api, apiFetch, getErrorMessage, ApiError, HttpStatus } from '@/lib/api';
+import { Spacing, Typography, Shadows } from '@/constants/design';
+
+const MAX_MESSAGE_LENGTH = 5000;
+
+export default function FeedbackScreen() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const router = useRouter();
+  const [message, setMessage] = useState('');
+
+  useDynamicTitle(t('feedback.menuItem'));
+  useCustomBack(() => router.back(), t('common.back'));
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    const trimmed = message.trim();
+    if (trimmed.length < 10) {
+      setError(t('feedback.messageTooShort'));
+      return;
+    }
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
+      setError(t('feedback.messageTooLong'));
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      await apiFetch<{ success: boolean }>(api.feedback, {
+        method: 'POST',
+        body: JSON.stringify({ message: trimmed }),
+      });
+      setSuccess(true);
+      setMessage('');
+    } catch (err) {
+      const msg = err instanceof ApiError && err.status === HttpStatus.TooManyRequests
+        ? t('feedback.tooManyRequests')
+        : getErrorMessage(err, t('feedback.sendError'));
+      setError(msg);
+      if (!(err instanceof ApiError) || err.status >= 500) {
+        Alert.alert(t('common.error'), msg);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <ScreenContainer noPadding>
+        <View style={[styles.content, styles.centered]}>
+          <Text style={[styles.successTitle, { color: colors.primary }]}>{t('feedback.thankYou')}</Text>
+          <Text style={[styles.successMessage, { color: colors.textSecondary }]}>
+            {t('feedback.successMessage')}
+          </Text>
+          <Button
+            variant="primary"
+            onPress={() => setSuccess(false)}
+            style={styles.successButton}
+          >
+            {t('feedback.sendMore')}
+          </Button>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer noPadding>
+      <KeyboardAvoidingView
+        style={styles.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={[styles.intro, { color: colors.textSecondary }]}>
+            {t('feedback.intro')}
+          </Text>
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <Input
+              label={t('feedback.messageLabel')}
+              placeholder={t('feedback.messagePlaceholder')}
+              value={message}
+              onChangeText={(text) => {
+                setMessage(text);
+                setError(null);
+              }}
+              multiline
+              numberOfLines={6}
+              maxLength={MAX_MESSAGE_LENGTH}
+              editable={!submitting}
+              error={error || false}
+              containerStyle={styles.inputContainer}
+            />
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>
+              {t('feedback.messageHint', { count: message.length, max: MAX_MESSAGE_LENGTH })}
+            </Text>
+            <Button
+              variant="primary"
+              fullWidth
+              onPress={handleSubmit}
+              disabled={submitting || message.trim().length < 10}
+              loading={submitting}
+            >
+              {t('feedback.submit')}
+            </Button>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  keyboard: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  content: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  intro: {
+    ...Typography.body,
+    marginBottom: Spacing.lg,
+  },
+  section: {
+    borderRadius: 12,
+    padding: Spacing.md,
+    ...Shadows.md,
+  },
+  inputContainer: {
+    marginBottom: Spacing.sm,
+  },
+  hint: {
+    ...Typography.caption,
+    marginBottom: Spacing.md,
+  },
+  successTitle: {
+    ...Typography.h3,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  successMessage: {
+    ...Typography.body,
+    textAlign: 'center',
+    marginBottom: Spacing.xl,
+  },
+  successButton: {
+    minWidth: 160,
+  },
+});

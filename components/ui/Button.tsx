@@ -1,6 +1,6 @@
 /**
  * Global Button component – single source for all buttons.
- * Uses ButtonStyles from constants/design. No local button styles in screens.
+ * Uses theme-aware styles from ThemeContext. No local button styles in screens.
  */
 import React from 'react';
 import {
@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   StyleProp,
 } from 'react-native';
-import { Colors, Typography, ButtonStyles, DENSITY } from '@/constants/design';
+import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
+import { getTypography, getButtonStyles, Spacing, BorderRadius, getShadows, DENSITY } from '@/constants/design';
 
 const _compact = DENSITY === 'compact';
 
@@ -71,9 +72,71 @@ export function Button({
   rightIcon,
   style,
 }: ButtonProps) {
+  const { colors } = useTheme();
+  const buttonStyles = getButtonStyles(colors);
+  const typography = getTypography(colors);
+  
   const isIconOnly = iconVariants.includes(variant);
   const isDisabled = disabled || loading;
   const hasText = typeof children === 'string';
+
+  const getIconVariantStyle = (v: ButtonVariant): ViewStyle => {
+    switch (v) {
+      case 'back':
+        return buttonStyles.back;
+      case 'primaryIcon':
+        return buttonStyles.primaryIcon;
+      case 'secondaryIcon':
+        return buttonStyles.secondaryIcon;
+      case 'dangerIcon':
+        return buttonStyles.dangerIcon;
+      default:
+        return buttonStyles.primaryIcon;
+    }
+  };
+
+  const getTextVariantStyle = (v: ButtonVariant, s: ButtonSize): ViewStyle => {
+    const base: ViewStyle =
+      v === 'primary'
+        ? buttonStyles.primary
+        : v === 'secondary'
+          ? buttonStyles.secondary
+          : v === 'ghost'
+            ? buttonStyles.ghost
+            : v === 'danger'
+              ? { ...buttonStyles.primary, backgroundColor: colors.danger }
+              : buttonStyles.primary;
+    const sizeStyle: ViewStyle | undefined = s === 'sm' ? styles.sizeSm : s === 'lg' ? styles.sizeLg : undefined;
+    return StyleSheet.flatten([base, sizeStyle]) as ViewStyle;
+  };
+
+  const getTextStyle = (v: ButtonVariant, iconOnly: boolean, s?: ButtonSize): TextStyle => {
+    if (iconOnly) return {};
+    const color =
+      v === 'secondary' || v === 'ghost' ? colors.textPrimary : colors.textInverse;
+    const typeStyle = s === 'sm' ? typography.captionBold : typography.bodyBold;
+    return {
+      ...typeStyle,
+      color: v === 'danger' ? colors.textInverse : color,
+    };
+  };
+
+  const iconVariantColor = (v: ButtonVariant): string => {
+    switch (v) {
+      case 'dangerIcon':
+        return colors.danger;
+      case 'secondaryIcon':
+      case 'back':
+        return colors.textPrimary;
+      default:
+        return colors.textInverse;
+    }
+  };
+
+  const textVariantColor = (v: ButtonVariant): string => {
+    return v === 'secondary' || v === 'ghost' ? colors.textPrimary : colors.textInverse;
+  };
+
   const textColor = textVariantColor(variant);
 
   const pressableStyle = ({ pressed }: { pressed: boolean }): StyleProp<ViewStyle> => {
@@ -81,7 +144,7 @@ export function Button({
     return [
       base,
       fullWidth && !isIconOnly && styles.fullWidth,
-      isDisabled && ButtonStyles.disabled,
+      isDisabled && buttonStyles.disabled,
       pressed && !isDisabled && styles.pressed,
       !isIconOnly && (leftIcon || rightIcon) && styles.rowContent,
       style,
@@ -127,72 +190,12 @@ export function Button({
   );
 }
 
-function getIconVariantStyle(variant: ButtonVariant): ViewStyle {
-  switch (variant) {
-    case 'back':
-      return ButtonStyles.back;
-    case 'primaryIcon':
-      return ButtonStyles.primaryIcon;
-    case 'secondaryIcon':
-      return ButtonStyles.secondaryIcon;
-    case 'dangerIcon':
-      return ButtonStyles.dangerIcon;
-    default:
-      return ButtonStyles.primaryIcon;
-  }
-}
-
-function getTextVariantStyle(variant: ButtonVariant, size: ButtonSize): ViewStyle {
-  const base: ViewStyle =
-    variant === 'primary'
-      ? ButtonStyles.primary
-      : variant === 'secondary'
-        ? ButtonStyles.secondary
-        : variant === 'ghost'
-          ? ButtonStyles.ghost
-          : variant === 'danger'
-            ? { ...ButtonStyles.primary, ...styles.dangerBg }
-            : ButtonStyles.primary;
-  const sizeStyle: ViewStyle | undefined = size === 'sm' ? styles.sizeSm : size === 'lg' ? styles.sizeLg : undefined;
-  return StyleSheet.flatten([base, sizeStyle]) as ViewStyle;
-}
-
-function getTextStyle(variant: ButtonVariant, isIconOnly: boolean, size?: ButtonSize): TextStyle {
-  if (isIconOnly) return {};
-  const color =
-    variant === 'secondary' || variant === 'ghost' ? Colors.textPrimary : Colors.textInverse;
-  const typeStyle = size === 'sm' ? Typography.captionBold : Typography.bodyBold;
-  return {
-    ...typeStyle,
-    color: variant === 'danger' ? Colors.textInverse : color,
-  };
-}
-
-function iconVariantColor(variant: ButtonVariant): string {
-  switch (variant) {
-    case 'dangerIcon':
-      return Colors.danger;
-    case 'secondaryIcon':
-    case 'back':
-      return Colors.textPrimary;
-    default:
-      return Colors.textInverse;
-  }
-}
-
-function textVariantColor(variant: ButtonVariant): string {
-  return variant === 'secondary' || variant === 'ghost' ? Colors.textPrimary : Colors.textInverse;
-}
-
 const styles = StyleSheet.create({
   fullWidth: {
     width: '100%',
   },
   pressed: {
     opacity: 0.85,
-  },
-  dangerBg: {
-    backgroundColor: Colors.danger,
   },
   sizeSm: {
     minHeight: _compact ? 32 : 40,

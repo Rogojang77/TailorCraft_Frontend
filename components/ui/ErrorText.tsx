@@ -1,9 +1,11 @@
 /**
- * Standard error message text. Theme-aware (Colors.error).
+ * Standard error message text.
+ * Uses theme-aware colors from ThemeContext.
  */
 import React, { memo } from 'react';
 import { Text, StyleSheet, TextStyle } from 'react-native';
-import { Typography, Colors } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography } from '@/constants/design';
 
 export interface ErrorTextProps {
   children: string;
@@ -19,18 +21,15 @@ const ErrorTextComponent = ({
   style,
   numberOfLines,
 }: ErrorTextProps) => {
-  const color = variant === 'dark' ? Colors.errorTextDark : Colors.error;
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const color = variant === 'dark' ? colors.errorTextDark : colors.error;
+  
   return (
-    <Text style={[styles.text, { color }, style]} numberOfLines={numberOfLines ?? 2}>
+    <Text style={[typography.caption, { color }, style]} numberOfLines={numberOfLines ?? 2}>
       {children}
     </Text>
   );
 };
-
-const styles = StyleSheet.create({
-  text: {
-    ...Typography.caption,
-  },
-});
 
 export const ErrorText = memo(ErrorTextComponent);

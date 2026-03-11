@@ -11,6 +11,9 @@ const isExpoGo = Constants.appOwnership === 'expo';
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 const isIAPAvailable = isNative && !isExpoGo;
 
+let iapConnectionFailed = false;
+let connectionFailureLogged = false;
+
 function getIap(): {
   initConnection: () => Promise<boolean>;
   endConnection: () => Promise<boolean>;
@@ -23,31 +26,54 @@ function getIap(): {
   }
 }
 
-let connectionPromise: Promise<void> | null = null;
+let connectionPromise: Promise<boolean> | null = null;
 
 /**
  * Ensures the billing client is ready. Safe to call from any hook or service.
- * Resolves immediately on web/Expo Go (no-op). On native, runs initConnection
+ * Returns true if connection succeeded, false if unavailable/failed.
+ * Resolves immediately on web/Expo Go (returns false). On native, runs initConnection
  * once; concurrent callers share the same promise.
+ * Gracefully handles environments where billing is unavailable (emulators, missing Play Store).
  */
-export async function ensureIapConnection(): Promise<void> {
-  if (!isIAPAvailable) return;
+export async function ensureIapConnection(): Promise<boolean> {
+  if (!isIAPAvailable) return false;
+  if (iapConnectionFailed) return false;
 
   const iap = getIap();
-  if (!iap) return;
+  if (!iap) return false;
 
   if (!connectionPromise) {
     connectionPromise = (async () => {
-      await iap.initConnection();
-      console.log('[IAP] Connection established');
+      try {
+        await iap.initConnection();
+        if (__DEV__) {
+          console.log('[IAP] Connection established');
+        }
 
-      if (Platform.OS === 'android') {
-        await new Promise((res) => setTimeout(res, 300));
+        if (Platform.OS === 'android') {
+          await new Promise((res) => setTimeout(res, 300));
+        }
+        return true;
+      } catch (error) {
+        iapConnectionFailed = true;
+        if (__DEV__ && !connectionFailureLogged) {
+          connectionFailureLogged = true;
+          console.warn('[IAP] Connection failed (expected on emulators/dev builds without Play Store)');
+        }
+        return false;
       }
     })();
   }
 
   return connectionPromise;
+}
+
+/**
+ * Returns true if IAP connection has failed (e.g., on emulators without Play Store).
+ * Use this to avoid repeated error logs from IAP operations.
+ */
+export function isIapConnectionFailed(): boolean {
+  return iapConnectionFailed;
 }
 
 /**

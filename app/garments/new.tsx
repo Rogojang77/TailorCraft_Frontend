@@ -1,36 +1,41 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
-import { api, apiFetch } from '@/lib/api';
+import { api, apiFetch, ApiError, ApiErrorCode } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { invalidateGarmentTypesCache } from '@/lib/apiCache';
-import { getGarmentTypeIdFromPostResponse } from '@/lib/api-mappers';
-import type { GarmentTypeRecord } from '@/types/templates';
+import { invalidateGarmentTypesCache, getGarmentTypeIdFromPostResponse } from '@/lib/api';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { Colors, Spacing, Typography, HeaderStyles, BorderRadius, Shadows } from '@/constants/design';
+import { PaywallModal } from '@/components/subscription';
+import { Spacing, Typography, Shadows } from '@/constants/design';
+import { ScreenContainer } from '@/components/ui/ScreenContainer';
 
 export default function NewGarmentScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  const { colors } = useTheme();
+  const { checkCanCreateTemplate, getLimitMessages, upgradeToPro } = useSubscription();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { templateCreationStatus } = useSubscription();
-  const createStatus = templateCreationStatus();
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const canCreateTemplate = checkCanCreateTemplate();
+  const limitMsgs = getLimitMessages();
 
   const handleSubmit = async () => {
+    if (!canCreateTemplate) {
+      setShowPaywall(true);
+      return;
+    }
     const trimmed = name.trim();
     if (!trimmed) {
       Alert.alert(t('garments.requiredName'), t('garments.enterName'));
-      return;
-    }
-    if (!createStatus.allowed) {
-      Alert.alert(t('garments.limitReached'), createStatus.message || t('garments.cannotCreateMore'));
       return;
     }
     setSubmitting(true);
@@ -51,31 +56,42 @@ export default function NewGarmentScreen() {
         router.replace('/garments');
       }
     } catch (e) {
-      Alert.alert(
-        t('common.error'),
-        e instanceof Error ? e.message : t('garments.createError')
-      );
+      const err = e as { code?: string; message?: string };
+      const msg = String(err?.message ?? '');
+      if (
+        (err instanceof ApiError && err.code === ApiErrorCode.SUBSCRIPTION_LIMIT_REACHED) ||
+        msg.includes('Free plan allows only') ||
+        (msg.includes('template') && msg.toLowerCase().includes('limit'))
+      ) {
+        setShowPaywall(true);
+      } else {
+        Alert.alert(
+          t('common.error'),
+          e instanceof Error ? e.message : t('garments.createError')
+        );
+      }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+    setIsUpgrading(true);
+    try {
+      const result = await upgradeToPro(plan);
+      if (result.success) setShowPaywall(false);
+      else if (result.errorMessage) Alert.alert(t('common.error'), result.errorMessage);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('subscription.paywallCta'));
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={HeaderStyles.container}>
-        <Button
-          variant="back"
-          onPress={() => router.back()}
-          disabled={submitting}
-          accessibilityLabel={t('common.back')}
-        >
-          <ArrowLeft size={24} color={Colors.textPrimary} />
-        </Button>
-        <Text style={HeaderStyles.title}>{t('garments.new')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <ScreenContainer noPadding>
 
       <View style={styles.flex}>
         <KeyboardAwareScrollView
@@ -93,7 +109,7 @@ export default function NewGarmentScreen() {
                 editable={!submitting}
                 autoCapitalize="words"
               />
-              <Text style={styles.helperText}>
+              <Text style={[styles.helperText, { color: colors.textSecondary }]}>
                 This name will appear in orders when selecting garments.
               </Text>
             </View>
@@ -111,15 +127,15 @@ export default function NewGarmentScreen() {
             </View>
         </KeyboardAwareScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
-            {!createStatus.allowed && createStatus.message ? (
-              <Text style={styles.limitHint}>{createStatus.message}</Text>
-            ) : null}
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg), backgroundColor: colors.background, borderTopColor: colors.borderLight }]}>
+            {!canCreateTemplate && (
+              <Text style={[styles.limitMessage, { color: colors.textSecondary }]}>{limitMsgs.templateLimitReached}</Text>
+            )}
             <Button
               variant="primary"
               fullWidth
               onPress={handleSubmit}
-              disabled={submitting || !name.trim() || !createStatus.allowed}
+              disabled={submitting || !name.trim() || !canCreateTemplate}
               loading={submitting}
               style={styles.submit}
             >
@@ -127,14 +143,19 @@ export default function NewGarmentScreen() {
             </Button>
         </View>
       </View>
-    </SafeAreaView>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onUpgrade={handleUpgrade}
+        loading={isUpgrading}
+      />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   flex: {
     flex: 1,
@@ -152,24 +173,20 @@ const styles = StyleSheet.create({
   helperText: {
     ...Typography.caption,
     fontSize: 12,
-    color: Colors.textSecondary,
     marginTop: Spacing.xs,
     lineHeight: 16,
   },
   footer: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
     ...Shadows.md,
   },
   submit: {
     width: '100%',
   },
-  limitHint: {
+  limitMessage: {
     ...Typography.caption,
-    color: Colors.warning,
     marginBottom: Spacing.sm,
     textAlign: 'center',
   },

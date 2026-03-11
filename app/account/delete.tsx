@@ -25,11 +25,14 @@ import {
   AccountDeletionErrorCode,
   isAccountDeletionError,
 } from '@/lib/services/authService';
-import { Colors, Spacing, Typography, ButtonStyles, BorderRadius, Shadows, StatusStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
+import { Spacing, Typography, ButtonStyles, BorderRadius, Shadows, StatusStyles } from '@/constants/design';
 
 type Step = 'explanation' | 'reauth' | 'confirm' | 'success';
 
 export default function DeleteAccountScreen() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
@@ -47,14 +50,10 @@ export default function DeleteAccountScreen() {
     try {
       const res = await getDeletionStatus(accessToken);
       setDeletionStatus(res.status);
-      if (res.status === 'deleted') {
+      if (res.status === 'deleted' || res.status === 'pending') {
         await logout();
         router.replace('/login');
         return;
-      }
-      if (res.status === 'pending') {
-        setStep('success');
-        setErrorMessage(null);
       }
     } catch {
       setDeletionStatus('active');
@@ -113,10 +112,8 @@ export default function DeleteAccountScreen() {
       if (res.status === 'deleted' || res.status === 'pending') {
         setDeletionStatus(res.status);
         setStep('success');
-        if (res.status === 'deleted') {
-          await logout();
-          setTimeout(() => router.replace('/login'), 1500);
-        }
+        await logout();
+        setTimeout(() => router.replace('/login'), res.status === 'deleted' ? 1500 : 0);
       } else {
         setErrorMessage(t('account.delete.errorGeneric'));
       }
@@ -133,7 +130,8 @@ export default function DeleteAccountScreen() {
           }, 2000);
         } else if (code === AccountDeletionErrorCode.DELETION_PENDING) {
           setErrorMessage(t('account.delete.errorDeletionPending'));
-          setStep('success');
+          await logout();
+          setTimeout(() => router.replace('/login'), 2000);
         } else if (code === AccountDeletionErrorCode.INVALID_PASSWORD) {
           setErrorMessage(t('account.delete.errorInvalidPassword'));
         } else {
@@ -147,12 +145,21 @@ export default function DeleteAccountScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const getStepTitle = () => {
+    if (step === 'explanation') return t('account.delete.title');
+    if (step === 'reauth') return t('account.delete.stepReauthTitle');
+    return t('account.delete.stepConfirmTitle');
+  };
+  useDynamicTitle(getStepTitle());
+  useCustomBack(handleBack, t('common.cancel'));
+
   if (statusLoading && !deletionStatus) {
     return (
       <ScreenContainer noPadding>
         <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('common.loading')}</Text>
         </View>
       </ScreenContainer>
     );
@@ -163,10 +170,10 @@ export default function DeleteAccountScreen() {
       <ScreenContainer noPadding>
         <View style={styles.successContent}>
           <View style={styles.successIconWrap}>
-            <CheckCircle size={64} color={Colors.success} strokeWidth={2} />
+            <CheckCircle size={64} color={colors.success} strokeWidth={2} />
           </View>
-          <Text style={styles.successTitle}>{t('account.delete.pendingTitle')}</Text>
-          <Text style={styles.successMessage}>{t('account.delete.pendingMessage')}</Text>
+          <Text style={[styles.successTitle, { color: colors.textPrimary }]}>{t('account.delete.pendingTitle')}</Text>
+          <Text style={[styles.successMessage, { color: colors.textSecondary }]}>{t('account.delete.pendingMessage')}</Text>
           <TouchableOpacity
             style={[ButtonStyles.primary, styles.primaryButton]}
             onPress={async () => {
@@ -175,7 +182,7 @@ export default function DeleteAccountScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>{t('account.delete.logOut')}</Text>
+            <Text style={[styles.primaryButtonText, { color: colors.textInverse }]}>{t('account.delete.logOut')}</Text>
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -187,36 +194,17 @@ export default function DeleteAccountScreen() {
       <ScreenContainer noPadding>
         <View style={styles.successContent}>
           <View style={styles.successIconWrap}>
-            <CheckCircle size={64} color={Colors.success} strokeWidth={2} />
+            <CheckCircle size={64} color={colors.success} strokeWidth={2} />
           </View>
-          <Text style={styles.successTitle}>{t('account.delete.successTitle')}</Text>
-          <Text style={styles.successMessage}>{t('account.delete.successMessage')}</Text>
+          <Text style={[styles.successTitle, { color: colors.textPrimary }]}>{t('account.delete.successTitle')}</Text>
+          <Text style={[styles.successMessage, { color: colors.textSecondary }]}>{t('account.delete.successMessage')}</Text>
         </View>
       </ScreenContainer>
     );
   }
 
-  const insets = useSafeAreaInsets();
-
   return (
     <ScreenContainer noPadding>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={handleBack}
-          style={ButtonStyles.back}
-          activeOpacity={0.7}
-          accessibilityLabel={t('common.cancel')}
-        >
-          <ArrowLeft size={24} color={Colors.textPrimary} strokeWidth={2} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {step === 'explanation' && t('account.delete.title')}
-          {step === 'reauth' && t('account.delete.stepReauthTitle')}
-          {step === 'confirm' && t('account.delete.stepConfirmTitle')}
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <View style={styles.flex1}>
         <KeyboardAwareScrollView
           style={styles.scroll}
@@ -226,26 +214,26 @@ export default function DeleteAccountScreen() {
         >
           {step === 'explanation' && (
             <>
-              <View style={styles.warningBanner}>
-                <AlertTriangle size={28} color={Colors.warning} strokeWidth={2} />
-                <Text style={styles.warningBannerText}>{t('account.delete.warningBanner')}</Text>
+              <View style={[styles.warningBanner, { borderLeftColor: colors.warning }]}>
+                <AlertTriangle size={28} color={colors.warning} strokeWidth={2} />
+                <Text style={[styles.warningBannerText, { color: colors.warningText }]}>{t('account.delete.warningBanner')}</Text>
               </View>
-              <Text style={styles.sectionTitle}>{t('account.delete.whatHappensTitle')}</Text>
-              <Text style={styles.bodyText}>{t('account.delete.whatHappensBody')}</Text>
-              <Text style={styles.sectionTitle}>{t('account.delete.dataRemovedTitle')}</Text>
-              <Text style={styles.bodyText}>{t('account.delete.dataRemovedBody')}</Text>
-              <Text style={styles.sectionTitle}>{t('account.delete.retentionTitle')}</Text>
-              <Text style={styles.bodyText}>{t('account.delete.retentionBody')}</Text>
-              <Text style={styles.sectionTitle}>{t('account.delete.subscriptionsTitle')}</Text>
-              <Text style={styles.bodyText}>{t('account.delete.subscriptionsBody')}</Text>
-              <Text style={styles.sectionTitle}>{t('account.delete.lossOfAccessTitle')}</Text>
-              <Text style={styles.bodyText}>{t('account.delete.lossOfAccessBody')}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.whatHappensTitle')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.whatHappensBody')}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.dataRemovedTitle')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.dataRemovedBody')}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.retentionTitle')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.retentionBody')}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.subscriptionsTitle')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.subscriptionsBody')}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.lossOfAccessTitle')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.lossOfAccessBody')}</Text>
             </>
           )}
 
           {step === 'reauth' && (
             <>
-              <Text style={styles.bodyText}>{t('account.delete.reauthDescription')}</Text>
+              <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.reauthDescription')}</Text>
               <Input
                 label={t('auth.login.email')}
                 value={user?.email ?? ''}
@@ -270,9 +258,9 @@ export default function DeleteAccountScreen() {
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
                     {showPassword ? (
-                      <EyeOff size={20} color={Colors.textSecondary} />
+                      <EyeOff size={20} color={colors.textSecondary} />
                     ) : (
-                      <Eye size={20} color={Colors.textSecondary} />
+                      <Eye size={20} color={colors.textSecondary} />
                     )}
                   </TouchableOpacity>
                 }
@@ -280,7 +268,7 @@ export default function DeleteAccountScreen() {
               />
               {errorMessage ? (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
                 </View>
               ) : null}
             </>
@@ -288,20 +276,20 @@ export default function DeleteAccountScreen() {
 
           {step === 'confirm' && (
             <>
-              <View style={styles.destructiveBanner}>
-                <Trash2 size={28} color={Colors.error} strokeWidth={2} />
-                <Text style={styles.destructiveBannerText}>{t('account.delete.finalWarning')}</Text>
+              <View style={[styles.destructiveBanner, { borderLeftColor: colors.error }]}>
+                <Trash2 size={28} color={colors.error} strokeWidth={2} />
+                <Text style={[styles.destructiveBannerText, { color: colors.errorTextDark }]}>{t('account.delete.finalWarning')}</Text>
               </View>
               {errorMessage ? (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
+                  <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
                 </View>
               ) : null}
             </>
           )}
         </KeyboardAwareScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md), backgroundColor: colors.background, borderTopColor: colors.border }]}>
           {step === 'explanation' && (
             <Button variant="primary" fullWidth onPress={handleContinueFromExplanation} style={styles.footerButton}>
               {t('account.delete.continueToNextStep')}
@@ -326,15 +314,15 @@ export default function DeleteAccountScreen() {
           {step === 'confirm' && (
             <>
               <TouchableOpacity
-                style={[styles.destructiveButton, submitLoading && styles.buttonDisabled]}
+                style={[styles.destructiveButton, { backgroundColor: colors.error }, submitLoading && styles.buttonDisabled]}
                 onPress={handleConfirmDeletion}
                 activeOpacity={0.8}
                 disabled={submitLoading}
               >
                 {submitLoading ? (
-                  <ActivityIndicator size="small" color={Colors.textInverse} />
+                  <ActivityIndicator size="small" color={colors.textInverse} />
                 ) : (
-                  <Text style={styles.destructiveButtonText}>{t('account.delete.confirmDeleteButton')}</Text>
+                  <Text style={[styles.destructiveButtonText, { color: colors.textInverse }]}>{t('account.delete.confirmDeleteButton')}</Text>
                 )}
               </TouchableOpacity>
               <Button variant="secondary" fullWidth onPress={handleBack} disabled={submitLoading} style={styles.footerButtonSecondary}>
@@ -378,9 +366,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    backgroundColor: Colors.background,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
     gap: Spacing.sm,
   },
   footerButton: {
@@ -397,21 +383,18 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-    color: Colors.textSecondary,
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     ...StatusStyles.warning,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.warning,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
   },
   warningBannerText: {
     ...Typography.bodyBold,
-    color: Colors.warningText,
     marginLeft: Spacing.md,
     flex: 1,
   },
@@ -420,27 +403,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...StatusStyles.error,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.error,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
   },
   destructiveBannerText: {
     ...Typography.bodyBold,
-    color: Colors.errorTextDark,
     marginLeft: Spacing.md,
     flex: 1,
   },
   sectionTitle: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textPrimary,
     marginTop: Spacing.md,
     marginBottom: Spacing.xs,
   },
   bodyText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     lineHeight: 22,
     marginBottom: Spacing.sm,
   },
@@ -457,7 +436,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.body,
-    color: Colors.error,
     fontSize: 14,
   },
   destructiveButton: {
@@ -466,7 +444,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.error,
     marginBottom: Spacing.md,
   },
   buttonDisabled: {
@@ -475,7 +452,6 @@ const styles = StyleSheet.create({
   destructiveButtonText: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textInverse,
   },
   cancelButton: {
     marginTop: Spacing.xs,
@@ -483,7 +459,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     ...Typography.body,
     fontWeight: '600',
-    color: Colors.textSecondary,
   },
   successContent: {
     flex: 1,
@@ -502,7 +477,6 @@ const styles = StyleSheet.create({
   successMessage: {
     ...Typography.body,
     textAlign: 'center',
-    color: Colors.textSecondary,
     lineHeight: 24,
     marginBottom: Spacing.xl,
   },
@@ -513,6 +487,5 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.bodyBold,
     fontSize: 16,
-    color: Colors.textInverse,
   },
 });

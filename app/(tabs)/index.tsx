@@ -5,60 +5,68 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   RefreshControl,
-  FlatList,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { Plus, Shirt, Info } from 'lucide-react-native';
-import { ClientCard } from '@/components/ClientCard';
-import { OrderCard } from '@/components/OrderCard';
+import {
+  Users,
+  ShoppingBag,
+  TrendingUp,
+  Shirt,
+  Info,
+  Settings,
+  Image,
+} from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { api, apiFetch } from '@/lib/api';
-import { fetchCompanySettings, fetchGarmentTypesList } from '@/lib/apiCache';
-import {
-  orderStatusToLabel,
-  orderItemsFromMeasurements,
-  formatDate,
-  customerFullName,
-} from '@/lib/api-mappers';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, StatusStyles, CompactLayoutStyles } from '@/constants/design';
-import { ProBadge } from '@/components/ProBadge';
+import { fetchCompanySettings, fetchGarmentTypesList } from '@/lib/api';
+import { Spacing, Typography, Shadows, BorderRadius, StatusStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
-import { Section } from '@/components/ui/Section';
+import { PaywallModal, SubscriptionLoadErrorBanner } from '@/components/subscription';
 import { ErrorText } from '@/components/ui/ErrorText';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { Button } from '@/components/ui/Button';
-import { SubscriptionLoadErrorBanner } from '@/components/SubscriptionLoadErrorBanner';
+import { MetricCard } from '@/components/MetricCard';
+import { OrderHistoryItem } from '@/components/OrderHistoryItem';
+import { FloatingActionButton } from '@/components/FloatingActionButton';
 
-const { width } = Dimensions.get('window');
-
-type ClientCardData = { id: string; name: string; phone: string; lastOrder: string };
-type OrderCardData = {
+interface OrderResponse {
   id: string;
-  clientName: string;
-  items: string[];
-  total: number;
-  status: string; // Raw status code (PENDING, IN_PROGRESS, etc.)
+  customerId: string;
+  orderNumber: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'DELIVERED' | 'CANCELLED';
+  totalAmount: number;
+  paidAmount: number;
   orderDate: string;
-};
+  deliveryDate?: string | null;
+  customer?: {
+    firstName: string;
+    lastName: string;
+  };
+  orderGarmentSnapshots?: Array<{
+    garmentTypeName: string;
+  }>;
+}
 
 export default function HomeTab() {
+  const { colors } = useTheme();
   const { t } = useI18n();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { checkCanCreateClient, checkCanCreateOrder, getLimitMessages, subscriptionState } = useSubscription();
-  const canCreateClient = checkCanCreateClient();
-  const canCreateOrder = checkCanCreateOrder();
-  const limitMsgs = getLimitMessages();
+  const { subscriptionState, checkCanCreateTemplate, upgradeToPro } = useSubscription();
+  const { showRecentOrders } = useSettings();
+
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recentClients, setRecentClients] = useState<ClientCardData[]>([]);
-  const [recentOrders, setRecentOrders] = useState<OrderCardData[]>([]);
+  const [clientCount, setClientCount] = useState(0);
+  const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [garments, setGarments] = useState<{ id: string }[]>([]);
   const [companySettings, setCompanySettings] = useState<{
     name: string;
@@ -68,12 +76,10 @@ export default function HomeTab() {
     address: string | null;
   } | null>(null);
 
-  // Track component mount state for cleanup
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
-    // Cancel previous request if still pending
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -84,75 +90,23 @@ export default function HomeTab() {
     setError(null);
     try {
       const [customersRes, ordersRes, garmentTypesRes, companyRes] = await Promise.all([
-        apiFetch<{ customers: Array<{
-          id: string;
-          firstName: string;
-          lastName: string;
-          phone: string;
-          _count?: { orders: number };
-        }> }>(`${api.customers()}?limit=20`),
-        apiFetch<{ orders: Array<{
-          id: string;
-          status: string;
-          totalAmount: number;
-          orderDate: string;
-          measurements: Record<string, unknown> | null;
-          customer?: { id: string; firstName: string; lastName: string; phone: string };
-        }> }>(`${api.orders()}?limit=20`),
+        apiFetch<{ customers: Array<{ id: string }> }>(`${api.customers()}?limit=1000`),
+        apiFetch<{ orders: OrderResponse[] }>(`${api.orders()}?limit=100`),
         fetchGarmentTypesList(isRefresh),
         fetchCompanySettings(isRefresh),
       ]);
-      
-      // Process orders
-      const orders = ordersRes.orders ?? [];
-      const orderCardData: OrderCardData[] = orders.map((o) => ({
-        id: o.id,
-        clientName: o.customer
-          ? customerFullName(o.customer.firstName, o.customer.lastName)
-          : '—',
-        items: orderItemsFromMeasurements(o.measurements),
-        total: o.totalAmount,
-        status: o.status, // Pass raw status code for color-coding
-        orderDate: formatDate(o.orderDate),
-      }));
-      setRecentOrders(orderCardData.slice(0, 5));
-      
-      // Process clients - fetch directly from customers API
+
       const customers = customersRes.customers ?? [];
-      
-      // Create a map of customer ID to their most recent order info
-      const customerOrderMap = new Map<string, { lastOrder: string }>();
-      for (const o of orders) {
-        if (!o.customer) continue;
-        const existing = customerOrderMap.get(o.customer.id);
-        if (!existing || o.orderDate > existing.lastOrder) {
-          customerOrderMap.set(o.customer.id, {
-            lastOrder: o.orderDate,
-          });
-        }
-      }
-      
-      // Map customers to client card data
-      const clients: ClientCardData[] = customers.slice(0, 5).map((c) => {
-        const orderInfo = customerOrderMap.get(c.id);
-        return {
-          id: c.id,
-          name: customerFullName(c.firstName, c.lastName),
-          phone: c.phone,
-          lastOrder: orderInfo ? formatDate(orderInfo.lastOrder) : '—',
-        };
-      });
-      
+      const ordersList = ordersRes.orders ?? [];
       const garmentList = (garmentTypesRes ?? []) as { id: string }[];
 
-      // Only update state if component is still mounted
       if (isMountedRef.current && !abortControllerRef.current?.signal.aborted) {
-        setRecentClients(clients);
+        setClientCount(customers.length);
+        setOrders(ordersList);
         setGarments(garmentList);
         setCompanySettings(companyRes);
       }
     } catch (e) {
-      // Ignore abort errors
       if (e instanceof Error && e.name !== 'AbortError' && isMountedRef.current) {
         setError(e.message || t('home.errorLoad'));
       }
@@ -162,9 +116,8 @@ export default function HomeTab() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [t]);
 
-  // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -182,7 +135,6 @@ export default function HomeTab() {
         fetchData();
       }
       return () => {
-        // Cleanup on blur
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
         }
@@ -192,30 +144,93 @@ export default function HomeTab() {
 
   const onRefresh = () => fetchData(true);
 
+  const canCreateTemplate = checkCanCreateTemplate();
+  const handleAddGarment = useCallback(() => {
+    if (canCreateTemplate) {
+      router.push('/garments/new');
+    } else {
+      setShowPaywall(true);
+    }
+  }, [canCreateTemplate, router]);
+  const handleUpgrade = useCallback(async (plan: 'monthly' | 'yearly') => {
+    setIsUpgrading(true);
+    try {
+      const result = await upgradeToPro(plan);
+      if (result.success) setShowPaywall(false);
+      else if (result.errorMessage) Alert.alert(t('common.error'), result.errorMessage);
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('subscription.paywallCta'));
+    } finally {
+      setIsUpgrading(false);
+    }
+  }, [upgradeToPro, t]);
+
   const isCompanySetupComplete = useMemo(() => {
     if (!companySettings) return false;
-    const { name, owner, phone, email, address } = companySettings;
+    const { name, owner, phone, email } = companySettings;
     return (
       name.trim() !== '' &&
       owner.trim() !== '' &&
       phone.trim() !== '' &&
-      email.trim() !== '' &&
-      (address ?? '').trim() !== ''
+      email.trim() !== ''
     );
   }, [companySettings]);
 
-  // When only 1 or 2 fields are missing, list them for the user
   const missingCompanyFieldKeys = useMemo(() => {
     if (!companySettings) return [];
-    const { name, owner, phone, email, address } = companySettings;
+    const { name, owner, phone, email } = companySettings;
     const missing: string[] = [];
     if (name.trim() === '') missing.push('profile.companyName');
     if (owner.trim() === '') missing.push('profile.owner');
     if (phone.trim() === '') missing.push('profile.phone');
     if (email.trim() === '') missing.push('profile.email');
-    if ((address ?? '').trim() === '') missing.push('profile.address');
     return missing.length >= 1 && missing.length <= 2 ? missing : [];
   }, [companySettings]);
+
+  const activeOrders = useMemo(() => {
+    return orders.filter(
+      (o) => o.status === 'PENDING' || o.status === 'IN_PROGRESS'
+    );
+  }, [orders]);
+
+  const ordersDueThisWeek = useMemo(() => {
+    const now = new Date();
+    const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return activeOrders.filter((o) => {
+      if (!o.deliveryDate) return false;
+      const delivery = new Date(o.deliveryDate);
+      return delivery >= now && delivery <= weekFromNow;
+    });
+  }, [activeOrders]);
+
+  const pendingPaymentsTotal = useMemo(() => {
+    return orders.reduce((sum, o) => {
+      const pending = (o.totalAmount ?? 0) - (o.paidAmount ?? 0);
+      return sum + (pending > 0 ? pending : 0);
+    }, 0);
+  }, [orders]);
+
+  const recentOrders = useMemo(() => {
+    return [...orders]
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+      .slice(0, 3);
+  }, [orders]);
+
+  const handleAddGalleryItem = () => {
+    router.push('/(tabs)/gallery?openAdd=1');
+  };
+
+  const handleCreateOrder = () => {
+    if (clientCount === 0) {
+      router.push('/clients/new');
+    } else {
+      router.push('/new-order');
+    }
+  };
+
+  const handleOrderPress = (orderId: string) => {
+    router.push(`/order-details/${orderId}`);
+  };
 
   if (loading && !refreshing) {
     return (
@@ -229,16 +244,17 @@ export default function HomeTab() {
     <ScreenContainer noPadding>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             {companySettings?.owner ? (
               <View style={styles.greetingRow}>
-                <Text style={styles.greeting}>
+                <Text style={[styles.greeting, { color: colors.textPrimary }]}>
                   {(() => {
                     const hour = new Date().getHours();
                     const firstName = companySettings.owner.split(' ')[0];
@@ -247,51 +263,59 @@ export default function HomeTab() {
                     return t('home.greetingEvening', { name: firstName });
                   })()}
                 </Text>
-                <ProBadge size="sm" style={{ marginLeft: 12 }} />
               </View>
             ) : (
-              <View style={styles.greetingRow}>
-                <ProBadge size="sm" />
-              </View>
+              <View style={styles.greetingRow} />
             )}
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.headerIconButton, { backgroundColor: colors.surface }]}
+              onPress={() => router.push('/(tabs)/profile')}
+              activeOpacity={0.7}
+            >
+              <Settings size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Subscription status unavailable — same placement as company banner */}
+        {/* Subscription status unavailable */}
         {subscriptionState === 'unknown' ? (
           <View style={styles.topBannerWrap}>
             <SubscriptionLoadErrorBanner />
           </View>
         ) : null}
 
-        {/* Company setup: incomplete → info banner; complete → optional subtle indicator */}
+        {/* Company setup: incomplete → info banner */}
         {!isCompanySetupComplete ? (
           <View style={styles.companyBanner}>
-            <Info size={20} color={Colors.info} style={styles.companyBannerIcon} />
+            <Info size={20} color={colors.info} style={styles.companyBannerIcon} />
             <View style={styles.companyBannerContent}>
-              <Text style={styles.companyBannerTitle}>{t('home.company.incompleteTitle')}</Text>
-              <Text style={styles.companyBannerSubtitle}>
+              <Text style={[styles.companyBannerTitle, { color: colors.infoText }]}>
+                {t('home.company.incompleteTitle')}
+              </Text>
+              <Text style={[styles.companyBannerSubtitle, { color: colors.info }]}>
                 {t('home.company.incompleteSubtitle')}
               </Text>
               {missingCompanyFieldKeys.length > 0 ? (
-                <Text style={styles.companyBannerHint}>
+                <Text style={[styles.companyBannerHint, { color: colors.info }]}>
                   {t('home.company.missingFields', {
                     fields: missingCompanyFieldKeys.map((key) => t(key)).join(t('home.company.missingFieldsSeparator')),
                   })}
                 </Text>
               ) : null}
               <TouchableOpacity
-                style={styles.companyBannerButton}
+                style={[styles.companyBannerButton, { backgroundColor: colors.info }]}
                 onPress={() => router.push('/(tabs)/profile')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.companyBannerButtonText}>{t('home.company.completeNow')}</Text>
+                <Text style={[styles.companyBannerButtonText, { color: colors.textInverse }]}>
+                  {t('home.company.completeNow')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : (
-          ""
-        )}
+        ) : null}
 
         {error ? (
           <View style={styles.errorBanner}>
@@ -299,143 +323,138 @@ export default function HomeTab() {
           </View>
         ) : null}
 
-        {/* No garments empty state — show only when zero garments */}
+        {/* No garments empty state */}
         {garments.length === 0 ? (
           <View style={styles.noGarmentsContainer}>
-            <View style={styles.noGarmentsCard}>
-              <View style={styles.noGarmentsIcon}>
-                <Shirt size={48} color={Colors.primary} strokeWidth={1.5} />
+            <View style={[styles.noGarmentsCard, { backgroundColor: colors.surface }]}>
+              <View style={[styles.noGarmentsIcon, { backgroundColor: colors.primaryLight }]}>
+                <Shirt size={48} color={colors.primary} strokeWidth={1.5} />
               </View>
-              <Text style={styles.noGarmentsTitle}>{t('home.noGarments.title')}</Text>
-              <Text style={styles.noGarmentsSubtitle}>
+              <Text style={[styles.noGarmentsTitle, { color: colors.textPrimary }]}>
+                {t('home.noGarments.title')}
+              </Text>
+              <Text style={[styles.noGarmentsSubtitle, { color: colors.textSecondary }]}>
                 {t('home.noGarments.subtitle')}
               </Text>
               <TouchableOpacity
-                style={styles.addGarmentButton}
-                onPress={() => router.push('/garments/new')}
+                style={[styles.addGarmentButton, { backgroundColor: colors.primary }]}
+                onPress={handleAddGarment}
                 activeOpacity={0.8}
               >
-                <Plus size={22} color={Colors.textInverse} strokeWidth={2.5} />
-                <Text style={styles.addGarmentButtonText}>{t('home.noGarments.button')}</Text>
+                <Text style={[styles.addGarmentButtonText, { color: colors.textInverse }]}>
+                  {t('home.noGarments.button')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          <>
-        {/* Recent Clients */}
-        <Section
-          title={t('home.recentClients')}
-          style={CompactLayoutStyles.compactSection}
-          headerRight={
-            <View style={styles.sectionHeaderActions}>
-              {recentClients.length > 0 ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onPress={() => canCreateClient && router.push('/clients/new')}
-                  disabled={!canCreateClient}
-                  style={[styles.addSectionButton, !canCreateClient ? styles.addSectionButtonDisabled : null]}
-                  leftIcon={<Plus size={16} color={canCreateClient ? Colors.textInverse : Colors.textTertiary} strokeWidth={2.5} />}
-                >
-                  {t('home.addClient')}
-                </Button>
-              ) : null}
-              <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
-                <Text style={styles.seeAllText}>{t('home.seeAllClients')}</Text>
-              </TouchableOpacity>
+          <View style={styles.dashboardContainer}>
+            {/* Metric Grid: full-width large cards when recent orders hidden, else 2x2 */}
+            <View style={[styles.metricsGrid, !showRecentOrders && styles.metricsGridFullWidth]}>
+              <MetricCard
+                title={t('home.quickOverview.activeOrders')}
+                value={activeOrders.length}
+                subtitle={t('home.quickOverview.dueThisWeek', { count: ordersDueThisWeek.length })}
+                icon={ShoppingBag}
+                iconColor={colors.primary}
+                onPress={() => router.push('/(tabs)/orders')}
+                size={showRecentOrders ? 'default' : 'large'}
+              />
+              <MetricCard
+                title={t('home.quickOverview.totalClients')}
+                value={clientCount}
+                subtitle={t('home.quickOverview.records', { count: clientCount })}
+                icon={Users}
+                iconColor={colors.primary}
+                onPress={() => router.push('/(tabs)/orders')}
+                size={showRecentOrders ? 'default' : 'large'}
+              />
+              <MetricCard
+                title={t('home.quickOverview.gallery')}
+                icon={Image}
+                iconColor={colors.info}
+                onPress={() => router.push('/(tabs)/gallery')}
+                size={showRecentOrders ? 'default' : 'large'}
+              />
+              <MetricCard
+                title={t('home.quickOverview.financial')}
+                icon={TrendingUp}
+                iconColor={colors.warning}
+                onPress={() => router.push('/financial')}
+                size={showRecentOrders ? 'default' : 'large'}
+              />
             </View>
-          }
-        >
-          {recentClients.length === 0 ? (
-            <EmptyState
-              title={t('home.noClients')}
-              hint={!canCreateClient ? limitMsgs.clientLimitReached : undefined}
-              actionLabel={t('home.addClient')}
-              onAction={() => router.push('/clients/new')}
-              actionDisabled={!canCreateClient}
-              style={styles.emptyState}
-            />
-          ) : (
-            <FlatList
-              data={recentClients}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <ClientCard
-                  client={item}
-                  onPress={() => router.push(`/client-details/${item.id}`)}
-                />
-              )}
-              contentContainerStyle={styles.horizontalList}
-              // Performance optimizations
-              windowSize={3}
-              initialNumToRender={3}
-              maxToRenderPerBatch={2}
-              removeClippedSubviews={true}
-            />
-          )}
-        </Section>
 
-        {/* Recent Orders */}
-        <Section
-          title={t('home.recentOrders')}
-          style={CompactLayoutStyles.compactSection}
-          headerRight={
-            <View style={styles.sectionHeaderActions}>
-              {recentOrders.length > 0 ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onPress={() => canCreateOrder && router.push('/new-order')}
-                  disabled={!canCreateOrder}
-                  style={[styles.addSectionButton, !canCreateOrder ? styles.addSectionButtonDisabled : null]}
-                  leftIcon={<Plus size={16} color={canCreateOrder ? Colors.textInverse : Colors.textTertiary} strokeWidth={2.5} />}
-                >
-                  {t('home.addOrder')}
-                </Button>
-              ) : null}
-              <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
-                <Text style={styles.seeAllText}>{t('home.seeAllOrders')}</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        >
-          {recentOrders.length === 0 ? (
-            <EmptyState
-              title={t('home.noOrders')}
-              hint={!canCreateOrder ? limitMsgs.orderLimitReached : undefined}
-              actionLabel={t('home.addOrder')}
-              onAction={() => router.push('/new-order')}
-              actionDisabled={!canCreateOrder}
-              style={styles.emptyState}
-            />
-          ) : (
-            <FlatList
-              data={recentOrders}
-              scrollEnabled={false}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <OrderCard
-                  order={item}
-                  onPress={() => router.push(`/order-details/${item.id}`)}
-                />
-              )}
-              // Performance optimizations
-              initialNumToRender={5}
-              maxToRenderPerBatch={5}
-              removeClippedSubviews={false} // Small list, no need to clip
-            />
-          )}
-        </Section>
-          </>
+            {/* Recent Orders Section (hidden when setting is off) */}
+            {showRecentOrders ? (
+              <View style={styles.recentSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    {t('home.needsAttention.title')}
+                  </Text>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
+                    <Text style={[styles.sectionLink, { color: colors.primary }]}>
+                      {t('home.needsAttention.viewAll')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {recentOrders.length === 0 ? (
+                  <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      {t('home.needsAttention.noOrders')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.recentOrdersList}>
+                    {recentOrders.map((order) => (
+                      <OrderHistoryItem
+                        key={order.id}
+                        order={{
+                          id: order.id,
+                          orderNumber: order.orderNumber,
+                          clientName: order.customer
+                            ? `${order.customer.firstName} ${order.customer.lastName}`
+                            : '—',
+                          total: order.totalAmount,
+                          advance: order.paidAmount,
+                          status: order.status,
+                          orderDate: new Date(order.orderDate).toLocaleDateString(),
+                          rawOrderDate: order.orderDate,
+                          deliveryDate: order.deliveryDate,
+                        }}
+                        onPress={() => handleOrderPress(order.id)}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
+          </View>
         )}
       </ScrollView>
+
+      {/* Floating Action Button */}
+      {garments.length > 0 ? (
+        <FloatingActionButton
+          onCreateOrder={handleCreateOrder}
+          onAddGalleryItem={handleAddGalleryItem}
+        />
+      ) : null}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onUpgrade={handleUpgrade}
+        loading={isUpgrading}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: 100,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -444,65 +463,28 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
   },
+  headerLeft: {
+    flex: 1,
+  },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
   },
   greeting: {
     ...Typography.h1,
   },
-  welcomeText: {
-    ...Typography.body,
-    fontSize: 16,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  sectionHeaderActions: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
-  addSectionButton: {
-    flexDirection: 'row',
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
     alignItems: 'center',
-    gap: Spacing.xs,
-    minHeight: 48, // Minimum 48px height
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md, // 12px buttons
-    backgroundColor: Colors.primary,
-    ...Shadows.sm,
-  },
-  addSectionButtonText: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
-  },
-  addSectionButtonDisabled: {
-    opacity: 0.5, // Disabled state: opacity 0.5, no color change
-  },
-  addSectionButtonTextDisabled: {
-    color: Colors.textTertiary,
-  },
-  seeAllText: {
-    ...Typography.captionBold,
-    color: Colors.primary,
-  },
-  horizontalList: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
-    gap: Spacing.xxxs,
-  },
-  centerContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xxl,
-  },
-  loadingText: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
+    ...Shadows.sm,
   },
   topBannerWrap: {
     marginHorizontal: Spacing.md,
@@ -534,70 +516,47 @@ const styles = StyleSheet.create({
   },
   companyBannerTitle: {
     ...Typography.bodyBold,
-    color: Colors.infoText,
     marginBottom: Spacing.xs,
   },
   companyBannerSubtitle: {
     ...Typography.caption,
-    color: Colors.info,
     marginBottom: Spacing.xs,
     lineHeight: 20,
   },
   companyBannerHint: {
     ...Typography.caption,
-    color: Colors.info,
     marginBottom: Spacing.md,
     lineHeight: 20,
     fontStyle: 'italic',
   },
   companyBannerButton: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.info,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
   },
   companyBannerButtonText: {
     ...Typography.captionBold,
-    color: Colors.textInverse,
-  },
-  companyCompleteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-    gap: Spacing.xs,
-  },
-  companyCompleteText: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-  },
-  emptyState: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
   },
   noGarmentsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md, // 16px screen horizontal padding
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.xxxl * 2,
   },
   noGarmentsCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg, // 14px cards
-    padding: Spacing.lg, // 24px (can be larger for empty state)
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
     alignItems: 'center',
     maxWidth: 340,
     width: '100%',
-    ...Shadows.sm, // Very subtle shadow
+    ...Shadows.sm,
   },
   noGarmentsIcon: {
     width: 80,
     height: 80,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.xl,
@@ -609,7 +568,6 @@ const styles = StyleSheet.create({
   },
   noGarmentsSubtitle: {
     ...Typography.body,
-    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.xxl,
     lineHeight: 24,
@@ -617,11 +575,55 @@ const styles = StyleSheet.create({
   addGarmentButton: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    ...ButtonStyles.primary, // Height 48px minimum, border radius 12px
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addGarmentButtonText: {
     ...Typography.bodyBold,
-    color: Colors.textInverse,
+  },
+  dashboardContainer: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  metricsGridFullWidth: {
+    flexDirection: 'column',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  recentSection: {
+    marginTop: Spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    ...Typography.h3,
+  },
+  sectionLink: {
+    ...Typography.captionBold,
+  },
+  emptyState: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...Typography.caption,
+  },
+  recentOrdersList: {
   },
 });

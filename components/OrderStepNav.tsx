@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getTypography, getShadows, Spacing, BorderRadius, Shadows } from '@/constants/design';
 
 interface OrderStepNavProps {
   showPrev: boolean;
@@ -32,35 +33,44 @@ export function OrderStepNav({
   nextLabel,
 }: OrderStepNavProps) {
   const { t } = useI18n();
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const shadows = getShadows(colors);
   const displayPrevLabel = prevLabel ?? t('stepNav.back');
   const displayNextLabel = nextLabel ?? t('stepNav.next');
+  
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
       {showPrev ? (
         <TouchableOpacity
-          style={styles.prevButton}
+          style={[styles.prevButton, { borderColor: colors.primary, backgroundColor: colors.surface }]}
           onPress={onPrev}
           activeOpacity={0.7}
         >
-          <ChevronLeft size={22} color={Colors.primary} strokeWidth={2.5} />
-          <Text style={styles.prevLabel}>{displayPrevLabel}</Text>
+          <ChevronLeft size={22} color={colors.primary} strokeWidth={2.5} />
+          <Text style={[typography.bodyBold, { color: colors.primary }]}>{displayPrevLabel}</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.spacer} />
       )}
       {showNext ? (
         <TouchableOpacity
-          style={[styles.nextButton, nextDisabled && styles.nextButtonDisabled]}
+          style={[
+            styles.nextButton, 
+            { borderColor: colors.primary, backgroundColor: colors.primary },
+            shadows.primary,
+            nextDisabled && styles.nextButtonDisabled
+          ]}
           onPress={onNext}
           disabled={nextDisabled || nextLoading}
           activeOpacity={0.7}
         >
           {nextLoading ? (
-            <ActivityIndicator size="small" color={Colors.textInverse} />
+            <ActivityIndicator size="small" color={colors.textInverse} />
           ) : (
             <>
-              <Text style={styles.nextLabel}>{displayNextLabel}</Text>
-              <ChevronRight size={22} color={Colors.textInverse} strokeWidth={2.5} />
+              <Text style={[typography.bodyBold, { color: colors.textInverse }]}>{displayNextLabel}</Text>
+              <ChevronRight size={22} color={colors.textInverse} strokeWidth={2.5} />
             </>
           )}
         </TouchableOpacity>
@@ -76,11 +86,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.surface,
     ...Shadows.sm,
   },
   prevButton: {
@@ -91,12 +99,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.surface,
-  },
-  prevLabel: {
-    ...Typography.bodyBold,
-    color: Colors.primary,
   },
   nextButton: {
     flexDirection: 'row',
@@ -106,16 +108,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
-    ...Shadows.primary,
   },
   nextButtonDisabled: {
     opacity: 0.5,
-  },
-  nextLabel: {
-    ...Typography.bodyBold,
-    color: Colors.textInverse,
   },
   spacer: {
     flex: 1,

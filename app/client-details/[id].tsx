@@ -10,24 +10,29 @@ import {
   Modal,
   Dimensions,
   TouchableWithoutFeedback,
+  Image,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CreditCard as Edit3, Plus, Phone, Mail, Calendar, Trash2, Save, X, User } from 'lucide-react-native';
+import { ArrowLeft, Plus, Phone, Mail, Calendar, Trash2, Save, X, User, Camera, ImageIcon, ZoomIn } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { OrderHistoryItem } from '@/components/OrderHistoryItem';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
+import { ZoomableImageViewer } from '@/components/ZoomableImageViewer';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Header } from '@/components/layout/Header';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Section } from '@/components/ui/Section';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { api, apiFetch } from '@/lib/api';
-import { orderStatusToLabel, orderItemsFromMeasurements, formatDate, customerFullName } from '@/lib/api-mappers';
-import { FullScreenLoader } from '@/components/FullScreenLoader';
+import { api, apiFetch, getLocalizedApiMessage, uploadImage, API_BASE_URL } from '@/lib/api';
+import { orderStatusToLabel, orderItemsFromMeasurements, formatDate, customerFullName } from '@/lib/api';
+import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { useI18n } from '@/lib/i18n';
-import { Colors, Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, CardStyles, StatusStyles, CompactLayoutStyles } from '@/constants/design';
+import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, CardStyles, StatusStyles, CompactLayoutStyles } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+
+type Gender = 'male' | 'female' | null;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const EDIT_MODAL_MAX_WIDTH = Math.min(SCREEN_WIDTH - 32, 400);
@@ -41,6 +46,8 @@ type ClientData = {
   email: string | null;
   registrationDate: string;
   notes: string | null;
+  gender: Gender;
+  referenceImage: string | null;
 };
 
 type OrderHistoryEntry = {
@@ -52,12 +59,16 @@ type OrderHistoryEntry = {
   advance: number;
   status: string;
   orderDate: string;
+  rawOrderDate?: string;
+  deliveryDate?: string | null;
 };
 
 export default function ClientDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useI18n();
+  const { colors } = useTheme();
+
   const [loading, setLoading] = useState(true);
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryEntry[]>([]);
@@ -69,7 +80,11 @@ export default function ClientDetailsScreen() {
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editGender, setEditGender] = useState<Gender>(null);
+  const [editReferenceImage, setEditReferenceImage] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
   
   // Track component mount state for cleanup
   const isMountedRef = useRef(true);
@@ -94,6 +109,8 @@ export default function ClientDetailsScreen() {
           email: string | null;
           phone: string;
           notes: string | null;
+          gender: Gender;
+          referenceImage: string | null;
           createdAt: string;
           updatedAt?: string;
           _count?: { orders: number };
@@ -105,6 +122,7 @@ export default function ClientDetailsScreen() {
           totalAmount: number;
           paidAmount: number;
           orderDate: string;
+          deliveryDate?: string | null;
           measurements: Record<string, unknown> | null;
           customer?: { firstName: string; lastName: string };
         }> }>(api.customerOrders(id)),
@@ -119,6 +137,8 @@ export default function ClientDetailsScreen() {
         email: customer.email,
         registrationDate: formatDate(customer.createdAt),
         notes: customer.notes,
+        gender: customer.gender === 'male' || customer.gender === 'female' ? customer.gender : null,
+        referenceImage: customer.referenceImage,
       });
       setOrderHistory(
         orders.map((o) => ({
@@ -130,6 +150,8 @@ export default function ClientDetailsScreen() {
           advance: o.paidAmount,
           status: o.status, // Pass raw status code for color-coding
           orderDate: formatDate(o.orderDate),
+          rawOrderDate: o.orderDate,
+          deliveryDate: o.deliveryDate ?? null,
         }))
       );
     } catch (err) {
@@ -175,17 +197,52 @@ export default function ClientDetailsScreen() {
     setEditPhone(clientData.phone);
     setEditEmail(clientData.email || '');
     setEditNotes(clientData.notes || '');
+    setEditGender(clientData.gender === 'male' || clientData.gender === 'female' ? clientData.gender : null);
+    setEditReferenceImage(clientData.referenceImage);
     setEditModalVisible(true);
   };
 
   const handleCloseEditModal = () => {
-    if (saveLoading) return;
+    if (saveLoading || imageUploading) return;
     setEditModalVisible(false);
     setEditFirstName('');
     setEditLastName('');
     setEditPhone('');
     setEditEmail('');
     setEditNotes('');
+    setEditGender(null);
+    setEditReferenceImage(null);
+  };
+
+  const handlePickReferenceImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('common.error'), t('clients.edit.photoPermissionDenied'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUploading(true);
+      try {
+        const imageUrl = await uploadImage(result.assets[0].uri);
+        setEditReferenceImage(imageUrl);
+      } catch (e) {
+        Alert.alert(t('common.error'), t('clients.edit.imageUploadError'));
+      } finally {
+        setImageUploading(false);
+      }
+    }
+  };
+
+  const handleRemoveReferenceImage = () => {
+    setEditReferenceImage(null);
   };
 
   const handleSave = async () => {
@@ -205,6 +262,8 @@ export default function ClientDetailsScreen() {
         phone: string;
         email?: string | null;
         notes?: string | null;
+        gender?: Gender;
+        referenceImage?: string | null;
       } = {
         firstName: editFirstName.trim(),
         lastName: editLastName.trim(),
@@ -219,6 +278,10 @@ export default function ClientDetailsScreen() {
       const notesTrimmed = editNotes.trim();
       requestBody.notes = notesTrimmed || null;
 
+      // Include gender and reference image
+      requestBody.gender = editGender;
+      requestBody.referenceImage = editReferenceImage;
+
       const updated = await apiFetch<{
         id: string;
         firstName: string;
@@ -226,6 +289,8 @@ export default function ClientDetailsScreen() {
         email: string | null;
         phone: string;
         notes: string | null;
+        gender: Gender;
+        referenceImage: string | null;
         createdAt: string;
         _count?: { orders: number };
       }>(api.customers(id), {
@@ -242,6 +307,8 @@ export default function ClientDetailsScreen() {
         phone: updated.phone,
         email: updated.email,
         notes: updated.notes,
+        gender: updated.gender,
+        referenceImage: updated.referenceImage,
       });
 
       // Update order history client name
@@ -256,9 +323,11 @@ export default function ClientDetailsScreen() {
       setEditPhone('');
       setEditEmail('');
       setEditNotes('');
+      setEditGender(null);
+      setEditReferenceImage(null);
       Alert.alert(t('common.success'), t('clientDetails.saveSuccess'));
     } catch (e) {
-      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('clientDetails.saveError'));
+      Alert.alert(t('common.error'), getLocalizedApiMessage(e, t, t('clientDetails.saveError')));
     } finally {
       setSaveLoading(false);
     }
@@ -302,8 +371,7 @@ export default function ClientDetailsScreen() {
   if (loading) {
     return (
       <ScreenContainer noPadding>
-        <Header title={t('clientDetails.title')} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} />
-        <FullScreenLoader message={t('common.loading')} />
+        <ListSkeletonLoader variant="card" count={4} />
       </ScreenContainer>
     );
   }
@@ -311,7 +379,6 @@ export default function ClientDetailsScreen() {
   if (!clientData) {
     return (
       <ScreenContainer noPadding>
-        <Header title={t('clientDetails.title')} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} />
         <View style={styles.loadingContainer}>
           <ErrorText variant="dark">{t('clientDetails.clientNotFound')}</ErrorText>
         </View>
@@ -321,65 +388,61 @@ export default function ClientDetailsScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <Header
-        title={t('clientDetails.title')}
-        onBack={() => router.back()}
-        backAccessibilityLabel={t('common.back')}
-        rightActions={
-          <>
-            <Button variant="dangerIcon" onPress={handleDeleteRequest} accessibilityLabel={t('common.delete')}>
-              <Trash2 size={18} color={Colors.error} strokeWidth={2.5} />
-            </Button>
-            <Button variant="primaryIcon" onPress={handleEdit} accessibilityLabel={t('common.edit')}>
-              <Edit3 size={18} color={Colors.textInverse} strokeWidth={2.5} />
-            </Button>
-          </>
-        }
-      />
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.section}>
-          <View style={styles.clientHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {clientData.name.split(' ').map((n) => n[0]).join('').toUpperCase()}
-              </Text>
+        {/* Client details card (tappable to edit, like order-details payment card) */}
+        <TouchableOpacity
+          style={[styles.section, { backgroundColor: colors.surface }]}
+          onPress={handleEdit}
+          activeOpacity={0.9}
+        >
+          <View style={styles.clientHeaderRow}>
+            <View style={styles.clientHeader}>
+            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.avatarText, { color: colors.textInverse }]}>
+                  {clientData.name.split(' ').map((n) => n[0]).join('').toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.clientInfo}>
+                <Text style={[styles.clientName, { color: colors.textPrimary }]}>{clientData.name}</Text>
+              </View>
             </View>
-            <View style={styles.clientInfo}>
-              <Text style={styles.clientName}>{clientData.name}</Text>
+            <View style={styles.actionButtons}>
+              <Button variant="dangerIcon" onPress={handleDeleteRequest} accessibilityLabel={t('common.delete')}>
+                <Trash2 size={18} color={colors.error} strokeWidth={2.5} />
+              </Button>
             </View>
           </View>
 
           <View style={styles.contactInfo}>
             <View style={styles.contactRow}>
-              <Phone size={16} color={Colors.textSecondary} />
-              <Text style={styles.contactText}>{clientData.phone}</Text>
+              <Phone size={16} color={colors.textSecondary} />
+              <Text style={[styles.contactText, { color: colors.textSecondary }]}>{clientData.phone}</Text>
             </View>
             {clientData.email ? (
               <View style={styles.contactRow}>
-                <Mail size={16} color={Colors.textSecondary} />
-                <Text style={styles.contactText}>{clientData.email}</Text>
+                <Mail size={16} color={colors.textSecondary} />
+                <Text style={[styles.contactText, { color: colors.textSecondary }]}>{clientData.email}</Text>
               </View>
             ) : null}
             <View style={styles.contactRow}>
-              <Calendar size={16} color={Colors.textSecondary} />
-              <Text style={styles.contactText}>{t('clientDetails.clientSince')}: {clientData.registrationDate}</Text>
+              <Calendar size={16} color={colors.textSecondary} />
+              <Text style={[styles.contactText, { color: colors.textSecondary }]}>{t('clientDetails.clientSince')}: {clientData.registrationDate}</Text>
             </View>
           </View>
 
           {clientData.notes ? (
-            <View style={styles.notes}>
-              <Text style={styles.notesTitle}>{t('clientDetails.notesTitle')}</Text>
-              <Text style={styles.notesText}>{clientData.notes}</Text>
+            <View style={[styles.notes, { backgroundColor: colors.warningBg, borderLeftColor: colors.primary }]}>
+              <Text style={[styles.notesTitle, { color: colors.warningText }]}>{t('clientDetails.notesTitle')}</Text>
+              <Text style={[styles.notesText, { color: colors.warningText }]}>{clientData.notes}</Text>
             </View>
           ) : null}
-        </View>
+        </TouchableOpacity>
 
         <Section
           title={t('orders.tabs.orderHistory')}
           style={CompactLayoutStyles.compactSection}
           headerRight={
-            <Button variant="primary" size="sm" onPress={handleNewOrder} leftIcon={<Plus size={16} color={Colors.textInverse} />} style={styles.newOrderButton}>
+            <Button variant="primary" size="sm" onPress={handleNewOrder} leftIcon={<Plus size={16} color={colors.textInverse} />} style={styles.newOrderButton}>
               {t('newOrder.title')}
             </Button>
           }
@@ -394,7 +457,7 @@ export default function ClientDetailsScreen() {
                 onPress={() => handleOrderPress(item.id)}
               />
             )}
-            ListEmptyComponent={<Text style={styles.emptyOrders}>{t('orders.emptyOrders')}</Text>}
+            ListEmptyComponent={<Text style={[styles.emptyOrders, { color: colors.textSecondary }]}>{t('orders.emptyOrders')}</Text>}
             contentContainerStyle={styles.ordersList}
             // Performance optimizations
             initialNumToRender={10}
@@ -415,19 +478,19 @@ export default function ClientDetailsScreen() {
       >
         <View style={styles.modalRoot}>
           <TouchableWithoutFeedback onPress={handleCloseEditModal}>
-            <View style={styles.modalOverlay} />
+            <View style={[styles.modalOverlay, { backgroundColor: colors.overlayModal }]} />
           </TouchableWithoutFeedback>
           <View style={styles.modalCentered} pointerEvents="box-none">
-            <View style={styles.editModalCard}>
+            <View style={[styles.editModalCard, { backgroundColor: colors.surface }]}>
               <View style={styles.editModalHeader}>
-                <Text style={styles.editModalTitle}>{t('clientDetails.editTitle')}</Text>
+                <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>{t('clientDetails.editTitle')}</Text>
                 <TouchableOpacity
                   style={styles.editModalCloseBtn}
                   onPress={handleCloseEditModal}
                   disabled={saveLoading}
                   activeOpacity={0.7}
                 >
-                  <X size={22} color={Colors.textSecondary} strokeWidth={2.5} />
+                  <X size={22} color={colors.textSecondary} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
               <KeyboardAwareScrollView
@@ -440,7 +503,7 @@ export default function ClientDetailsScreen() {
                   value={editLastName}
                   onChangeText={setEditLastName}
                   placeholder={t('clientDetails.lastNamePlaceholder')}
-                  leftIcon={<User size={20} color={Colors.textSecondary} />}
+                  leftIcon={<User size={20} color={colors.textSecondary} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -448,7 +511,7 @@ export default function ClientDetailsScreen() {
                   value={editFirstName}
                   onChangeText={setEditFirstName}
                   placeholder={t('clientDetails.firstNamePlaceholder')}
-                  leftIcon={<User size={20} color={Colors.textSecondary} />}
+                  leftIcon={<User size={20} color={colors.textSecondary} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -457,7 +520,7 @@ export default function ClientDetailsScreen() {
                   onChangeText={setEditPhone}
                   placeholder={t('clientDetails.phonePlaceholder')}
                   keyboardType="phone-pad"
-                  leftIcon={<Phone size={20} color={Colors.textSecondary} />}
+                  leftIcon={<Phone size={20} color={colors.textSecondary} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -468,7 +531,7 @@ export default function ClientDetailsScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   optional
-                  leftIcon={<Mail size={20} color={Colors.textTertiary} />}
+                  leftIcon={<Mail size={20} color={colors.textTertiary} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -476,18 +539,109 @@ export default function ClientDetailsScreen() {
                   value={editNotes}
                   onChangeText={setEditNotes}
                   placeholder={t('clientDetails.notesPlaceholder')}
-                  placeholderTextColor={Colors.textTertiary}
+                  placeholderTextColor={colors.textTertiary}
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
                   containerStyle={styles.editModalInput}
                 />
+
+                {/* Gender Selection */}
+                <View style={styles.editModalInput}>
+                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>{t('clients.edit.genderLabel')}</Text>
+                  <View style={styles.genderSelector}>
+                    {(['male', 'female'] as const).map((gender) => (
+                      <TouchableOpacity
+                        key={gender}
+                        style={[
+                          styles.genderOption,
+                          { borderColor: colors.border, backgroundColor: colors.surface },
+                          editGender === gender && { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+                        ]}
+                        onPress={() => setEditGender(gender)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.genderOptionText,
+                            { color: colors.textSecondary },
+                            editGender === gender && { color: colors.primary },
+                          ]}
+                        >
+                          {t(`clients.edit.gender.${gender}`)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Reference Image */}
+                <View style={styles.editModalInput}>
+                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>{t('clients.edit.referenceImageLabel')}</Text>
+                  <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('clients.edit.referenceImageHint')}</Text>
+                  {editReferenceImage ? (
+                    <View style={[styles.referenceImageContainer, { backgroundColor: colors.background }]}>
+                      <TouchableOpacity
+                        onPress={() => setImageViewerVisible(true)}
+                        activeOpacity={0.9}
+                        style={styles.referenceImageTouchable}
+                      >
+                        <Image
+                          source={{
+                            uri: editReferenceImage.startsWith('http')
+                              ? editReferenceImage
+                              : `${API_BASE_URL}${editReferenceImage}`,
+                          }}
+                          style={styles.referenceImage}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.zoomOverlay}>
+                          <ZoomIn size={18} color="#FFFFFF" />
+                        </View>
+                      </TouchableOpacity>
+                      <View style={styles.referenceImageActions}>
+                        <TouchableOpacity
+                          style={styles.changeImageBtn}
+                          onPress={handlePickReferenceImage}
+                          disabled={imageUploading}
+                        >
+                          <Camera size={16} color={colors.primary} />
+                          <Text style={[styles.changeImageText, { color: colors.primary }]}>{t('clients.edit.changeImage')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.removeImageBtn}
+                          onPress={handleRemoveReferenceImage}
+                          disabled={imageUploading}
+                        >
+                          <X size={16} color={colors.error} />
+                          <Text style={[styles.removeImageText, { color: colors.error }]}>{t('clients.edit.removeImage')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.imagePicker, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      onPress={handlePickReferenceImage}
+                      disabled={imageUploading}
+                      activeOpacity={0.7}
+                    >
+                      {imageUploading ? (
+                        <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.uploading')}</Text>
+                      ) : (
+                        <>
+                          <ImageIcon size={32} color={colors.textTertiary} />
+                          <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.addReferenceImage')}</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
               </KeyboardAwareScrollView>
-              <View style={styles.editModalActions}>
+              <View style={[styles.editModalActions, { borderTopColor: colors.border }]}>
                 <Button
                   variant="secondary"
                   onPress={handleCloseEditModal}
-                  disabled={saveLoading}
+                  disabled={saveLoading || imageUploading}
                   style={styles.editModalCancelBtn}
                 >
                   {t('common.cancel')}
@@ -495,9 +649,9 @@ export default function ClientDetailsScreen() {
                 <Button
                   variant="primary"
                   onPress={handleSave}
-                  disabled={saveLoading}
+                  disabled={saveLoading || imageUploading}
                   loading={saveLoading}
-                  leftIcon={saveLoading ? undefined : <Save size={18} color={Colors.textInverse} strokeWidth={2.5} />}
+                  leftIcon={saveLoading ? undefined : <Save size={18} color={colors.textInverse} strokeWidth={2.5} />}
                   style={styles.editModalSaveBtn}
                 >
                   {t('common.save')}
@@ -517,6 +671,18 @@ export default function ClientDetailsScreen() {
         confirmLabel={t('common.delete')}
         loading={deleteLoading}
       />
+
+      <ZoomableImageViewer
+        visible={imageViewerVisible}
+        images={editReferenceImage ? [{
+          uri: editReferenceImage.startsWith('http')
+            ? editReferenceImage
+            : `${API_BASE_URL}${editReferenceImage}`,
+          title: t('clients.edit.referenceImageLabel'),
+        }] : []}
+        initialIndex={0}
+        onClose={() => setImageViewerVisible(false)}
+      />
     </ScreenContainer>
   );
 }
@@ -524,22 +690,35 @@ export default function ClientDetailsScreen() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
+    paddingVertical: Spacing.md,
   },
   section: {
-    ...CardStyles.cardElevated,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    ...Shadows.md,
+  },
+  clientHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
   clientHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    flex: 1,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
@@ -547,7 +726,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.textInverse,
   },
   clientInfo: {
     flex: 1,
@@ -556,7 +734,6 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.textPrimary,
   },
   contactInfo: {
     gap: Spacing.sm,
@@ -571,29 +748,22 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   notes: {
-    ...StatusStyles.warning,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
   },
   notesTitle: {
     ...Typography.captionBold,
     fontWeight: '700',
-    color: Colors.warningText,
     marginBottom: Spacing.sm,
   },
   notesText: {
     ...Typography.caption,
-    color: Colors.warningText,
     lineHeight: 20,
   },
   notesInput: {
     ...Typography.caption,
-    color: Colors.warningText,
-    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     minHeight: 100,
@@ -604,6 +774,8 @@ const styles = StyleSheet.create({
   },
   ordersList: {
     gap: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
   bottomSpacer: {
     height: Spacing.lg,
@@ -616,7 +788,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...Typography.body,
-    color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
   emptyOrders: {
@@ -630,7 +801,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.overlayModal,
   },
   modalCentered: {
     flex: 1,
@@ -642,7 +812,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: EDIT_MODAL_MAX_WIDTH,
     maxHeight: '85%',
-    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     ...Shadows.xl,
     overflow: 'hidden',
@@ -657,7 +826,6 @@ const styles = StyleSheet.create({
   },
   editModalTitle: {
     ...Typography.h3,
-    color: Colors.textPrimary,
   },
   editModalCloseBtn: {
     width: 44,
@@ -666,7 +834,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editModalScroll: {
-    maxHeight: 360,
+    maxHeight: 450,
     paddingHorizontal: Spacing.lg,
   },
   editModalInput: {
@@ -677,12 +845,96 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   editModalCancelBtn: {
     flex: 1,
   },
   editModalSaveBtn: {
     flex: 1,
+  },
+  fieldLabel: {
+    ...Typography.captionBold,
+    marginBottom: Spacing.sm,
+  },
+  fieldHint: {
+    ...Typography.small,
+    marginBottom: Spacing.sm,
+  },
+  genderSelector: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  genderOption: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  genderOptionSelected: {
+  },
+  genderOptionText: {
+    ...Typography.caption,
+  },
+  genderOptionTextSelected: {
+    fontWeight: '600',
+  },
+  imagePicker: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+  },
+  imagePickerText: {
+    ...Typography.caption,
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+  },
+  referenceImageContainer: {
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  referenceImageTouchable: {
+    position: 'relative',
+  },
+  referenceImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: BorderRadius.lg,
+  },
+  zoomOverlay: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: BorderRadius.full,
+    padding: Spacing.xs,
+  },
+  referenceImageActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.sm,
+  },
+  changeImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+  },
+  changeImageText: {
+    ...Typography.small,
+  },
+  removeImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+  },
+  removeImageText: {
+    ...Typography.small,
   },
 });

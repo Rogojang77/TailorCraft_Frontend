@@ -1,6 +1,6 @@
 /**
  * Global Input component – single source for all text inputs.
- * Uses InputStyles from constants/design. No local input styles in screens.
+ * Uses theme-aware styles from ThemeContext. No local input styles in screens.
  */
 import React, { forwardRef, useState } from 'react';
 import {
@@ -11,7 +11,8 @@ import {
   ViewStyle,
   TextInput as RNTextInput,
 } from 'react-native';
-import { Colors, Spacing, Typography, BorderRadius, InputStyles, Shadows, DENSITY } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Spacing, BorderRadius, Shadows, DENSITY, getTypography, getInputStyles } from '@/constants/design';
 
 const _inputCompact = DENSITY === 'compact';
 const _inputMinHeight = _inputCompact ? 44 : 54;
@@ -47,7 +48,7 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
     optional = false,
     variant = 'default',
     containerStyle,
-    placeholderTextColor = Colors.textTertiary,
+    placeholderTextColor,
     multiline,
     numberOfLines,
     textAlignVertical,
@@ -57,11 +58,15 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
   },
   ref
 ) {
+  const { colors } = useTheme();
+  const typography = getTypography(colors);
+  const inputStyles = getInputStyles(colors);
+  const { onFocus: onFocusProp, onBlur: onBlurProp, ...restProps } = rest;
+
   const [focused, setFocused] = useState(false);
   const hasError = error === true || (typeof error === 'string' && error.length > 0);
   const errorMessage = typeof error === 'string' ? error : undefined;
 
-  // Never pass null/undefined to TextInput so the placeholder shows instead of "null"
   const value = valueProp == null ? '' : String(valueProp);
 
   if (variant === 'code') {
@@ -69,50 +74,90 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
       <View style={containerStyle}>
         <TextInput
           ref={ref}
+          onFocus={onFocusProp}
+          onBlur={onBlurProp}
           style={[
-            styles.codeInput,
-            value && styles.codeInputFilled,
-            hasError && styles.codeInputError,
+            {
+              width: _codeBoxSize,
+              height: _codeBoxSize,
+              minWidth: _codeBoxSize,
+              minHeight: _codeBoxSize,
+              borderWidth: 2,
+              borderColor: colors.border,
+              borderRadius: BorderRadius.md,
+              ...typography.h2,
+              textAlign: 'center',
+              backgroundColor: colors.surface,
+              padding: 0,
+            },
+            value && { borderColor: colors.textPrimary },
+            hasError && { borderColor: colors.error },
           ]}
-          placeholderTextColor={placeholderTextColor}
-          {...rest}
+          placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
+          {...restProps}
           value={value}
         />
       </View>
     );
   }
 
-  const inputStyle = [
-    styles.input,
-    optional && styles.inputOptional,
-    multiline && styles.textArea,
-    leftIcon && styles.inputWithLeftIcon,
-    rightElement && styles.inputWithRightElement,
-    hasError && styles.inputError,
-    focused && !hasError && styles.inputFocused,
-  ];
-
   return (
-    <View style={[InputStyles.container, containerStyle]}>
+    <View style={[inputStyles.container, containerStyle]}>
       {label ? (
-        <Text style={optional ? styles.labelOptional : styles.label} numberOfLines={1}>
+        <Text 
+          style={optional ? {
+            ...typography.label,
+            marginBottom: Spacing.sm,
+            color: colors.textTertiary,
+            fontSize: 12,
+          } : inputStyles.label} 
+          numberOfLines={1}
+        >
           {label}
         </Text>
       ) : null}
       <View
         style={[
-          styles.wrapper,
-          optional && styles.wrapperOptional,
-          multiline && styles.wrapperMultiline,
-          hasError && styles.wrapperError,
-          focused && !hasError && styles.wrapperFocused,
+          {
+            position: 'relative',
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.surface,
+            borderRadius: BorderRadius.sm,
+            paddingHorizontal: Spacing.md,
+            borderWidth: 1.5,
+            borderColor: colors.border,
+            ...Shadows.sm,
+            minHeight: _inputMinHeight,
+          },
+          optional && { borderColor: colors.borderLight },
+          multiline && { alignItems: 'flex-start', paddingVertical: Spacing.md, minHeight: 80 },
+          hasError && { borderColor: colors.error },
+          focused && !hasError && { borderColor: colors.primary },
         ]}
       >
-        {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
+        {leftIcon ? <View style={{ marginRight: Spacing.md }}>{leftIcon}</View> : null}
         <TextInput
           ref={ref}
-          style={inputStyle}
-          placeholderTextColor={placeholderTextColor}
+          style={[
+            {
+              flex: 1,
+              ...inputStyles.input,
+              paddingVertical: _inputCompact ? 10 : 14,
+              marginVertical: 0,
+              minHeight: _inputMinHeight,
+              height: _inputMinHeight,
+            },
+            multiline && {
+              minHeight: 80,
+              height: undefined,
+              paddingTop: Spacing.sm,
+              paddingBottom: Spacing.sm,
+              textAlignVertical: 'top',
+            },
+            rightElement ? { paddingRight: 44 } : null,
+          ]}
+          placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
           multiline={multiline}
           numberOfLines={numberOfLines ?? (multiline ? 4 : 1)}
           textAlignVertical={textAlignVertical ?? (multiline ? 'top' : 'center')}
@@ -120,18 +165,22 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
           value={value}
           onFocus={(e) => {
             setFocused(true);
-            rest.onFocus?.(e);
+            onFocusProp?.(e);
           }}
           onBlur={(e) => {
             setFocused(false);
-            rest.onBlur?.(e);
+            onBlurProp?.(e);
           }}
-          {...rest}
+          {...restProps}
         />
-        {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
+        {rightElement ? (
+          <View style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' }}>
+            {rightElement}
+          </View>
+        ) : null}
       </View>
       {errorMessage ? (
-        <Text style={styles.errorText} numberOfLines={2}>
+        <Text style={{ ...typography.caption, color: colors.error, marginTop: Spacing.xs }} numberOfLines={2}>
           {errorMessage}
         </Text>
       ) : null}
@@ -140,107 +189,3 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
 });
 
 export const Input = InputComponent;
-
-const styles = StyleSheet.create({
-  label: {
-    ...InputStyles.label,
-  },
-  labelOptional: {
-    ...Typography.label,
-    marginBottom: Spacing.sm,
-    color: Colors.textTertiary,
-    fontSize: 12,
-  },
-  wrapper: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    ...Shadows.sm,
-    minHeight: _inputMinHeight,
-  },
-  wrapperOptional: {
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
-  },
-  wrapperMultiline: {
-    alignItems: 'flex-start',
-    paddingVertical: Spacing.md,
-    minHeight: 80,
-  },
-  wrapperFocused: {
-    borderColor: Colors.primary,
-  },
-  wrapperError: {
-    borderColor: Colors.error,
-  },
-  leftIcon: {
-    marginRight: Spacing.md,
-  },
-  rightElement: {
-    position: 'absolute',
-    right: 12,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  input: {
-    flex: 1,
-    ...InputStyles.input,
-    paddingVertical: _inputCompact ? 10 : 14,
-    marginVertical: 0,
-    minHeight: _inputMinHeight,
-    height: _inputMinHeight,
-  },
-  inputOptional: {
-    flex: 1,
-    ...InputStyles.input,
-    paddingVertical: _inputCompact ? 10 : 14,
-    marginVertical: 0,
-    minHeight: _inputMinHeight,
-    height: _inputMinHeight,
-  },
-  inputWithLeftIcon: {},
-  inputWithRightElement: {
-    paddingRight: 44,
-  },
-  inputError: {},
-  inputFocused: {},
-  textArea: {
-    minHeight: 80,
-    height: undefined,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    textAlignVertical: 'top',
-  },
-  errorText: {
-    ...Typography.caption,
-    color: Colors.error,
-    marginTop: Spacing.xs,
-  },
-  // Code variant (OTP boxes)
-  codeInput: {
-    width: _codeBoxSize,
-    height: _codeBoxSize,
-    minWidth: _codeBoxSize,
-    minHeight: _codeBoxSize,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    ...Typography.h2,
-    textAlign: 'center',
-    backgroundColor: Colors.surface,
-    padding: 0,
-  },
-  codeInputFilled: {
-    borderColor: Colors.textPrimary,
-    backgroundColor: Colors.surface,
-  },
-  codeInputError: {
-    borderColor: Colors.error,
-  },
-});

@@ -12,5 +12,6 @@ export {
 export {
   shareOrderPDF,
   downloadOrderPDF,
+  saveOrderPdfToFolderAsync,
   type PDFLabels,
 } from './pdfGenerator';

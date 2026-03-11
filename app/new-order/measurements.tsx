@@ -2,27 +2,34 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollViewWithAccessory } from '@/components/KeyboardAwareScrollViewWithAccessory';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { useI18n } from '@/lib/i18n';
 import { FileEdit } from 'lucide-react-native';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { MeasurementForm } from '@/components/MeasurementForm';
+import { CatalogSelectionsForm } from '@/components/CatalogSelectionsForm';
 import { api, apiFetch } from '@/lib/api';
-import { normalizeGarmentTypeRecord, definitionRecordToFormDefinition } from '@/lib/api-mappers';
+import { normalizeGarmentTypeRecord, definitionRecordToFormDefinition } from '@/lib/api';
 import type { GarmentTypeRecord } from '@/types/templates';
 import type { MeasurementDefinitionRecord } from '@/types/templates';
-import { getLatestClientMeasurements } from '@/lib/clientMeasurements';
+import type {
+  GarmentCatalogCategoryWithItems,
+  GarmentCatalogResponse,
+} from '@/types/catalog';
+import { getLatestClientMeasurements } from '@/lib/measurement';
 import { humanizeGarmentId } from '@/utils';
-import { filterDefinitionsWithValidKey } from '@/lib/measurementDefensive';
-import { getDisplayUnit } from '@/hooks/useResolvedDefinition';
-import { buildPersistableMeasurements } from '@/lib/persistableMeasurements';
-import { storageToMeasurementValue } from '@/lib/measurementValues';
+import { filterDefinitionsWithValidKey } from '@/lib/measurement';
+import { useSettings } from '@/contexts/SettingsContext';
+import { getUnitDisplay } from '@/constants/units';
+import { buildPersistableMeasurements } from '@/lib/measurement';
+import { storageToMeasurementValue } from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
-import { Header } from '@/components/layout/Header';
+import { useCustomBack } from '@/contexts/PageTitleContext';
 import { Loader } from '@/components/ui/Loader';
-import { Colors, Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface GarmentSection {
   garmentId: string;
@@ -74,7 +81,12 @@ export default function OrderMeasurementsScreen() {
   const { t } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { draftOrder, updateMeasurements } = useOrderDraft();
+  const { colors } = useTheme();
+  const { preferredUnit } = useSettings();
+
+  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
+  const preferredUnitSymbol = getUnitDisplay(preferredUnit) ?? preferredUnit;
+  const { draftOrder, updateMeasurements, updateCatalogSelections } = useOrderDraft();
   const selectedIds = draftOrder.selectedGarmentIds;
 
   const [sections, setSections] = useState<GarmentSection[]>([]);
@@ -82,6 +94,9 @@ export default function OrderMeasurementsScreen() {
   const [formDataByGarment, setFormDataByGarment] = useState<Record<string, Record<string, MeasurementValue>>>({});
   const [clientLatestByGarment, setClientLatestByGarment] = useState<Record<string, Record<string, string> | null>>({});
   const [loadingClientByGarment, setLoadingClientByGarment] = useState<Record<string, boolean>>({});
+  
+  const [categoriesByGarment, setCategoriesByGarment] = useState<Record<string, GarmentCatalogCategoryWithItems[]>>({});
+  const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
 
   const fetchSections = useCallback(async () => {
     if (selectedIds.length === 0) {
@@ -137,6 +152,37 @@ export default function OrderMeasurementsScreen() {
   useEffect(() => {
     fetchSections();
   }, [fetchSections]);
+
+  const fetchCatalogForGarments = useCallback(async () => {
+    if (selectedIds.length === 0) {
+      setCategoriesByGarment({});
+      return;
+    }
+
+    const newCategoriesByGarment: Record<string, GarmentCatalogCategoryWithItems[]> = {};
+
+    await Promise.all(
+      selectedIds.map(async (garmentId) => {
+        setCatalogLoading((prev) => ({ ...prev, [garmentId]: true }));
+        try {
+          const catalogRes = await apiFetch<GarmentCatalogResponse>(
+            api.garmentCatalog.forGarment(garmentId)
+          );
+          newCategoriesByGarment[garmentId] = catalogRes.categories.filter((c) => c.enabled);
+        } catch {
+          newCategoriesByGarment[garmentId] = [];
+        } finally {
+          setCatalogLoading((prev) => ({ ...prev, [garmentId]: false }));
+        }
+      })
+    );
+
+    setCategoriesByGarment(newCategoriesByGarment);
+  }, [selectedIds.join(',')]);
+
+  useEffect(() => {
+    fetchCatalogForGarments();
+  }, [fetchCatalogForGarments]);
 
   const customerId = draftOrder.customer.id;
 
@@ -251,6 +297,23 @@ export default function OrderMeasurementsScreen() {
     }));
   };
 
+  const handleCatalogSelectionChange = useCallback(
+    (garmentId: string, categoryCode: string, itemId: string | null) => {
+      if (itemId === null) {
+        const currentSelections = draftOrder.catalogSelections[garmentId] ?? {};
+        const { [categoryCode]: _, ...rest } = currentSelections;
+        if (Object.keys(rest).length === 0) {
+          updateCatalogSelections(garmentId, categoryCode, '');
+        } else {
+          updateCatalogSelections(garmentId, categoryCode, '');
+        }
+      } else {
+        updateCatalogSelections(garmentId, categoryCode, itemId);
+      }
+    },
+    [draftOrder.catalogSelections, updateCatalogSelections]
+  );
+
   const persistAll = useCallback(() => {
     sections.forEach((sec) => {
       const formData = formDataByGarment[sec.garmentId];
@@ -286,11 +349,6 @@ export default function OrderMeasurementsScreen() {
   if (loading) {
     return (
       <ScreenContainer noPadding>
-        <Header
-          title={t('newOrder.measurements.pageTitle')}
-          onBack={() => router.replace('/(tabs)/orders')}
-          backAccessibilityLabel={t('common.back')}
-        />
         <Loader message={t('common.loading')} style={styles.loadingContainer} />
       </ScreenContainer>
     );
@@ -301,14 +359,8 @@ export default function OrderMeasurementsScreen() {
   return (
     <>
       <ScreenContainer noPadding>
-        <Header
-          title={t('newOrder.measurements.pageTitle')}
-          onBack={() => router.replace('/(tabs)/orders')}
-          backAccessibilityLabel={t('common.back')}
-        />
-
         <View style={styles.contentWrapper}>
-          <KeyboardAwareScrollView
+          <KeyboardAwareScrollViewWithAccessory
             style={styles.content}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.scrollContent, { paddingBottom: footerBottomOffset }]}
@@ -318,24 +370,24 @@ export default function OrderMeasurementsScreen() {
             {sections.map((sec) => {
               const formData = formDataByGarment[sec.garmentId] ?? {};
               const clientLatest = clientLatestByGarment[sec.garmentId] ?? null;
+              const categories = categoriesByGarment[sec.garmentId] ?? [];
+              const selections = draftOrder.catalogSelections[sec.garmentId] ?? {};
+              const isCatalogLoading = catalogLoading[sec.garmentId] ?? false;
 
               return (
                 <View key={sec.garmentId} style={styles.garmentSection}>
                   <View style={styles.garmentSectionHeader}>
-                    <FileEdit size={20} color={Colors.primary} />
-                    <Text style={styles.garmentSectionTitle}>{sec.label}</Text>
+                    <FileEdit size={20} color={colors.primary} />
+                    <Text style={[styles.garmentSectionTitle, { color: colors.textPrimary }]}>{sec.label}</Text>
                   </View>
 
                   {sec.definitions.length > 0 ? (
                     <View style={styles.formBlock}>
                       <View style={styles.formBlockTitleRow}>
-                        <Text style={styles.formBlockTitle}>{t('newOrder.measurements.forThisOrder')}</Text>
-                        {(() => {
-                          const primaryUnit = sec.definitions.map((d) => getDisplayUnit(d)).find(Boolean);
-                          return primaryUnit ? (
-                            <Text style={styles.unitHint}>{t('modals.measurement.unitLabel')}: {primaryUnit}</Text>
-                          ) : null;
-                        })()}
+                        <Text style={[styles.formBlockTitle, { color: colors.textPrimary }]}>{t('newOrder.measurements.forThisOrder')}</Text>
+                        {preferredUnitSymbol ? (
+                          <Text style={[styles.unitHint, { color: colors.textTertiary }]}>{t('modals.measurement.unitLabel')}: {preferredUnitSymbol}</Text>
+                        ) : null}
                       </View>
                       {(() => {
                         const existingData = draftOrder.measurements[sec.garmentId] || {};
@@ -352,7 +404,7 @@ export default function OrderMeasurementsScreen() {
                           );
                         const labelKey = getSectionSourceLabel(sources);
                         return labelKey ? (
-                          <Text style={styles.sourceLabel}>{t(`newOrder.measurements.${labelKey}`)}</Text>
+                          <Text style={[styles.sourceLabel, { color: colors.textTertiary }]}>{t(`newOrder.measurements.${labelKey}`)}</Text>
                         ) : null;
                       })()}
                       <MeasurementForm
@@ -364,14 +416,25 @@ export default function OrderMeasurementsScreen() {
                       />
                     </View>
                   ) : (
-                    <Text style={styles.noDefinitionsHint}>
-                      Acest articol nu are câmpuri de măsurători. Snapshot-ul va fi salvat gol.
+                    <Text style={[styles.noDefinitionsHint, { color: colors.textTertiary }]}>
+                      {t('newOrder.measurements.noMeasurementFields')}
                     </Text>
+                  )}
+
+                  {categories.length > 0 && (
+                    <CatalogSelectionsForm
+                      categories={categories}
+                      selections={selections}
+                      onSelectionChange={(categoryCode, itemId) =>
+                        handleCatalogSelectionChange(sec.garmentId, categoryCode, itemId)
+                      }
+                      isLoading={isCatalogLoading}
+                    />
                   )}
                 </View>
               );
             })}
-          </KeyboardAwareScrollView>
+          </KeyboardAwareScrollViewWithAccessory>
 
           <AppFloatingFooter
             primaryLabel={t('stepNav.summary')}
@@ -402,14 +465,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   garmentSection: {
-    backgroundColor: Colors.surface,
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    ...Shadows.md,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   garmentSectionHeader: {
     flexDirection: 'row',
@@ -432,21 +491,17 @@ const styles = StyleSheet.create({
   },
   formBlockTitle: {
     ...Typography.captionBold,
-    color: Colors.textPrimary,
   },
   unitHint: {
     ...Typography.caption,
-    color: Colors.textTertiary,
   },
   sourceLabel: {
     ...Typography.caption,
-    color: Colors.textTertiary,
     fontStyle: 'italic',
     marginBottom: Spacing.xs,
   },
   noDefinitionsHint: {
     ...Typography.caption,
-    color: Colors.textTertiary,
     fontStyle: 'italic',
   },
 });
