@@ -204,7 +204,7 @@ export function NumericMeasurementInput({
         activeOpacity={0.7}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Done"
+        accessibilityLabel={t('common.done')}
         accessibilityHint="Dismiss keyboard"
       >
         <Text style={[styles.accessoryBtnText, { color: colors.brass ?? colors.primary }]}>{t('common.done')}</Text>
@@ -219,7 +219,7 @@ export function NumericMeasurementInput({
         activeOpacity={0.7}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Set negative"
+        accessibilityLabel={t('modals.measurement.setNegative')}
         accessibilityHint="Makes the value negative"
       >
         <Text style={[styles.accessoryBtnText, { color: colors.textPrimary }]}>−</Text>
@@ -234,7 +234,7 @@ export function NumericMeasurementInput({
         activeOpacity={0.7}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Set positive"
+        accessibilityLabel={t('modals.measurement.setPositive')}
         accessibilityHint="Makes the value positive"
       >
         <Text style={[styles.accessoryBtnText, { color: colors.textPrimary }]}>+</Text>
@@ -251,7 +251,7 @@ export function NumericMeasurementInput({
         activeOpacity={0.7}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Decrease value"
+        accessibilityLabel={t('modals.measurement.decrease')}
         accessibilityHint="Decreases the measurement value"
       >
         <Text style={[styles.accessoryBtnText, { color: colors.ink3 }]}>▼</Text>
@@ -268,7 +268,7 @@ export function NumericMeasurementInput({
         activeOpacity={0.7}
         accessible
         accessibilityRole="button"
-        accessibilityLabel="Increase value"
+        accessibilityLabel={t('modals.measurement.increase')}
         accessibilityHint="Increases the measurement value"
       >
         <Text style={[styles.accessoryBtnText, { color: colors.ink3 }]}>▲</Text>

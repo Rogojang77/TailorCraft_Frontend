@@ -609,14 +609,14 @@ export default function SummaryScreen() {
             )}
 
             <View style={styles.fittingsHeader}>
-              <Text style={[styles.deliveryLabel, { color: colors.ink3 }]}>Date probe</Text>
+              <Text style={[styles.deliveryLabel, { color: colors.ink3 }]}>{t('newOrder.summary.fittingsLabel')}</Text>
               <TouchableOpacity onPress={addFitting} activeOpacity={0.7}>
-                <Text style={[styles.addFittingText, { color: colors.brass ?? colors.primary }]}>+ Adaugă probă</Text>
+                <Text style={[styles.addFittingText, { color: colors.brass ?? colors.primary }]}>{t('newOrder.summary.addFitting')}</Text>
               </TouchableOpacity>
             </View>
             {fittings.length === 0 ? (
               <Text style={[styles.fittingsEmptyText, { color: colors.ink3 }]}>
-                Nu există probe planificate.
+                {t('newOrder.summary.noFittings')}
               </Text>
             ) : (
               fittings.map((fitting, index) => (
@@ -632,7 +632,7 @@ export default function SummaryScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => removeFitting(index)} activeOpacity={0.7}>
-                    <Text style={[styles.removeFittingText, { color: colors.ember ?? colors.error }]}>Șterge</Text>
+                    <Text style={[styles.removeFittingText, { color: colors.ember ?? colors.error }]}>{t('common.delete')}</Text>
                   </TouchableOpacity>
                 </View>
               ))
@@ -645,7 +645,7 @@ export default function SummaryScreen() {
                   </TouchableOpacity>
                   {selectedFittingIndex === null ? (
                     <TouchableOpacity onPress={confirmAddFittingFromPicker} activeOpacity={0.7}>
-                      <Text style={[styles.datePickerDoneText, { color: colors.brass ?? colors.primary }]}>Salvează</Text>
+                      <Text style={[styles.datePickerDoneText, { color: colors.brass ?? colors.primary }]}>{t('common.save')}</Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity onPress={closeFittingPicker} activeOpacity={0.7}>

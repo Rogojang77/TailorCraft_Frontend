@@ -265,7 +265,7 @@ export default function GarmentsListScreen() {
           >
             <EmptyState
               title={t('home.noGarments.title')}
-              message="You haven't created any garments yet. Create your first garment to define how you measure."
+              message={t('garments.emptyMessage')}
             />
           </ScrollView>
           <TouchableOpacity

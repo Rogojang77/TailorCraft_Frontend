@@ -833,7 +833,7 @@ export default function ClientDetailsScreen() {
         onClose={() => !deleteLoading && setDeleteModalVisible(false)}
         onConfirm={handleDeleteConfirm}
         title={t('orders.deleteClient')}
-        message={`Sigur ștergi „${clientData.name}"? Toate comenzile clientului vor fi șterse.`}
+        message={t('clientDetails.deleteClientMessage', { name: clientData.name })}
         confirmLabel={t('common.delete')}
         loading={deleteLoading}
       />

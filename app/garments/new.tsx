@@ -110,7 +110,7 @@ export default function NewGarmentScreen() {
                 autoCapitalize="words"
               />
               <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                This name will appear in orders when selecting garments.
+                {t('garments.nameHelper')}
               </Text>
             </View>
             <View style={styles.field}>
@@ -139,7 +139,7 @@ export default function NewGarmentScreen() {
               loading={submitting}
               style={styles.submit}
             >
-              Create garment
+              {t('garments.createButton')}
             </Button>
         </View>
       </View>

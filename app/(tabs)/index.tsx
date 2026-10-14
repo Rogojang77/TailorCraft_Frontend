@@ -356,21 +356,21 @@ export default function HomeTab() {
           <>
             {/* ─── Hero stat card ──────────────────────────────────────── */}
             <View style={[styles.heroCard, { backgroundColor: inkColor }, AtelierShadow.elevated]}>
-              <Text style={[styles.heroEyebrow, { color: brassColor }]}>TODAY'S BENCH</Text>
+              <Text style={[styles.heroEyebrow, { color: brassColor }]}>{t('home.bench.eyebrow').toUpperCase()}</Text>
               <View style={styles.heroStats}>
                 <View style={styles.heroStatItem}>
                   <Text style={styles.heroStatNum}>{activeOrders.length}</Text>
-                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Active</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>{t('home.bench.active')}</Text>
                 </View>
                 <View style={[styles.heroStatDivider, { backgroundColor: ink2 }]} />
                 <View style={styles.heroStatItem}>
                   <Text style={styles.heroStatNum}>{ordersDueThisWeek.length}</Text>
-                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Due This Week</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>{t('home.bench.dueThisWeek')}</Text>
                 </View>
                 <View style={[styles.heroStatDivider, { backgroundColor: ink2 }]} />
                 <View style={styles.heroStatItem}>
                   <Text style={styles.heroStatNum}>{clientCount}</Text>
-                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Clients</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>{t('home.bench.clients')}</Text>
                 </View>
               </View>
             </View>
@@ -383,7 +383,7 @@ export default function HomeTab() {
                 activeOpacity={0.7}
               >
                 <ShoppingBag size={18} color={brassColor} />
-                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Orders</Text>
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>{t('home.bench.orders')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
@@ -391,7 +391,7 @@ export default function HomeTab() {
                 activeOpacity={0.7}
               >
                 <Image size={18} color={colors.ocean} />
-                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Gallery</Text>
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>{t('home.bench.gallery')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
@@ -399,7 +399,7 @@ export default function HomeTab() {
                 activeOpacity={0.7}
               >
                 <TrendingUp size={18} color={colors.pine} />
-                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Finance</Text>
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>{t('home.bench.finance')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
@@ -407,7 +407,7 @@ export default function HomeTab() {
                 activeOpacity={0.7}
               >
                 <Users size={18} color={colors.ember} />
-                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Clients</Text>
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>{t('home.bench.clients')}</Text>
               </TouchableOpacity>
             </View>
 

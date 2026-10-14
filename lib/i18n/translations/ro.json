@@ -44,6 +44,15 @@
     "markAllRead": "Marchează toate ca citite"
   },
   "home": {
+    "bench": {
+      "eyebrow": "Atelierul de azi",
+      "active": "Active",
+      "dueThisWeek": "De predat săptămâna asta",
+      "clients": "Clienți",
+      "orders": "Comenzi",
+      "gallery": "Galerie",
+      "finance": "Financiar"
+    },
     "greeting": "Bună ziua!",
     "greetingMorning": "Bună dimineața, {{name}}",
     "greetingAfternoon": "Bună ziua, {{name}}",
@@ -545,6 +554,16 @@
     "productionNotesPlaceholder": "Adaugă note pentru producție..."
   },
   "newOrder": {
+    "sketch": {
+      "title": "Schiță comandă",
+      "saved": "Salvat",
+      "undo": "Anulează",
+      "redo": "Refă",
+      "clear": "Șterge tot",
+      "drawFirst": "Desenează ceva înainte să salvezi schița.",
+      "savedToDraft": "Schița a fost salvată în draft.",
+      "saveError": "Nu am putut salva schița."
+    },
     "title": "Comandă nouă",
     "selectGarments": "Selectează articole",
     "clientRequired": "Client necesar",
@@ -587,6 +606,9 @@
       "onlyForThisOrder": "Doar pentru această comandă"
     },
     "summary": {
+      "fittingsLabel": "Date probe",
+      "addFitting": "+ Adaugă probă",
+      "noFittings": "Nu există probe planificate.",
       "selectClient": "Selectați sau creați un client",
       "enterTotal": "Introduceți suma totală a comenzii",
       "enterPickupDate": "Introduceți data de preluare",
@@ -662,6 +684,10 @@
       "forGarment": "Stiluri și Materiale pentru {{name}}"
     },
     "index": {
+      "disabledSelectedWarning": "Unul sau mai multe articole selectate nu mai sunt disponibile. Deselectează-le pentru a continua.",
+      "noItemsAvailableMessage": "Nu există articole disponibile momentan. Adaugă un articol înainte de a crea o comandă.",
+      "measurementOne": "{{count}} măsurătoare",
+      "measurementOther": "{{count}} măsurători",
       "noItemsAvailable": "Niciun articol disponibil",
       "disabledItems": "Articole dezactivate",
       "continue": "Continuă",
@@ -769,6 +795,8 @@
     }
   },
   "clients": {
+    "orderCountOne": "{{count}} comandă",
+    "orderCountOther": "{{count}} comenzi",
     "new": {
       "pageTitle": "Adaugă Client",
       "firstNameRequired": "Numele și prenumele sunt obligatorii.",
@@ -798,6 +826,17 @@
     }
   },
   "garments": {
+    "inputTypes": {
+      "number": "Număr",
+      "text": "Text",
+      "select": "Listă",
+      "calculated": "Calculat"
+    },
+    "nameHelper": "Acest nume va apărea în comenzi la alegerea articolelor.",
+    "createButton": "Creează articol",
+    "emptyMessage": "Nu ai creat încă niciun articol. Creează primul articol ca să definești cum iei măsurile.",
+    "disabled": "Dezactivat",
+    "copyOf": "Copie după {{name}}",
     "title": "Articole",
     "new": "Articol nou",
     "namePlaceholder": "ex. Sacou, Pantaloni",
@@ -961,6 +1000,7 @@
     "subscriptionSuccessMessage": "Abonamentul tău a fost actualizat la Pro. Poți gestiona acum clienți și comenzi nelimitate."
   },
   "tabs": {
+    "calendar": "Calendar",
     "home": "Acasă",
     "orders": "Comenzi",
     "gallery": "Galerie",
@@ -1201,6 +1241,7 @@
     "goHome": "Mergi la ecranul principal!"
   },
   "clientDetails": {
+    "deleteClientMessage": "Sigur ștergi „{{name}}”? Toate comenzile clientului vor fi șterse.",
     "title": "Detalii Client",
     "editTitle": "Editează client",
     "clientNotFound": "Client negăsit.",
@@ -1278,6 +1319,13 @@
       "cannotUndo": "Această acțiune nu poate fi anulată."
     },
     "measurement": {
+      "orderLabel": "Ordine",
+      "optionsLabel": "Opțiuni",
+      "formulaLabel": "Formulă",
+      "setNegative": "Valoare negativă",
+      "setPositive": "Valoare pozitivă",
+      "decrease": "Scade valoarea",
+      "increase": "Crește valoarea",
       "add": "Adaugă măsurătoare",
       "edit": "Editează măsurătoare",
       "labelPlaceholder": "ex. Lățime umăr",
@@ -1365,6 +1413,7 @@
     "tooManyRequests": "Prea multe încercări. Te rugăm să încerci din nou în curând."
   },
   "aiPreview": {
+    "parametricHint": "AI folosește profil parametric (talie, bust, șold) când măsurile sunt disponibile.",
     "sectionTitle": "Previzualizare AI Design",
     "emptyTitle": "Previzualizare AI Design",
     "emptySubtitle": "Generează o previzualizare realistă a modului în care vestimentația din această comandă va arăta pe baza măsurătorilor clientului.",

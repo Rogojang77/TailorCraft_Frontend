@@ -386,7 +386,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
 
             {FEATURE_FLAGS.aiParametricAvatarEnabled && (
               <Text style={[styles.avatarHint, { color: colors.ink3 }]}>
-                AI folosește profil parametric (talie, bust, șold) când măsurile sunt disponibile.
+                {t('aiPreview.parametricHint')}
               </Text>
             )}
 

@@ -123,7 +123,7 @@ export function PaywallModal({
                 <View style={[styles.iconRing, { backgroundColor: brassColor + '20' }]}>
                   <Crown size={32} color={brassColor} strokeWidth={2.5} />
                 </View>
-                <Button variant="ghost" style={styles.closeBtn} onPress={onClose} disabled={loading} accessibilityLabel="Close">
+                <Button variant="ghost" style={styles.closeBtn} onPress={onClose} disabled={loading} accessibilityLabel={t('common.close')}>
                   <X size={22} color={colors.ink4 ?? colors.textTertiary} />
                 </Button>
                 <Text style={[styles.title, { color: colors.textPrimary }]}>{t('subscription.tailorCraftPro')}</Text>
@@ -158,7 +158,7 @@ export function PaywallModal({
                 <View style={[styles.iconRing, { backgroundColor: brassColor + '20' }]}>
                   <Crown size={32} color={brassColor} strokeWidth={2.5} />
                 </View>
-                <Button variant="ghost" style={styles.closeBtn} onPress={onClose} accessibilityLabel="Close">
+                <Button variant="ghost" style={styles.closeBtn} onPress={onClose} accessibilityLabel={t('common.close')}>
                   <X size={22} color={colors.ink4 ?? colors.textTertiary} />
                 </Button>
                 <Text style={[styles.title, { color: colors.textPrimary }]}>{t('subscription.tailorCraftPro')}</Text>
@@ -208,7 +208,7 @@ export function PaywallModal({
                 style={styles.closeBtn}
                 onPress={onClose}
                 disabled={loading}
-                accessibilityLabel="Close"
+                accessibilityLabel={t('common.close')}
               >
                 <X size={22} color={colors.ink4 ?? colors.textTertiary} />
               </Button>

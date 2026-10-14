@@ -31,12 +31,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
-const INPUT_TYPES: { value: MeasurementInputTypeApi; label: string }[] = [
-  { value: 'number', label: 'Number' },
-  { value: 'text', label: 'Text' },
-  { value: 'select', label: 'Select' },
-  { value: 'calculated', label: 'Calculated' },
-];
+const INPUT_TYPES: MeasurementInputTypeApi[] = ['number', 'text', 'select', 'calculated'];
 
 export interface MeasurementDefinitionEditorModalProps {
   visible: boolean;
@@ -225,7 +220,7 @@ export function MeasurementDefinitionEditorModal({
             </View>
             <View style={styles.field}>
               <Input
-                label="Order"
+                label={t('modals.measurement.orderLabel')}
                 value={order}
                 onChangeText={setOrder}
                 placeholder={t('modals.measurement.orderPlaceholder')}
@@ -238,16 +233,16 @@ export function MeasurementDefinitionEditorModal({
               <View style={styles.typeRow}>
                 {INPUT_TYPES.map((opt) => (
                   <TouchableOpacity
-                    key={opt.value}
+                    key={opt}
                     style={[
                       styles.typeChip,
                       { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border },
-                      inputType === opt.value && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' + '60', borderWidth: 1, borderColor: colors.brass ?? colors.primary }
+                      inputType === opt && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' + '60', borderWidth: 1, borderColor: colors.brass ?? colors.primary }
                     ]}
-                    onPress={() => setInputType(opt.value)}
+                    onPress={() => setInputType(opt)}
                   >
-                    <Text style={[styles.typeChipText, { color: colors.ink3 }, inputType === opt.value && { fontFamily: FontFamily.monoSemiBold, fontSize: 11, lineHeight: 16, color: colors.brass ?? colors.primary }]}>
-                      {opt.label}
+                    <Text style={[styles.typeChipText, { color: colors.ink3 }, inputType === opt && { fontFamily: FontFamily.monoSemiBold, fontSize: 11, lineHeight: 16, color: colors.brass ?? colors.primary }]}>
+                      {t(`garments.inputTypes.${opt}`)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -256,7 +251,7 @@ export function MeasurementDefinitionEditorModal({
             {inputType === 'select' && (
               <View style={styles.field}>
                 <Input
-                  label="Options"
+                  label={t('modals.measurement.optionsLabel')}
                   value={optionsRaw}
                   onChangeText={setOptionsRaw}
                   placeholder={t('modals.measurement.optionsPlaceholder')}
@@ -269,7 +264,7 @@ export function MeasurementDefinitionEditorModal({
             {inputType === 'calculated' && (
               <View style={styles.field}>
                 <Input
-                  label="Formula"
+                  label={t('modals.measurement.formulaLabel')}
                   value={formula}
                   onChangeText={setFormula}
                   placeholder={t('modals.measurement.formulaPlaceholder')}

@@ -44,6 +44,15 @@
     "markAllRead": "Mark all as read"
   },
   "home": {
+    "bench": {
+      "eyebrow": "Today's bench",
+      "active": "Active",
+      "dueThisWeek": "Due this week",
+      "clients": "Clients",
+      "orders": "Orders",
+      "gallery": "Gallery",
+      "finance": "Finance"
+    },
     "greeting": "Hello!",
     "greetingMorning": "Good morning, {{name}}",
     "greetingAfternoon": "Good afternoon, {{name}}",
@@ -545,6 +554,16 @@
     "productionNotesPlaceholder": "Add any production notes..."
   },
   "newOrder": {
+    "sketch": {
+      "title": "Order sketch",
+      "saved": "Saved",
+      "undo": "Undo",
+      "redo": "Redo",
+      "clear": "Clear",
+      "drawFirst": "Draw something before saving the sketch.",
+      "savedToDraft": "The sketch was saved to the draft.",
+      "saveError": "Could not save the sketch."
+    },
     "title": "New order",
     "selectGarments": "Select garments",
     "clientRequired": "Client required",
@@ -587,6 +606,9 @@
       "onlyForThisOrder": "Only for this order"
     },
     "summary": {
+      "fittingsLabel": "Fittings",
+      "addFitting": "+ Add fitting",
+      "noFittings": "No fittings scheduled.",
       "selectClient": "Select or create a client",
       "enterTotal": "Enter the order total amount",
       "enterPickupDate": "Enter pickup date",
@@ -662,6 +684,10 @@
       "forGarment": "Styles & Materials for {{name}}"
     },
     "index": {
+      "disabledSelectedWarning": "One or more selected items are no longer available. Deselect them to continue.",
+      "noItemsAvailableMessage": "There are no items available right now. Add an item before creating an order.",
+      "measurementOne": "{{count}} measurement",
+      "measurementOther": "{{count}} measurements",
       "noItemsAvailable": "No items available",
       "disabledItems": "Disabled items",
       "continue": "Continue",
@@ -769,6 +795,8 @@
     }
   },
   "clients": {
+    "orderCountOne": "{{count}} order",
+    "orderCountOther": "{{count}} orders",
     "new": {
       "pageTitle": "Add Client",
       "firstNameRequired": "First and last name are required.",
@@ -798,6 +826,17 @@
     }
   },
   "garments": {
+    "inputTypes": {
+      "number": "Number",
+      "text": "Text",
+      "select": "Select",
+      "calculated": "Calculated"
+    },
+    "nameHelper": "This name will appear in orders when selecting garments.",
+    "createButton": "Create garment",
+    "emptyMessage": "You haven't created any garments yet. Create your first garment to define how you measure.",
+    "disabled": "Disabled",
+    "copyOf": "Copy of {{name}}",
     "title": "Garments",
     "new": "New garment",
     "namePlaceholder": "e.g. Jacket, Pants",
@@ -961,6 +1000,7 @@
     "subscriptionSuccessMessage": "Your subscription has been upgraded to Pro. You can now manage unlimited clients and orders."
   },
   "tabs": {
+    "calendar": "Calendar",
     "home": "Home",
     "orders": "Orders",
     "gallery": "Gallery",
@@ -1201,6 +1241,7 @@
     "goHome": "Go to home screen!"
   },
   "clientDetails": {
+    "deleteClientMessage": "Delete \"{{name}}\"? All of this client's orders will also be deleted.",
     "title": "Client Details",
     "editTitle": "Edit client",
     "clientNotFound": "Client not found.",
@@ -1278,6 +1319,13 @@
       "cannotUndo": "This action cannot be undone."
     },
     "measurement": {
+      "orderLabel": "Order",
+      "optionsLabel": "Options",
+      "formulaLabel": "Formula",
+      "setNegative": "Set negative",
+      "setPositive": "Set positive",
+      "decrease": "Decrease value",
+      "increase": "Increase value",
       "add": "Add measurement",
       "edit": "Edit measurement",
       "labelPlaceholder": "e.g. Shoulder width",
@@ -1364,6 +1412,7 @@
     "tooManyRequests": "Too many attempts. Please try again in a while."
   },
   "aiPreview": {
+    "parametricHint": "AI uses a body profile (waist, chest, hips) when the measurements are available.",
     "sectionTitle": "AI Design Preview",
     "emptyTitle": "AI Design Preview",
     "emptySubtitle": "Generate a realistic preview of how this order's garments will look based on the client's measurements.",

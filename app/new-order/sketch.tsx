@@ -13,6 +13,7 @@ import { captureRef } from 'react-native-view-shot';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
+import { useI18n } from '@/lib/i18n';
 import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 type Stroke = {
@@ -28,6 +29,7 @@ const BRIGHT_CANVAS_BACKGROUND = '#FFFFFF';
 export default function NewOrderSketchScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useI18n();
   const { draftOrder, updateSketchDraftUri } = useOrderDraft();
 
   const canvasRef = useRef<View | null>(null);
@@ -116,7 +118,7 @@ export default function NewOrderSketchScreen() {
 
   const handleSave = async () => {
     if (!canvasRef.current || strokes.length === 0) {
-      Alert.alert('Info', 'Desenează ceva înainte să salvezi schița.');
+      Alert.alert(t('newOrder.sketch.title'), t('newOrder.sketch.drawFirst'));
       return;
     }
     setIsSaving(true);
@@ -127,11 +129,11 @@ export default function NewOrderSketchScreen() {
         result: 'tmpfile',
       });
       updateSketchDraftUri(localUri);
-      Alert.alert('Succes', 'Schița a fost salvată în draft.', [
-        { text: 'OK', onPress: () => router.back() },
+      Alert.alert(t('common.success'), t('newOrder.sketch.savedToDraft'), [
+        { text: t('common.ok'), onPress: () => router.back() },
       ]);
     } catch (error) {
-      Alert.alert('Eroare', error instanceof Error ? error.message : 'Nu am putut salva schița.');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('newOrder.sketch.saveError'));
     } finally {
       setIsSaving(false);
     }
@@ -142,11 +144,11 @@ export default function NewOrderSketchScreen() {
       <View style={[styles.root, { backgroundColor: colors.paper ?? colors.background }]}>
         <View style={[styles.header, { borderBottomColor: colors.rule ?? colors.border }]}>
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-            <Text style={[styles.headerAction, { color: colors.brass ?? colors.primary }]}>Înapoi</Text>
+            <Text style={[styles.headerAction, { color: colors.brass ?? colors.primary }]}>{t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Schiță comandă</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('newOrder.sketch.title')}</Text>
           <View style={styles.headerRight}>
-            {!!draftOrder.sketchDraftUri && <Text style={[styles.savedHint, { color: colors.pine ?? colors.success }]}>Salvat</Text>}
+            {!!draftOrder.sketchDraftUri && <Text style={[styles.savedHint, { color: colors.pine ?? colors.success }]}>{t('newOrder.sketch.saved')}</Text>}
           </View>
         </View>
 
@@ -168,13 +170,13 @@ export default function NewOrderSketchScreen() {
 
         <View style={styles.toolbar}>
           <TouchableOpacity style={[styles.toolButton, { borderColor: colors.rule ?? colors.border }]} onPress={handleUndo} activeOpacity={0.7}>
-            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>Undo</Text>
+            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>{t('newOrder.sketch.undo')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.toolButton, { borderColor: colors.rule ?? colors.border }]} onPress={handleRedo} activeOpacity={0.7}>
-            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>Redo</Text>
+            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>{t('newOrder.sketch.redo')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.toolButton, { borderColor: colors.rule ?? colors.border }]} onPress={handleClear} activeOpacity={0.7}>
-            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>Clear</Text>
+            <Text style={[styles.toolButtonText, { color: colors.textPrimary }]}>{t('newOrder.sketch.clear')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toolButton, styles.saveButton, { backgroundColor: colors.brass ?? colors.primary }]}

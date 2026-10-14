@@ -45,19 +45,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { CompactLayoutStyles } from '@/constants/design';
 
-function inputTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    number: 'Number',
-    text: 'Text',
-    select: 'Select',
-    calculated: 'Calculated',
-  };
-  return map[type] ?? type;
+const INPUT_TYPE_KEYS = ['number', 'text', 'select', 'calculated'];
+
+function inputTypeLabel(type: string, t: (key: string) => string): string {
+  return INPUT_TYPE_KEYS.includes(type) ? t(`garments.inputTypes.${type}`) : type;
 }
 
-function statusLabel(status: string): string {
-  if (status === 'active') return 'Enabled';
-  if (status === 'disabled') return 'Disabled';
+function statusLabel(status: string, t: (key: string) => string): string {
+  if (status === 'active') return t('garments.enabled');
+  if (status === 'disabled') return t('garments.disabled');
   return status;
 }
 
@@ -228,7 +224,7 @@ export default function GarmentDetailScreen() {
       const res = await apiFetch<unknown>(api.garmentTypes(), {
         method: 'POST',
         body: JSON.stringify({
-          name: `Copy of ${garment?.name ?? 'template'}`,
+          name: t('garments.copyOf', { name: garment?.name ?? '' }),
           copyFromId: garmentId,
         }),
       });
@@ -405,7 +401,7 @@ export default function GarmentDetailScreen() {
                     {!canToggleStatus && (
                       <View style={styles.badges}>
                         <View style={[styles.statusBadge, { backgroundColor: colors.success + '24' }, isDisabled && { backgroundColor: colors.textTertiary + '24' }]}>
-                          <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status)}</Text>
+                          <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status, t)}</Text>
                         </View>
                         {(garment.source === 'shared' || garment.source === 'api') && (
                           <TemplateSourceBadge source={garment.source} />
@@ -478,7 +474,7 @@ export default function GarmentDetailScreen() {
                   <View style={styles.defMain}>
                     <Text style={[styles.defLabel, { color: colors.textPrimary }]}>{def.label}</Text>
                     <View style={styles.defMeta}>
-                      <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType)}</Text>
+                      <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType, t)}</Text>
                       {(def.unitKey || def.unit) && (
                         <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
                           {getUnitDisplay(def.unitKey ?? undefined) ?? def.unit ?? ''}
@@ -539,7 +535,7 @@ export default function GarmentDetailScreen() {
             {!canToggleStatus && (
               <View style={styles.badges}>
                 <View style={[styles.statusBadge, { backgroundColor: colors.success + '24' }, isDisabled && { backgroundColor: colors.textTertiary + '24' }]}>
-                  <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status)}</Text>
+                  <Text style={[styles.statusText, { color: colors.textPrimary }]}>{statusLabel(garment.status, t)}</Text>
                 </View>
                 {(garment.source === 'shared' || garment.source === 'api') && (
                   <TemplateSourceBadge source={garment.source} />
@@ -607,7 +603,7 @@ export default function GarmentDetailScreen() {
                     <View style={styles.defMain}>
                       <Text style={[styles.defLabel, { color: colors.textPrimary }]}>{def.label}</Text>
                       <View style={styles.defMeta}>
-                        <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType)}</Text>
+                        <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>{inputTypeLabel(def.inputType, t)}</Text>
                         {(def.unitKey || def.unit) && (
                           <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
                             {getUnitDisplay(def.unitKey ?? undefined) ?? def.unit ?? ''}

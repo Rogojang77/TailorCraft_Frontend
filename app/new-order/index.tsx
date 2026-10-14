@@ -271,7 +271,7 @@ export default function NewOrderScreen() {
             <View style={[styles.warningBanner, { backgroundColor: (colors.ember ?? colors.warning) + '20', borderColor: colors.ember ?? colors.warning }]}>
               <AlertTriangle size={20} color={colors.ember ?? colors.warning} />
               <Text style={[styles.warningText, { color: colors.ink3 }]}>
-                Unul sau mai multe articole selectate nu mai sunt disponibile. Deselectează-le pentru a continua.
+                {t('newOrder.index.disabledSelectedWarning')}
               </Text>
             </View>
           )}
@@ -279,7 +279,7 @@ export default function NewOrderScreen() {
           {enabledGarments.length === 0 && disabledGarments.length === 0 ? (
             <EmptyState
               title={t('newOrder.index.noItemsAvailable')}
-              message="Nu există articole disponibile momentan. Adaugă un articol înainte de a crea o comandă."
+              message={t('newOrder.index.noItemsAvailableMessage')}
               style={[styles.emptyState, { backgroundColor: colors.card }]}
             />
           ) : (
@@ -302,7 +302,7 @@ export default function NewOrderScreen() {
                       <View style={styles.garmentMeta}>
                         {measurementCount > 0 && (
                           <Text style={[styles.measurementCount, { color: colors.ink3 }]}>
-                            {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
+                            {t(measurementCount === 1 ? 'newOrder.index.measurementOne' : 'newOrder.index.measurementOther', { count: measurementCount })}
                           </Text>
                         )}
                         {garment.description ? (
@@ -334,7 +334,7 @@ export default function NewOrderScreen() {
                           <View style={styles.garmentMeta}>
                             {measurementCount > 0 && (
                               <Text style={[styles.measurementCount, { color: colors.ink4 ?? colors.textTertiary }]}>
-                                {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
+                                {t(measurementCount === 1 ? 'newOrder.index.measurementOne' : 'newOrder.index.measurementOther', { count: measurementCount })}
                               </Text>
                             )}
                             {garment.description ? (

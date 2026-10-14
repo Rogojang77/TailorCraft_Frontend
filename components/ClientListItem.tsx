@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useI18n } from '@/lib/i18n';
 import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { Button } from '@/components/ui/Button';
 
@@ -34,6 +35,7 @@ function getClientColor(clientId: string): string {
 
 export const ClientListItem = memo(function ClientListItem({ client, onPress, onDelete }: ClientListItemProps) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const avatarColor = useMemo(() => getClientColor(client.id), [client.id]);
 
   const initials = useMemo(() => {
@@ -44,13 +46,13 @@ export const ClientListItem = memo(function ClientListItem({ client, onPress, on
     const parts: string[] = [];
     if (client.phone) parts.push(client.phone);
     if (client.totalOrders > 0) {
-      parts.push(`${client.totalOrders} ${client.totalOrders === 1 ? 'comandă' : 'comenzi'}`);
+      parts.push(t(client.totalOrders === 1 ? 'clients.orderCountOne' : 'clients.orderCountOther', { count: client.totalOrders }));
     }
     if (client.lastOrder && client.lastOrder !== '—') {
-      parts.push(`Ultima: ${client.lastOrder}`);
+      parts.push(`${t('clientDetails.lastOrderLabel')}: ${client.lastOrder}`);
     }
     return parts.join(' · ');
-  }, [client.phone, client.totalOrders, client.lastOrder]);
+  }, [client.phone, client.totalOrders, client.lastOrder, t]);
 
   return (
     <Button
