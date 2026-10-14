@@ -1,5 +1,8 @@
 {
   "common": {
+    "cannotUndo": "This action cannot be undone.",
+    "collapse": "Collapse",
+    "expand": "Expand",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -1404,6 +1407,12 @@
     }
   },
   "catalog": {
+    "categoryItems": "Category items",
+    "loadItemsError": "Could not load the items.",
+    "deleteItemError": "Could not delete the item.",
+    "categoryIdMissing": "Category is missing.",
+    "categoryNotFound": "Category not found.",
+    "deleteItemMessage": "Are you sure you want to delete \"{{name}}\"?",
     "title": "Materials & Styles",
     "subtitle": "Manage your fabric collection, buttons, lapels, and other style options for orders.",
     "styleAndMaterials": "Styles & Materials",

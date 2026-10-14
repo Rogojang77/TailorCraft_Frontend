@@ -223,14 +223,15 @@ export default function NewOrderScreen() {
     router.push('/new-order/measurements');
   };
 
+  const title = orderMode === 'edit' ? t('newOrder.index.editOrderTitle') : t('newOrder.index.newOrderTitle');
+  useDynamicTitle(title);
+  useCustomBack(() => router.dismissTo('/new-order/client-data'), t('common.back'));
+
   // When no client selected (create mode), redirect to client-data; show nothing meanwhile
   if (orderMode === 'create' && !draftOrder.customer.id) {
     return null;
   }
 
-  const title = orderMode === 'edit' ? t('newOrder.index.editOrderTitle') : t('newOrder.index.newOrderTitle');
-  useDynamicTitle(title);
-  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
 
   if (loading && garments.length === 0) {
     return (
@@ -389,7 +390,7 @@ export default function NewOrderScreen() {
           onPrimaryPress={handleContinue}
           primaryDisabled={!canContinue || enabledGarments.length === 0}
           secondaryLabel={t('stepNav.back')}
-          onSecondaryPress={() => router.push('/new-order/client-data')}
+          onSecondaryPress={() => router.dismissTo('/new-order/client-data')}
         />
       </View>
     </ScreenContainer>

@@ -105,7 +105,7 @@ export default function OrderMeasurementsScreen() {
   const { colors } = useTheme();
   const { preferredUnit } = useSettings();
 
-  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
+  useCustomBack(() => router.dismissTo('/new-order'), t('common.back'));
   const preferredUnitSymbol = getUnitDisplay(preferredUnit) ?? preferredUnit;
   const { draftOrder, updateMeasurements, updateCatalogSelections, updateSketchDraftUri } = useOrderDraft();
   const selectedIds = draftOrder.selectedGarmentIds;
@@ -361,7 +361,7 @@ export default function OrderMeasurementsScreen() {
 
   const handlePrev = () => {
     persistAll();
-    router.push('/new-order');
+    router.dismissTo('/new-order');
   };
 
   // Redirect when no garments selected (e.g. after draft cleared). Must run in effect to avoid setState-during-render.

@@ -108,7 +108,7 @@ export default function OrderDetailsScreen() {
 
   const deleteOrder = useOrderDelete({
     orderId,
-    onDeleted: () => router.back(),
+    onDeleted: () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/orders')),
     t,
   });
 

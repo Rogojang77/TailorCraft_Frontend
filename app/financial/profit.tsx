@@ -91,6 +91,8 @@ export default function FinancialProfitScreen() {
   const dateFmt = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
+    // Buckets are cut at UTC month/week edges; local time would push "May 31 23:59Z" to "Jun 1".
+    timeZone: 'UTC',
   });
 
   return (

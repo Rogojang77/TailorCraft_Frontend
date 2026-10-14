@@ -83,7 +83,7 @@ export default function SummaryScreen() {
   const canCreateOrder = checkCanCreateOrder();
   const limitMsgs = getLimitMessages();
 
-  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
+  useCustomBack(() => router.dismissTo('/new-order/measurements'), t('common.back'));
   
   const [totalAmount, setTotalAmount] = useState(() => {
     const v = draftOrder.payment.totalAmount;
@@ -788,7 +788,7 @@ export default function SummaryScreen() {
           primaryDisabled={!canFinalize || isLoading}
           primaryLoading={isLoading}
           secondaryLabel={t('stepNav.back')}
-          onSecondaryPress={() => router.push('/new-order/measurements')}
+          onSecondaryPress={() => router.dismissTo('/new-order/measurements')}
         />
       </View>
     </ScreenContainer>

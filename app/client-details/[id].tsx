@@ -452,7 +452,7 @@ export default function ClientDetailsScreen() {
       await apiFetch(api.customers(id), { method: 'DELETE' });
       setDeleteModalVisible(false);
       Alert.alert(t('common.success'), t('clientDetails.deleteSuccess'));
-      router.back();
+      if (router.canGoBack()) router.back(); else router.replace('/(tabs)/orders');
     } catch (e) {
       Alert.alert(t('common.error'), e instanceof Error ? e.message : t('clientDetails.deleteError'));
     } finally {

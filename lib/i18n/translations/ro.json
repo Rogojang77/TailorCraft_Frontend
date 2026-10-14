@@ -1,5 +1,8 @@
 {
   "common": {
+    "cannotUndo": "Această acțiune nu poate fi anulată.",
+    "collapse": "Restrânge",
+    "expand": "Extinde",
     "loading": "Se încarcă...",
     "error": "Eroare",
     "success": "Succes",
@@ -1405,6 +1408,12 @@
     }
   },
   "catalog": {
+    "categoryItems": "Articolele categoriei",
+    "loadItemsError": "Nu am putut încărca articolele.",
+    "deleteItemError": "Nu am putut șterge articolul.",
+    "categoryIdMissing": "Categoria lipsește.",
+    "categoryNotFound": "Categoria nu a fost găsită.",
+    "deleteItemMessage": "Sigur ștergi „{{name}}”?",
     "title": "Materiale și Stiluri",
     "subtitle": "Gestionează colecția de materiale textile, nasturi, revere și alte opțiuni de stil pentru comenzi.",
     "styleAndMaterials": "Stiluri și Materiale",

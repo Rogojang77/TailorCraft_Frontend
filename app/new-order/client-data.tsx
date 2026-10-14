@@ -708,7 +708,9 @@ export default function ClientDataScreen() {
   // bottomOffset so KeyboardAwareScrollView keeps focused input above footer + keyboard (no padding hacks).
   const footerBottomOffset = FOOTER_CONTENT_HEIGHT + insets.bottom;
 
-  useCustomBack(() => router.replace('/(tabs)/orders'), t('common.back'));
+  // First step: return to wherever the order was started from (Home, client page, Orders).
+  const exitFlow = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/orders'));
+  useCustomBack(exitFlow, t('common.back'));
 
   return (
     <>
@@ -999,7 +1001,7 @@ export default function ClientDataScreen() {
           primaryDisabled={!isValid || isLoading}
           primaryLoading={isLoading}
           secondaryLabel={t('newOrder.back')}
-          onSecondaryPress={() => router.replace('/(tabs)/orders')}
+          onSecondaryPress={exitFlow}
         />
       </View>
     </ScreenContainer>
