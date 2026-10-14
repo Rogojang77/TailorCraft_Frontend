@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Save, X } from 'lucide-react-native';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -48,7 +48,7 @@ export function OrderEditOrderInfoModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.editModalRoot}>
+      <KeyboardAvoidingView behavior="padding" style={styles.editModalRoot}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={[styles.editModalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
         </TouchableWithoutFeedback>
@@ -113,7 +113,7 @@ export function OrderEditOrderInfoModal({
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

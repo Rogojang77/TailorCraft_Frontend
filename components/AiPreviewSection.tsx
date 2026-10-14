@@ -31,6 +31,7 @@ import type {
   GetPreviewResponse,
   GeneratePreviewErrorResponse,
 } from '@/types/aiPreview';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 interface AiPreviewSectionProps {
   orderId: string;
@@ -499,7 +500,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
           statusBarTranslucent
           onRequestClose={() => !savingPrompt && setEditPromptVisible(false)}
         >
-          <View style={styles.editModalRoot}>
+          <KeyboardAvoidingView behavior="padding" style={styles.editModalRoot}>
             <TouchableWithoutFeedback onPress={() => !savingPrompt && setEditPromptVisible(false)}>
               <View style={[styles.editModalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
             </TouchableWithoutFeedback>
@@ -552,7 +553,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                 </View>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         <ZoomableImageViewer

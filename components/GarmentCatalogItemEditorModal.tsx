@@ -10,7 +10,7 @@ import {
   Image,
   Platform,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
@@ -171,7 +171,7 @@ export function GarmentCatalogItemEditorModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, styles.centered, { backgroundColor: colors.overlay }]}>
+      <KeyboardAvoidingView behavior="padding" style={[styles.overlay, styles.centered, { backgroundColor: colors.overlay }]}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={StyleSheet.absoluteFillObject} />
         </TouchableWithoutFeedback>
@@ -320,7 +320,7 @@ export function GarmentCatalogItemEditorModal({
           allowNone
           hexPlaceholder={t('catalog.customColorPlaceholder')}
         />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

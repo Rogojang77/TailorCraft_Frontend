@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -183,7 +183,7 @@ export function CompanyDetailsRequiredModal({
       statusBarTranslucent
       onRequestClose={() => {}}
     >
-      <View style={[styles.overlay, { backgroundColor: colors.paper ?? colors.background }]}>
+      <KeyboardAvoidingView behavior="padding" style={[styles.overlay, { backgroundColor: colors.paper ?? colors.background }]}>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={[styles.header, { borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -327,7 +327,7 @@ export function CompanyDetailsRequiredModal({
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

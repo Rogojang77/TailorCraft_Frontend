@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
@@ -191,7 +191,7 @@ export function MeasurementDefinitionEditorModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, styles.centered, { backgroundColor: colors.overlay }]}>
+      <KeyboardAvoidingView behavior="padding" style={[styles.overlay, styles.centered, { backgroundColor: colors.overlay }]}>
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={StyleSheet.absoluteFillObject} />
         </TouchableWithoutFeedback>
@@ -298,7 +298,7 @@ export function MeasurementDefinitionEditorModal({
             </Button>
           </View>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
