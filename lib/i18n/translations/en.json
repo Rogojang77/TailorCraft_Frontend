@@ -108,7 +108,8 @@
       "logMeasurement": "Log Measurement",
       "createOrder": "Create Order",
       "addGalleryItem": "Add item in gallery"
-    }
+    },
+    "dueOn": "Due {{date}}"
   },
   "orders": {
     "title": "Orders & Clients",
@@ -570,8 +571,6 @@
     "clientRequiredMessage": "Select or create a client to continue.",
     "clientRequiredAlertMessage": "You need at least one client before creating an order.",
     "clientData": "Client data",
-    "measurements": "Measurements",
-    "summary": "Summary",
     "back": "Back",
     "next": "Next",
     "client": {
@@ -786,7 +785,8 @@
         "COMPLETED": "Completed",
         "CANCELLED": "Cancelled",
         "MISSED": "Missed"
-      }
+      },
+      "atTime": "At {{time}}"
     },
     "sketches": {
       "title": "Sketch",
@@ -1376,7 +1376,8 @@
       "termsLabel": "I have read and agree to the updated Terms & Conditions",
       "privacyLabel": "I have read and agree to the updated Privacy Policy",
       "accept": "Accept and Continue"
-    }
+    },
+    "title": "Legal & Privacy"
   },
   "feedback": {
     "menuItem": "Send feedback",
@@ -1539,7 +1540,9 @@
       "linings": "Linings",
       "closures": "Closures",
       "threads": "Threads"
-    }
+    },
+    "searchPlaceholder": "Search categories & items...",
+    "noSearchResults": "No categories or items match your search."
   },
   "tutorial": {
     "label": "Tutorial",

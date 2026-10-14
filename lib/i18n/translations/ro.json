@@ -108,7 +108,8 @@
       "logMeasurement": "Înregistrează Măsuri",
       "createOrder": "Creează Comandă",
       "addGalleryItem": "Adaugă item în galerie"
-    }
+    },
+    "dueOn": "Termen {{date}}"
   },
   "orders": {
     "title": "Comenzi & Clienți",
@@ -570,8 +571,6 @@
     "clientRequiredMessage": "Selectați sau creați un client pentru a continua.",
     "clientRequiredAlertMessage": "Aveți nevoie de cel puțin un client înainte de a crea o comandă.",
     "clientData": "Date client",
-    "measurements": "Măsurători",
-    "summary": "Sumar",
     "back": "Înapoi",
     "next": "Continuă",
     "client": {
@@ -786,7 +785,8 @@
         "COMPLETED": "Finalizată",
         "CANCELLED": "Anulată",
         "MISSED": "Ratată"
-      }
+      },
+      "atTime": "La ora {{time}}"
     },
     "sketches": {
       "title": "Schiță",
@@ -1540,7 +1540,9 @@
       "linings": "Căptușeli",
       "closures": "Închideri",
       "threads": "Ațe"
-    }
+    },
+    "searchPlaceholder": "Caută categorii și elemente...",
+    "noSearchResults": "Nicio categorie sau element nu corespunde căutării."
   },
   "tutorial": {
     "label": "Ghid",

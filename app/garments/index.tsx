@@ -37,12 +37,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
-function statusLabel(status: string): string {
-  if (status === 'active') return 'Enabled';
-  if (status === 'disabled') return 'Disabled';
-  return status;
-}
-
 export default function GarmentsListScreen() {
   const router = useRouter();
   const { t } = useI18n();

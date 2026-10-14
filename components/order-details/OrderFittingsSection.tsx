@@ -4,7 +4,7 @@ import { Calendar, Camera, Edit3, Trash2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AtelierSpacing, AtelierRadius, FontFamily } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, dateLocaleTag } from '@/lib/i18n';
 import { resolveUploadUrl } from '@/lib/api';
 import { MAX_FITTING_PHOTOS } from '@/lib/fittings';
 import { ZoomableImageViewer } from '@/components/ZoomableImageViewer';
@@ -60,18 +60,19 @@ export function OrderFittingsSection({
   onFittingDateChangeIos,
 }: OrderFittingsSectionProps) {
   const { colors, isDark } = useTheme();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const localeTag = dateLocaleTag(locale);
   const [viewer, setViewer] = useState<{ fittingIndex: number; photoIndex: number } | null>(null);
   const viewerPhotos = viewer ? (fittings[viewer.fittingIndex]?.photos ?? []) : [];
   const formatFittingDateLine = (date: Date) => {
-    const weekday = date.toLocaleDateString('ro-RO', { weekday: 'long' });
+    const weekday = date.toLocaleDateString(localeTag, { weekday: 'long' });
     const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-    const dayDate = date.toLocaleDateString('ro-RO', {
+    const dayDate = date.toLocaleDateString(localeTag, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
-    const time = date.toLocaleTimeString('ro-RO', {
+    const time = date.toLocaleTimeString(localeTag, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -79,7 +80,7 @@ export function OrderFittingsSection({
 
     return {
       firstLine: `${capitalizedWeekday} - ${dayDate}`,
-      secondLine: `La ora ${time}`,
+      secondLine: t('orderDetails.fittings.atTime', { time }),
     };
   };
 

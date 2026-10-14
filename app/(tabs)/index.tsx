@@ -20,7 +20,7 @@ import {
   Image,
   Plus,
 } from 'lucide-react-native';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, dateLocaleTag } from '@/lib/i18n';
 import { api, apiFetch } from '@/lib/api';
 import { fetchCompanySettings, fetchGarmentTypesList } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -68,22 +68,20 @@ const STATUS_MAP: Record<string, keyof typeof AtelierStatus> = {
   CANCELLED: 'cancelled',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
-  IN_PROGRESS: 'In Progress',
-  COMPLETED: 'Completed',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
+const STATUS_LABEL_KEY: Record<string, string> = {
+  PENDING: 'orders.filters.pending',
+  IN_PROGRESS: 'orders.filters.inProgress',
+  COMPLETED: 'orders.filters.completed',
+  DELIVERED: 'orders.filters.delivered',
+  CANCELLED: 'orders.filters.cancelled',
 };
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+function formatDate(iso: string, localeTag: string) {
+  return new Date(iso).toLocaleDateString(localeTag, { day: '2-digit', month: 'short' });
 }
 
-function dayLabel(): string {
-  const now = new Date();
-  return now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+function dayLabel(localeTag: string): string {
+  return new Date().toLocaleDateString(localeTag, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 function greetingPrefix(hour: number, firstName: string, t: (k: string, v?: Record<string, unknown>) => string) {
@@ -94,7 +92,8 @@ function greetingPrefix(hour: number, firstName: string, t: (k: string, v?: Reco
 
 export default function HomeTab() {
   const { colors } = useTheme();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const localeTag = dateLocaleTag(locale);
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { subscriptionState, checkCanCreateTemplate, upgradeToPro } = useSubscription();
@@ -273,7 +272,7 @@ export default function HomeTab() {
         {/* ─── Page header ─────────────────────────────────────────────── */}
         <View style={styles.pageHeader}>
           <View style={styles.pageHeaderLeft}>
-            <Text style={[styles.dayLabel, { color: ink3 }]}>{dayLabel()}</Text>
+            <Text style={[styles.dayLabel, { color: ink3 }]}>{dayLabel(localeTag)}</Text>
             {firstName ? (
               <Text style={[styles.greeting, { color: inkColor }]}>
                 {greetingPrefix(hour, firstName, t)}
@@ -446,7 +445,7 @@ export default function HomeTab() {
                                   #{order.orderNumber}
                                 </Text>
                                 <Text style={[styles.orderStatusLabel, { color: statusInfo.fg }]}>
-                                  {STATUS_LABEL[order.status]}
+                                  {t(STATUS_LABEL_KEY[order.status] ?? 'orders.filters.pending')}
                                 </Text>
                               </View>
                               <Text style={[styles.orderClient, { color: ink3 }]}>
@@ -456,7 +455,7 @@ export default function HomeTab() {
                               </Text>
                               {order.deliveryDate ? (
                                 <Text style={[styles.orderDate, { color: ink4 }]}>
-                                  Due {formatDate(order.deliveryDate)}
+                                  {t('home.dueOn', { date: formatDate(order.deliveryDate, localeTag) })}
                                 </Text>
                               ) : null}
                             </View>

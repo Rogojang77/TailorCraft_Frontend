@@ -36,7 +36,7 @@ import {
   normalizeGarmentTypeRecord,
   definitionRecordToFormDefinition,
 } from '@/lib/api';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, dateLocaleTag } from '@/lib/i18n';
 import { sortGarmentIdsByOrder } from '@/lib/order';
 import type { GarmentTypeRecord, MeasurementDefinitionRecord } from '@/types/templates';
 import type { MeasurementDefinition } from '@/constants/garments';
@@ -574,7 +574,7 @@ export default function SummaryScreen() {
               <Text style={[styles.clientName, { color: colors.textPrimary }]}>{draftOrder.customer.name || '—'}</Text>
               <Text style={[styles.clientPhone, { color: colors.ink3 }]}>{draftOrder.customer.phone || '—'}</Text>
               <Text style={[styles.orderDate, { color: colors.ink3 }]}>
-                Data comenzii: {new Date().toLocaleDateString('ro-RO')}
+                {t('pdf.orderDate')}: {new Date().toLocaleDateString(dateLocaleTag(locale))}
               </Text>
             </View>
 
