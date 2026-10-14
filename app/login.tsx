@@ -27,14 +27,6 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Cloth swatch palette — fabric-inspired hues
-const SWATCHES = [
-  '#2C3E50', '#8B7355', '#4A6741', '#7B3B3B',
-  '#5C4A72', '#3D5C48', '#9C7A3E', '#1B3A4B',
-  '#6B4C3B', '#3C5772', '#7A6545', '#4B4237',
-  '#8B6914', '#2D4A3E', '#5A3E2B', '#3D3535',
-];
-
 export default function LoginScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -221,13 +213,6 @@ export default function LoginScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Cloth swatch grid */}
-      <View style={styles.swatchGrid}>
-        {SWATCHES.map((swatch, i) => (
-          <View key={i} style={[styles.swatchCell, { backgroundColor: swatch }]} />
-        ))}
-      </View>
-
       {/* Nameplate */}
       <View style={styles.nameplate}>
         <Text style={[styles.nameplateEyebrow, { color: brassColor }]}>
@@ -380,17 +365,6 @@ const styles = StyleSheet.create({
   },
 
   // Swatch grid
-  swatchGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: AtelierSpacing.xl,
-    borderRadius: AtelierRadius.sm,
-    overflow: 'hidden',
-  },
-  swatchCell: {
-    width: '25%',
-    aspectRatio: 1.4,
-  },
 
   // Nameplate
   nameplate: {
