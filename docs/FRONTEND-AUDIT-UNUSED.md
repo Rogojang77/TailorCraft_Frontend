@@ -55,7 +55,7 @@ Confidence: **High**.
 - `lib/services/subscriptionService.ts` — SubscriptionContext, useEntitlements.
 - `lib/services/iapService.ts` — SubscriptionContext, usePurchase, useSubscriptions, useEntitlements, SubscriptionManagement.
 - `lib/services/iapConnection.ts` — iapService, useSubscriptions, useEntitlements.
-- `lib/services/pdfService.ts` — pdf-customize, order-details.
+- `lib/services/pdfService.ts` — order-details.
 - `lib/apiCache.ts` — multiple app screens.
 - `lib/api-mappers.ts` — multiple app screens and libs.
 - `lib/orderDraftStorage.ts` — OrderDraftContext.
@@ -74,7 +74,7 @@ Confidence: **High**.
 
 ## 6. Screens not registered in navigation
 
-Expo Router is file-based; every file under `app/` is a route. The root `_layout.tsx` uses a `Stack` with explicit `Stack.Screen` names; all main route segments (login, signup, (tabs), client-details, clients, new-order, order-details, garments, account, subscription, pdf-customize, legal-document, verify-email, +not-found) are registered. The `legacy` segment is not in the Stack but exists as `app/legacy/_layout.tsx` and `app/legacy/new-order-garment/[garmentId].tsx`; the root layout redirects `/legacy` to `/(tabs)` or `/login`, so legacy screens are intentionally unreachable. No screen is “missing” from routing.
+Expo Router is file-based; every file under `app/` is a route. The root `_layout.tsx` uses a `Stack` with explicit `Stack.Screen` names; all main route segments (login, signup, (tabs), client-details, clients, new-order, order-details, garments, account, subscription, legal-document, verify-email, +not-found) are registered. The `legacy` segment is not in the Stack but exists as `app/legacy/_layout.tsx` and `app/legacy/new-order-garment/[garmentId].tsx`; the root layout redirects `/legacy` to `/(tabs)` or `/login`, so legacy screens are intentionally unreachable. No screen is “missing” from routing.
 
 ---
 

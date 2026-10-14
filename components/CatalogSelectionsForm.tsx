@@ -12,7 +12,7 @@ import { Search, ChevronDown, ChevronUp } from 'lucide-react-native';
 import type { GarmentCatalogCategoryWithItems } from '@/types/catalog';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { API_BASE_URL } from '@/lib/api';
 
 const COLLAPSE_THRESHOLD = 3; // Show search + collapse when categories exceed this
@@ -109,16 +109,13 @@ export function CatalogSelectionsForm({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newOrder.catalogSelections.title')}</Text>
-      <Text style={[styles.sectionHint, { color: colors.textTertiary }]}>{t('newOrder.catalogSelections.hint')}</Text>
-
       {showSearchAndCollapse && (
-        <View style={[styles.searchRow, { backgroundColor: colors.borderLight, borderColor: colors.border }]}>
-          <Search size={18} color={colors.textSecondary} style={styles.searchIcon} />
+        <View style={[styles.searchRow, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border }]}>
+          <Search size={18} color={colors.ink3} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder={t('catalog.searchPlaceholder', { defaultValue: 'Search categories & items...' })}
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={colors.ink4 ?? colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             editable={!isLoading}
@@ -143,7 +140,7 @@ export function CatalogSelectionsForm({
             <View style={styles.categoryHeaderRow}>
               {onToggle ? (
                 <TouchableOpacity
-                  style={[styles.categoryHeaderTouchable, { borderColor: colors.border }]}
+                  style={[styles.categoryHeaderTouchable, { borderColor: colors.rule ?? colors.border }]}
                   onPress={onToggle}
                   activeOpacity={0.7}
                   accessibilityLabel={isExpanded ? t('common.collapse', { defaultValue: 'Collapse' }) : t('common.expand', { defaultValue: 'Expand' })}
@@ -151,9 +148,9 @@ export function CatalogSelectionsForm({
                 >
                   <Text style={[styles.categoryLabel, { color: colors.textPrimary }]}>{categoryLabel}</Text>
                   {isExpanded ? (
-                    <ChevronUp size={18} color={colors.textSecondary} style={styles.categoryChevron} />
+                    <ChevronUp size={18} color={colors.ink3} style={styles.categoryChevron} />
                   ) : (
-                    <ChevronDown size={18} color={colors.textSecondary} style={styles.categoryChevron} />
+                    <ChevronDown size={18} color={colors.ink3} style={styles.categoryChevron} />
                   )}
                 </TouchableOpacity>
               ) : (
@@ -168,7 +165,7 @@ export function CatalogSelectionsForm({
               {isExpanded && (
                 <View style={styles.optionRowWrapper}>
                   {!hasItems || isLoading ? (
-                    <Text style={[styles.noItemsText, { color: colors.textTertiary }]}>{t('catalog.noItems')}</Text>
+                    <Text style={[styles.noItemsText, { color: colors.ink4 ?? colors.textTertiary }]}>{t('catalog.noItems')}</Text>
                   ) : (
                     <ScrollView
                       horizontal
@@ -182,8 +179,8 @@ export function CatalogSelectionsForm({
                             key={item.id}
                             style={[
                               styles.optionButton,
-                              { backgroundColor: colors.borderLight, borderColor: colors.border },
-                              isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                              { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border },
+                              isSelected && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary },
                             ]}
                             onPress={() => onSelectionChange(category.code, item.id)}
                             disabled={isLoading}
@@ -193,12 +190,12 @@ export function CatalogSelectionsForm({
                               {item.imageUrl ? (
                                 <Image source={{ uri: item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE_URL}${item.imageUrl}` }} style={styles.optionButtonThumb} />
                               ) : null}
-                              {item.color && <ColorSwatch color={item.color} borderColor={colors.border} />}
+                              {item.color && <ColorSwatch color={item.color} borderColor={colors.rule ?? colors.border} />}
                               <Text
                                 style={[
                                   styles.optionText,
-                                  { color: colors.textSecondary },
-                                  isSelected && { color: colors.textInverse },
+                                  { color: colors.ink3 },
+                                  isSelected && { color: colors.paper ?? '#EFE9DC' },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -217,7 +214,7 @@ export function CatalogSelectionsForm({
         })}
       </View>
       {showSearchAndCollapse && searchQuery.trim() && filteredCategories.length === 0 && (
-        <Text style={[styles.noResultsText, { color: colors.textTertiary }]}>
+        <Text style={[styles.noResultsText, { color: colors.ink4 ?? colors.textTertiary }]}>
           {t('catalog.noSearchResults', { defaultValue: 'No categories or items match your search.' })}
         </Text>
       )}
@@ -227,61 +224,72 @@ export function CatalogSelectionsForm({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
   },
   sectionTitle: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.xxs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 4,
   },
   sectionHint: {
-    ...Typography.caption,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.sm,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
+    borderRadius: AtelierRadius.md,
+    paddingHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
     minHeight: 44,
   },
   searchIcon: {
-    marginRight: Spacing.sm,
+    marginRight: AtelierSpacing.sm,
   },
   searchInput: {
     flex: 1,
-    ...Typography.body,
-    paddingVertical: Spacing.sm,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    paddingVertical: AtelierSpacing.sm,
   },
   categoriesContainer: {
-    gap: Spacing.formFieldGap,
+    gap: AtelierSpacing.sm,
+    paddingBottom: AtelierSpacing.md,
   },
   categoryField: {
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   categoryHeaderRow: {
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   categoryHeaderTouchable: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: AtelierSpacing.xs,
+    paddingHorizontal: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
   },
   categoryChevron: {
-    marginLeft: Spacing.sm,
+    marginLeft: AtelierSpacing.sm,
   },
   categoryLabel: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
     flex: 1,
   },
   noResultsText: {
-    ...Typography.caption,
-    marginTop: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.sm,
   },
   optionRowWrapper: {
     minHeight: 44,
@@ -289,32 +297,37 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingVertical: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 2,
     height: 48,
   },
   optionButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   optionButtonThumb: {
     width: 28,
     height: 28,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
+    resizeMode: 'contain',
   },
   optionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   noItemsText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   colorSwatch: {
     width: 16,

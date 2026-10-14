@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
-import { BorderRadius } from '@/constants/design';
+import { AtelierRadius } from '@/constants/atelierDesign';
 
 export type CollarType = 'clasic' | 'italian' | 'randunica' | 'mandarin';
 
@@ -22,8 +22,8 @@ const SIZES = {
 export function CollarIcon({ type, active = false, size = 'md', style }: CollarIconProps) {
   const { colors } = useTheme();
   const dimensions = SIZES[size];
-  
-  const strokeColor = active ? colors.primary : colors.textTertiary;
+
+  const strokeColor = active ? colors.brass ?? colors.primary : colors.ink4 ?? colors.textTertiary;
   const strokeWidth = active ? 2 : 1.2;
 
   const renderPath = () => {
@@ -40,7 +40,7 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
             />
           </Svg>
         );
-      
+
       case 'italian':
         return (
           <Svg viewBox="0 0 100 60" width={dimensions.width - dimensions.padding * 2} height={dimensions.height - dimensions.padding * 2}>
@@ -53,7 +53,7 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
             />
           </Svg>
         );
-      
+
       case 'randunica':
         return (
           <Svg viewBox="0 0 100 60" width={dimensions.width - dimensions.padding * 2} height={dimensions.height - dimensions.padding * 2}>
@@ -72,7 +72,7 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
             />
           </Svg>
         );
-      
+
       case 'mandarin':
         return (
           <Svg viewBox="0 0 100 60" width={dimensions.width - dimensions.padding * 2} height={dimensions.height - dimensions.padding * 2}>
@@ -85,7 +85,7 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
             />
           </Svg>
         );
-      
+
       default:
         return null;
     }
@@ -99,8 +99,8 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
           width: dimensions.width,
           height: dimensions.height,
           padding: dimensions.padding,
-          borderColor: active ? colors.primary : colors.border,
-          backgroundColor: active ? `${colors.primary}08` : colors.surface,
+          borderColor: active ? colors.brass ?? colors.primary : colors.rule ?? colors.border,
+          backgroundColor: active ? `${colors.brass ?? colors.primary}08` : colors.card,
         },
         style,
       ]}
@@ -113,7 +113,7 @@ export function CollarIcon({ type, active = false, size = 'md', style }: CollarI
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

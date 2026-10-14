@@ -10,7 +10,7 @@ const ORDER_STATUS_MAP: Record<string, string> = {
   CANCELLED: 'Anulat',
 };
 
-import { humanizeGarmentId } from '@/utils';
+import { humanizeGarmentId } from '@/utils/snapshotDisplay';
 import type { GarmentTypeRecord, MeasurementDefinitionRecord } from '@/types/templates';
 import type { MeasurementDefinition } from '@/constants/garments';
 

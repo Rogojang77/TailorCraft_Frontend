@@ -137,5 +137,6 @@ export function formatMeasurementValueForDisplay(v: MeasurementValue): string {
   if (typeof v === 'number') return toCommaDecimal(String(v));
   const s = String(v);
   if (s.trim() === '') return '';
-  return toCommaDecimal(s);
+  // Only numbers get a decimal comma; text values ("A.B.", "30.05.2026") must keep their periods.
+  return isRelaxedNumberString(s.trim()) ? toCommaDecimal(s) : s;
 }

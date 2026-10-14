@@ -1,176 +1,9 @@
 /**
- * PDF template and custom PDF generation API (Pro only).
+ * Classic PDF generation API.
  */
 
-import { api, apiFetch, getStoredAccessToken, ApiError, ApiErrorCode } from '@/lib/api';
+import { api, getStoredAccessToken, ApiError } from '@/lib/api';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
-
-export type PdfLayoutType = 'classic' | 'modern' | 'minimal';
-
-export type PdfLogoPosition = 'left' | 'right';
-
-export interface PdfTemplate {
-  logoUrl?: string | null;
-  logoPosition?: PdfLogoPosition;
-  primaryColor: string;
-  secondaryColor: string;
-  fontFamily: string;
-  showHeader: boolean;
-  showFooter: boolean;
-  customFooterText?: string | null;
-  layoutType: PdfLayoutType;
-}
-
-export async function fetchPdfTemplate(accessToken?: string | null): Promise<PdfTemplate> {
-  return apiFetch<PdfTemplate>(api.pdf.template, { token: accessToken ?? undefined });
-}
-
-export interface SavePdfTemplateInput {
-  logoUrl?: string | null;
-  logoPosition?: PdfLogoPosition;
-  primaryColor?: string;
-  secondaryColor?: string;
-  fontFamily?: string;
-  showHeader?: boolean;
-  showFooter?: boolean;
-  customFooterText?: string | null;
-  layoutType?: PdfLayoutType;
-}
-
-export async function savePdfTemplate(
-  data: SavePdfTemplateInput,
-  accessToken: string
-): Promise<PdfTemplate> {
-  return apiFetch<PdfTemplate>(api.pdf.template, {
-    method: 'PUT',
-    token: accessToken,
-    body: JSON.stringify(data),
-  });
-}
-
-// ----- Dynamic document template (Build Your PDF) -----
-
-export type TemplateSectionType = 'header' | 'fields' | 'pricing' | 'contract' | 'signature' | 'measurements';
-
-export interface TemplateFieldItem {
-  key: string;
-  label: string;
-  enabled: boolean;
-}
-
-export interface TemplateSectionBase {
-  type: TemplateSectionType;
-  enabled: boolean;
-}
-
-export interface TemplateSectionHeader extends TemplateSectionBase {
-  type: 'header';
-}
-
-export interface TemplateSectionFields extends TemplateSectionBase {
-  type: 'fields';
-  title?: string;
-  fields: TemplateFieldItem[];
-}
-
-export interface TemplateSectionPricing extends TemplateSectionBase {
-  type: 'pricing';
-}
-
-export interface TemplateSectionContract extends TemplateSectionBase {
-  type: 'contract';
-  title?: string;
-  content: string;
-}
-
-export interface TemplateSectionSignature extends TemplateSectionBase {
-  type: 'signature';
-  showClientLine?: boolean;
-  showCompanyLine?: boolean;
-  showDateLine?: boolean;
-}
-
-export interface TemplateSectionMeasurements extends TemplateSectionBase {
-  type: 'measurements';
-}
-
-export type TemplateSection =
-  | TemplateSectionHeader
-  | TemplateSectionFields
-  | TemplateSectionPricing
-  | TemplateSectionContract
-  | TemplateSectionSignature
-  | TemplateSectionMeasurements;
-
-export interface TemplateJson {
-  sections: TemplateSection[];
-}
-
-export interface PdfDocumentTemplateRecord {
-  id: string;
-  userId: string;
-  name: string;
-  isDefault: boolean;
-  layoutType: string;
-  templateJson: TemplateJson;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PdfFieldDefinition {
-  key: string;
-  label: string;
-}
-
-export interface PdfFieldsResponse {
-  fields: PdfFieldDefinition[];
-  variableKeys: string[];
-}
-
-export async function listDocumentTemplates(accessToken: string): Promise<PdfDocumentTemplateRecord[]> {
-  return apiFetch<PdfDocumentTemplateRecord[]>(api.pdf.templates, { token: accessToken });
-}
-
-export async function getDocumentTemplate(
-  id: string,
-  accessToken: string
-): Promise<PdfDocumentTemplateRecord> {
-  return apiFetch<PdfDocumentTemplateRecord>(api.pdf.templateById(id), { token: accessToken });
-}
-
-export async function createDocumentTemplate(
-  data: { name: string; isDefault?: boolean; layoutType?: string; templateJson: TemplateJson },
-  accessToken: string
-): Promise<PdfDocumentTemplateRecord> {
-  return apiFetch<PdfDocumentTemplateRecord>(api.pdf.templates, {
-    method: 'POST',
-    token: accessToken,
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateDocumentTemplate(
-  id: string,
-  data: { name?: string; isDefault?: boolean; layoutType?: string; templateJson?: TemplateJson },
-  accessToken: string
-): Promise<PdfDocumentTemplateRecord> {
-  return apiFetch<PdfDocumentTemplateRecord>(api.pdf.templateById(id), {
-    method: 'PUT',
-    token: accessToken,
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteDocumentTemplate(id: string, accessToken: string): Promise<void> {
-  await apiFetch<{ success: boolean }>(api.pdf.templateById(id), {
-    method: 'DELETE',
-    token: accessToken,
-  });
-}
-
-export async function fetchPdfFields(accessToken?: string | null): Promise<PdfFieldsResponse> {
-  return apiFetch<PdfFieldsResponse>(api.pdf.fields, { token: accessToken ?? undefined });
-}
 
 /** Base64 decode that works in React Native (atob may be undefined in Hermes). */
 function base64DecodeToBytes(base64: string): Uint8Array {
@@ -216,18 +49,21 @@ export interface GeneratePdfResult {
   blob?: Blob;
 }
 
-/** Shared fetch for PDF generate-custom. Throws ApiError on 403 CUSTOM_PDF_PRO_ONLY so UI can show upgrade modal. */
-async function fetchGenerateCustomPdf(
+type GeneratePdfOptions = {
+  accessToken?: string | null;
+  responseFormat?: 'json' | 'pdf';
+};
+
+/** Shared fetch helper for PDF generate endpoints. */
+async function fetchGeneratePdfInternal(
+  url: string,
   orderId: string,
-  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null; responseFormat?: 'json' | 'pdf' }
+  options?: GeneratePdfOptions
 ): Promise<GeneratePdfResult> {
   const token = options?.accessToken ?? (await getStoredAccessToken());
-  const url = api.pdf.generateCustom;
   const wantRawPdf = options?.responseFormat === 'pdf';
-  const body: { orderId: string; templateId?: string; mode?: 'classic' | 'custom'; responseFormat?: 'json' | 'pdf' } = {
+  const body: { orderId: string; responseFormat?: 'json' | 'pdf' } = {
     orderId,
-    ...(options?.mode ? { mode: options.mode } : {}),
-    ...(options?.templateId ? { templateId: options.templateId } : {}),
     ...(wantRawPdf ? { responseFormat: 'pdf' } : {}),
   };
   if (__DEV__) {
@@ -251,14 +87,6 @@ async function fetchGenerateCustomPdf(
       messageKey?: string;
       messageParams?: Record<string, string | number>;
     };
-    if (res.status === 403 && errBody.code === ApiErrorCode.CUSTOM_PDF_PRO_ONLY) {
-      throw new ApiError(
-        errBody.messageKey ? '' : (errBody.error ?? 'Custom PDF is available on Pro plan.'),
-        errBody.code,
-        403,
-        errBody.messageKey ? { messageKey: errBody.messageKey, messageParams: errBody.messageParams } : undefined
-      );
-    }
     const msg = errBody.error ?? res.statusText;
     throw new ApiError(msg, errBody.code, res.status, errBody.messageKey ? { messageKey: errBody.messageKey, messageParams: errBody.messageParams } : undefined);
   }
@@ -316,22 +144,15 @@ async function fetchGenerateCustomPdf(
   throw new ApiError('Invalid PDF response: missing data URL or PDF stream', undefined, 200);
 }
 
-/** Generate PDF for an order (uses backend generate-custom). On 403 CUSTOM_PDF_PRO_ONLY throws ApiError for upgrade modal. */
-export async function generatePdf(
+/** Generate classic PDF for an order (free endpoint). */
+export async function generateClassicPdf(
   orderId: string,
-  options?: { mode?: 'classic' | 'custom'; templateId?: string; accessToken?: string | null; responseFormat?: 'json' | 'pdf' }
+  options?: { accessToken?: string | null; responseFormat?: 'json' | 'pdf' }
 ): Promise<GeneratePdfResult> {
-  return fetchGenerateCustomPdf(orderId, {
-    mode: options?.mode,
-    templateId: options?.templateId,
+  return fetchGeneratePdfInternal(api.pdf.generateClassic, orderId, {
     accessToken: options?.accessToken,
     responseFormat: options?.responseFormat,
   });
-}
-
-/** Generate custom PDF for order (Pro only). */
-export async function generateCustomPdf(orderId: string, accessToken?: string | null): Promise<GeneratePdfResult> {
-  return fetchGenerateCustomPdf(orderId, { accessToken });
 }
 
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

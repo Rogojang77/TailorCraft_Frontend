@@ -12,7 +12,7 @@ import { api, apiFetch, getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { CheckCircle, XCircle, Mail } from 'lucide-react-native';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -161,41 +161,49 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xxl,
+    paddingHorizontal: AtelierSpacing.xxl,
   },
   title: {
-    ...Typography.h2,
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    marginTop: AtelierSpacing.xl,
+    marginBottom: AtelierSpacing.md,
     textAlign: 'center',
   },
   message: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   subMessage: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
   },
   resendForm: {
     width: '100%',
-    marginTop: Spacing.xl,
+    marginTop: AtelierSpacing.xl,
   },
   resendHint: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   emailInput: {
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   primaryButton: {
-    marginTop: Spacing.xl,
+    marginTop: AtelierSpacing.xl,
     minWidth: 200,
   },
   secondaryButton: {
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
   },
 });

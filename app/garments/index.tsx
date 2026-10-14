@@ -35,7 +35,7 @@ import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 function statusLabel(status: string): string {
   if (status === 'active') return 'Enabled';
@@ -322,74 +322,75 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   retryButton: {
-    marginTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.sm,
+    padding: AtelierSpacing.sm,
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xxl,
   },
   row: {
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
+    borderRadius: AtelierRadius.md,
+    marginBottom: AtelierSpacing.sm,
     borderBottomWidth: 1,
-    ...Shadows.sm,
+    ...AtelierShadow.card,
   },
   rowActive: {
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
     opacity: 0.95,
   },
   rowContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
     minHeight: 64,
   },
   dragHandle: {
-    paddingRight: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingRight: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.xs,
   },
   rowMain: {
     flex: 1,
-    marginRight: Spacing.md,
-    gap: Spacing.xs,
+    marginRight: AtelierSpacing.md,
+    gap: AtelierSpacing.xs,
   },
   rowName: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 16,
+    lineHeight: 22,
   },
   rowActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
   },
   statusSwitch: {
     transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
   },
   fab: {
     position: 'absolute',
-    bottom: Spacing.xl,
-    right: Spacing.xl,
+    bottom: AtelierSpacing.xl,
+    right: AtelierSpacing.xl,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.primary,
+    ...AtelierShadow.elevated,
     ...(Platform.OS === 'ios' ? { elevation: 8 } : {}),
   },
 });

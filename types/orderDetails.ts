@@ -18,6 +18,19 @@ export interface OrderDetailsData {
   catalogSelections?: Record<string, Record<string, string | string[]>>;
   lastUpdated?: string;
   notes?: string | null;
+  fittings?: Array<{
+    id: string;
+    scheduledAt: string;
+    status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+    notes?: string | null;
+    photos?: string[];
+  }>;
+  sketches?: Array<{
+    id: string;
+    imageUrl: string;
+    title?: string | null;
+    createdAt: string;
+  }>;
 }
 
 /**

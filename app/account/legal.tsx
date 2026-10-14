@@ -12,7 +12,7 @@ import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import * as WebBrowser from 'expo-web-browser';
 import { FileText, Shield, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierShadow } from '@/constants/atelierDesign';
 import { useI18n } from '@/lib/i18n';
 import { LEGAL_LAST_UPDATED, TERMS_URL, PRIVACY_POLICY_URL } from '@/constants/legal';
 
@@ -52,7 +52,7 @@ export default function LegalScreen() {
             onPress={() => openInBrowser(TERMS_URL)}
             activeOpacity={0.7}
           >
-            <View style={[styles.docIcon, { backgroundColor: colors.primaryLight + '40' }]}>
+            <View style={[styles.docIcon, { backgroundColor: (colors.brassPale ?? colors.brass) + '40' }]}>
               <FileText size={24} color={colors.primary} />
             </View>
             <View style={styles.docContent}>
@@ -69,7 +69,7 @@ export default function LegalScreen() {
             onPress={() => openInBrowser(PRIVACY_POLICY_URL)}
             activeOpacity={0.7}
           >
-            <View style={[styles.docIcon, { backgroundColor: colors.primaryLight + '40' }]}>
+            <View style={[styles.docIcon, { backgroundColor: (colors.brassPale ?? colors.brass) + '40' }]}>
               <Shield size={24} color={colors.primary} />
             </View>
             <View style={styles.docContent}>
@@ -93,21 +93,23 @@ export default function LegalScreen() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   intro: {
-    ...Typography.body,
-    marginBottom: Spacing.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.lg,
   },
   section: {
     borderRadius: 12,
     overflow: 'hidden',
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   docRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   docIcon: {
@@ -116,24 +118,30 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
   },
   docContent: {
     flex: 1,
   },
   docTitle: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
   },
   docSublabel: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     marginTop: 2,
   },
   footer: {
-    marginTop: Spacing.xl,
-    padding: Spacing.md,
+    marginTop: AtelierSpacing.xl,
+    padding: AtelierSpacing.md,
   },
   footerText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
   },
 });

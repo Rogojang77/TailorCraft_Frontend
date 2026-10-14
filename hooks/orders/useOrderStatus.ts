@@ -21,12 +21,14 @@ export interface UseOrderStatusResult {
   statusModalVisible: boolean;
   setStatusModalVisible: (v: boolean) => void;
   statusUpdating: boolean;
+  fullPayUpdating: boolean;
   showDeliveryDatePicker: boolean;
   setShowDeliveryDatePicker: (v: boolean) => void;
   deliveryDateUpdating: boolean;
   deliveryDateForPicker: Date;
   minDeliveryDate: Date;
   handleStatusUpdate: (newStatus: string) => Promise<void>;
+  handleMarkAsFullyPaid: () => Promise<void>;
   openDeliveryDatePicker: () => void;
   saveDeliveryDate: (isoDate: string) => Promise<void>;
   handleDeliveryDateChange: (event: { type: string }, selectedDate?: Date) => void;
@@ -40,6 +42,7 @@ export function useOrderStatus({
 }: UseOrderStatusArgs): UseOrderStatusResult {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [fullPayUpdating, setFullPayUpdating] = useState(false);
   const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
   const [deliveryDateUpdating, setDeliveryDateUpdating] = useState(false);
 
@@ -117,6 +120,42 @@ export function useOrderStatus({
     [orderId, orderData, onOrderUpdated, t]
   );
 
+  const handleMarkAsFullyPaid = useCallback(async () => {
+    if (!orderId || !orderData) return;
+    setFullPayUpdating(true);
+    try {
+      const updated = await apiFetch<{
+        id: string;
+        orderNumber: string;
+        status: string;
+        totalAmount: number;
+        paidAmount: number;
+        orderDate: string;
+        measurements: Record<string, Record<string, unknown>> | null;
+      }>(api.orders(orderId), {
+        method: 'PUT',
+        body: JSON.stringify({
+          paidAmount: orderData.total,
+        }),
+      });
+      onOrderUpdated((prev) => ({
+        ...prev,
+        total: updated.totalAmount,
+        advance: updated.paidAmount,
+        status: orderStatusToLabel(updated.status),
+        rawStatus: updated.status,
+      }));
+      Alert.alert(t('common.success'), t('orderDetails.markFullyPaidSuccess'));
+    } catch (e) {
+      Alert.alert(
+        t('common.error'),
+        e instanceof Error ? e.message : t('orderDetails.markFullyPaidError')
+      );
+    } finally {
+      setFullPayUpdating(false);
+    }
+  }, [orderId, orderData, onOrderUpdated, t]);
+
   const openDeliveryDatePicker = useCallback(() => {
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
@@ -146,12 +185,14 @@ export function useOrderStatus({
     statusModalVisible,
     setStatusModalVisible,
     statusUpdating,
+    fullPayUpdating,
     showDeliveryDatePicker,
     setShowDeliveryDatePicker,
     deliveryDateUpdating,
     deliveryDateForPicker,
     minDeliveryDate,
     handleStatusUpdate,
+    handleMarkAsFullyPaid,
     openDeliveryDatePicker,
     saveDeliveryDate,
     handleDeliveryDateChange,

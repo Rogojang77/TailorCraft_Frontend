@@ -4,7 +4,7 @@ import { AlertTriangle, Clock } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { getTypography, Spacing, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 export interface DeadlineProgressBarProps {
   orderDate: string;
@@ -23,10 +23,6 @@ export interface DeadlineInfo {
   color: string;
 }
 
-/**
- * Calculates progress and status based only on order date and delivery date.
- * Progress = remaining time / total time (order → delivery). No deadline/warning-day settings.
- */
 export function calculateDeadlineInfo(
   orderDate: string,
   deliveryDate: string | null | undefined,
@@ -36,39 +32,33 @@ export function calculateDeadlineInfo(
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-
   const order = new Date(orderDate);
   order.setHours(0, 0, 0, 0);
-
   const delivery = new Date(deliveryDate);
   delivery.setHours(0, 0, 0, 0);
 
   const totalDuration = delivery.getTime() - order.getTime();
   const elapsed = now.getTime() - order.getTime();
   const daysRemaining = Math.ceil((delivery.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
   const isOverdue = daysRemaining < 0;
 
   let progress: number;
   if (totalDuration <= 0) {
     progress = isOverdue ? 0 : 1;
   } else {
-    progress = Math.max(0, Math.min(1, 1 - (elapsed / totalDuration)));
+    progress = Math.max(0, Math.min(1, 1 - elapsed / totalDuration));
   }
 
-  // Urgency and warning based only on progress (remaining fraction of order→delivery window)
   const isUrgent = !isOverdue && progress <= 0.2;
   const isWarning = !isOverdue && !isUrgent && progress <= 0.5;
 
   let color: string;
-  if (isOverdue) {
-    color = colors.error;
-  } else if (progress <= 0.2 || isUrgent) {
-    color = colors.error;
-  } else if (progress <= 0.5 || isWarning) {
-    color = colors.warning;
+  if (isOverdue || isUrgent) {
+    color = colors.ember ?? colors.error;
+  } else if (isWarning) {
+    color = colors.brassDeep ?? colors.brass ?? colors.warning;
   } else {
-    color = colors.success;
+    color = colors.pine ?? colors.success;
   }
 
   return { daysRemaining, progress, isOverdue, isUrgent, isWarning, color };
@@ -76,8 +66,7 @@ export function calculateDeadlineInfo(
 
 function isOrderCompleted(status: string | undefined | null): boolean {
   if (!status) return false;
-  const completedStatuses = ['COMPLETED', 'DELIVERED', 'CANCELLED'];
-  return completedStatuses.includes(status.toUpperCase());
+  return ['COMPLETED', 'DELIVERED', 'CANCELLED'].includes(status.toUpperCase());
 }
 
 export const DeadlineProgressBar = memo(function DeadlineProgressBar({
@@ -90,7 +79,6 @@ export const DeadlineProgressBar = memo(function DeadlineProgressBar({
   const { t } = useI18n();
   const { colors } = useTheme();
   const { showDeadlineBar } = useSettings();
-  const typography = getTypography(colors);
 
   const deadlineInfo = useMemo(
     () => calculateDeadlineInfo(orderDate, deliveryDate, colors),
@@ -98,47 +86,31 @@ export const DeadlineProgressBar = memo(function DeadlineProgressBar({
   );
 
   const isCompleted = isOrderCompleted(orderStatus);
-  const shouldShow = showDeadlineBar && deadlineInfo && !isCompleted;
-
-  if (!shouldShow || !deadlineInfo) {
-    return null;
-  }
+  if (!showDeadlineBar || !deadlineInfo || isCompleted) return null;
 
   const getStatusText = () => {
-    if (deadlineInfo.isOverdue) {
-      return t('deadlineBar.overdue', { days: Math.abs(deadlineInfo.daysRemaining) });
-    }
-    if (deadlineInfo.daysRemaining === 0) {
-      return t('deadlineBar.dueToday');
-    }
-    if (deadlineInfo.daysRemaining === 1) {
-      return t('deadlineBar.dueTomorrow');
-    }
+    if (deadlineInfo.isOverdue) return t('deadlineBar.overdue', { days: Math.abs(deadlineInfo.daysRemaining) });
+    if (deadlineInfo.daysRemaining === 0) return t('deadlineBar.dueToday');
+    if (deadlineInfo.daysRemaining === 1) return t('deadlineBar.dueTomorrow');
     return t('deadlineBar.daysRemaining', { days: deadlineInfo.daysRemaining });
   };
 
-  const showWarningIcon = deadlineInfo.isOverdue || deadlineInfo.isUrgent;
   const IconComponent = deadlineInfo.isOverdue || deadlineInfo.isUrgent ? AlertTriangle : Clock;
 
   if (compact) {
     return (
       <View style={[styles.compactContainer, style]}>
         <View style={styles.compactHeader}>
-          {showWarningIcon && (
+          {(deadlineInfo.isOverdue || deadlineInfo.isUrgent) && (
             <IconComponent size={14} color={deadlineInfo.color} />
           )}
-          <Text style={[typography.caption, { color: deadlineInfo.color, fontWeight: '600' }]}>
-            {getStatusText()}
-          </Text>
+          <Text style={[styles.statusText, { color: deadlineInfo.color }]}>{getStatusText()}</Text>
         </View>
-        <View style={[styles.compactProgressBarContainer, { backgroundColor: colors.borderLight }]}>
+        <View style={[styles.compactProgressBarContainer, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
           <View
             style={[
               styles.progressBar,
-              {
-                width: `${Math.max(deadlineInfo.progress * 100, 3)}%`,
-                backgroundColor: deadlineInfo.color,
-              },
+              { width: `${Math.max(deadlineInfo.progress * 100, 3)}%`, backgroundColor: deadlineInfo.color },
             ]}
           />
         </View>
@@ -147,34 +119,25 @@ export const DeadlineProgressBar = memo(function DeadlineProgressBar({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderColor: deadlineInfo.color }, style]}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderColor: deadlineInfo.color }, style]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <IconComponent size={18} color={deadlineInfo.color} />
-          <Text style={[typography.bodyBold, { color: deadlineInfo.color }]}>
-            {t('deadlineBar.title')}
-          </Text>
+          <Text style={[styles.titleText, { color: deadlineInfo.color }]}>{t('deadlineBar.title')}</Text>
         </View>
-        <Text style={[typography.caption, { color: deadlineInfo.color, fontWeight: '600' }]}>
-          {getStatusText()}
-        </Text>
+        <Text style={[styles.statusText, { color: deadlineInfo.color }]}>{getStatusText()}</Text>
       </View>
-      <View style={[styles.progressBarContainer, { backgroundColor: colors.borderLight }]}>
+      <View style={[styles.progressBarContainer, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
         <View
           style={[
             styles.progressBar,
-            {
-              width: `${Math.max(deadlineInfo.progress * 100, 3)}%`,
-              backgroundColor: deadlineInfo.color,
-            },
+            { width: `${Math.max(deadlineInfo.progress * 100, 3)}%`, backgroundColor: deadlineInfo.color },
           ]}
         />
       </View>
       {(deadlineInfo.isOverdue || deadlineInfo.isUrgent) && (
-        <Text style={[typography.caption, { color: deadlineInfo.color, marginTop: Spacing.xs }]}>
-          {deadlineInfo.isOverdue
-            ? t('deadlineBar.overdueWarning')
-            : t('deadlineBar.urgentWarning')}
+        <Text style={[styles.warningText, { color: deadlineInfo.color, marginTop: AtelierSpacing.xs }]}>
+          {deadlineInfo.isOverdue ? t('deadlineBar.overdueWarning') : t('deadlineBar.urgentWarning')}
         </Text>
       )}
     </View>
@@ -183,8 +146,8 @@ export const DeadlineProgressBar = memo(function DeadlineProgressBar({
 
 const styles = StyleSheet.create({
   container: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
     borderLeftWidth: 3,
   },
@@ -192,34 +155,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
+  },
+  titleText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  statusText: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   progressBarContainer: {
     height: 8,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
+  },
+  warningText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   compactContainer: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   compactHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: AtelierSpacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   compactProgressBarContainer: {
     height: 6,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     overflow: 'hidden',
   },
 });

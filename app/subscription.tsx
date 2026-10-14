@@ -16,7 +16,7 @@ import { ChevronLeft, Crown, User, ShoppingBag, RefreshCw } from 'lucide-react-n
 import { useSubscription, usePremium, SubscriptionPlanType } from '@/contexts/SubscriptionContext';
 import { PaywallModal, SubscriptionManagement } from '@/components/subscription';
 import { Button } from '@/components/ui/Button';
-import { Spacing, Typography, HeaderStyles, Shadows, BorderRadius, StatusStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SubscriptionScreen() {
@@ -114,7 +114,7 @@ export default function SubscriptionScreen() {
               const nextBlockingLimit = clientsPercent > ordersPercent ? 'clients' : 'orders';
               
               return (
-                <View style={[styles.usageSection, { backgroundColor: colors.surface }]}>
+                <View style={[styles.usageSection, { backgroundColor: colors.card }]}>
                   <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('subscription.usage')}</Text>
                   <View style={[styles.usageItem, { borderBottomColor: colors.borderLight }]}>
                     <View style={styles.usageHeader}>
@@ -131,13 +131,13 @@ export default function SubscriptionScreen() {
                     <View style={[
                       styles.progressBarContainer,
                       { backgroundColor: colors.borderLight },
-                      clientsNearLimit && { backgroundColor: `${colors.warning}20` }
+                      clientsNearLimit && { backgroundColor: `${colors.brassDeep ?? colors.brass ?? colors.warning}20` }
                     ]}>
                       <View
                         style={[
                           styles.progressBar,
                           { backgroundColor: colors.primary },
-                          clientsNearLimit && { backgroundColor: colors.warning },
+                          clientsNearLimit && { backgroundColor: colors.brassDeep ?? colors.brass ?? colors.warning },
                           { width: `${clientsPercent}%` },
                         ]}
                       />
@@ -161,13 +161,13 @@ export default function SubscriptionScreen() {
                     <View style={[
                       styles.progressBarContainer,
                       { backgroundColor: colors.borderLight },
-                      ordersNearLimit && { backgroundColor: `${colors.warning}20` }
+                      ordersNearLimit && { backgroundColor: `${colors.brassDeep ?? colors.brass ?? colors.warning}20` }
                     ]}>
                       <View
                         style={[
                           styles.progressBar,
                           { backgroundColor: colors.primary },
-                          ordersNearLimit && { backgroundColor: colors.warning },
+                          ordersNearLimit && { backgroundColor: colors.brassDeep ?? colors.brass ?? colors.warning },
                           { width: `${ordersPercent}%` },
                         ]}
                       />
@@ -181,7 +181,7 @@ export default function SubscriptionScreen() {
             })()}
 
             {/* Actions Section */}
-            <View style={[styles.actionsSection, { backgroundColor: colors.surface }]}>
+            <View style={[styles.actionsSection, { backgroundColor: colors.card }]}>
               {showUpgradeUI ? (
                 <>
                   <Text style={[styles.upgradeHint, { color: colors.textSecondary }]}>
@@ -195,8 +195,8 @@ export default function SubscriptionScreen() {
                       <TouchableOpacity
                         style={[
                           styles.planOption,
-                          { backgroundColor: colors.background, borderColor: colors.border },
-                          selectedPlan === 'monthly' && { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
+                          { backgroundColor: colors.paper ?? colors.background, borderColor: colors.rule ?? colors.border },
+                          selectedPlan === 'monthly' && { borderColor: colors.brass ?? colors.primary, backgroundColor: `${colors.brass ?? colors.primary}10` },
                         ]}
                         onPress={() => setSelectedPlan('monthly')}
                         activeOpacity={0.7}
@@ -206,7 +206,7 @@ export default function SubscriptionScreen() {
                             style={[
                               styles.planOptionText,
                               { color: colors.textSecondary },
-                              selectedPlan === 'monthly' && { color: colors.primary, fontWeight: '700' },
+                              selectedPlan === 'monthly' && { color: colors.brass ?? colors.primary, fontWeight: '700' },
                             ]}
                           >
                             {t('subscription.monthly')}
@@ -225,16 +225,16 @@ export default function SubscriptionScreen() {
                           )}
                         </View>
                         {selectedPlan === 'monthly' && (
-                          <View style={[styles.planOptionCheck, { backgroundColor: colors.primary }]}>
-                            <View style={[styles.planOptionCheckInner, { backgroundColor: colors.textInverse }]} />
+                          <View style={[styles.planOptionCheck, { backgroundColor: colors.brass ?? colors.primary }]}>
+                            <View style={[styles.planOptionCheckInner, { backgroundColor: colors.paper ?? '#EFE9DC' }]} />
                           </View>
                         )}
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.planOption,
-                          { backgroundColor: colors.background, borderColor: colors.border },
-                          selectedPlan === 'yearly' && { borderColor: colors.primary, backgroundColor: `${colors.primary}10` },
+                          { backgroundColor: colors.paper ?? colors.background, borderColor: colors.rule ?? colors.border },
+                          selectedPlan === 'yearly' && { borderColor: colors.brass ?? colors.primary, backgroundColor: `${colors.brass ?? colors.primary}10` },
                         ]}
                         onPress={() => setSelectedPlan('yearly')}
                         activeOpacity={0.7}
@@ -249,7 +249,7 @@ export default function SubscriptionScreen() {
                             style={[
                               styles.planOptionText,
                               { color: colors.textSecondary },
-                              selectedPlan === 'yearly' && { color: colors.primary, fontWeight: '700' },
+                              selectedPlan === 'yearly' && { color: colors.brass ?? colors.primary, fontWeight: '700' },
                             ]}
                           >
                             {t('subscription.yearly')}
@@ -273,8 +273,8 @@ export default function SubscriptionScreen() {
                           )}
                         </View>
                         {selectedPlan === 'yearly' && (
-                          <View style={[styles.planOptionCheck, { backgroundColor: colors.primary }]}>
-                            <View style={[styles.planOptionCheckInner, { backgroundColor: colors.textInverse }]} />
+                          <View style={[styles.planOptionCheck, { backgroundColor: colors.brass ?? colors.primary }]}>
+                            <View style={[styles.planOptionCheckInner, { backgroundColor: colors.paper ?? '#EFE9DC' }]} />
                           </View>
                         )}
                       </TouchableOpacity>
@@ -319,7 +319,7 @@ export default function SubscriptionScreen() {
         </ScrollView>
 
         {(!subscription || showUpgradeUI) && (
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, AtelierSpacing.md), backgroundColor: colors.paper ?? colors.background, borderTopColor: colors.rule ?? colors.border }]}>
             {!subscription ? (
               <Button variant="primary" fullWidth onPress={() => refreshSubscription(true)} style={styles.footerButton}>
                 {t('common.retry')}
@@ -356,12 +356,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   title: {
-    ...Typography.h2,
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
     flex: 1,
     textAlign: 'center',
   },
@@ -376,12 +378,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     paddingBottom: 20,
   },
   footer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
   },
   footerButton: {
@@ -393,97 +395,108 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.xl,
+    paddingVertical: AtelierSpacing.xl,
   },
   checkingText: {
-    ...Typography.caption,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.md,
   },
   loadingContainer: {
-    paddingVertical: Spacing.xl,
+    paddingVertical: AtelierSpacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    ...Typography.caption,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.md,
   },
   errorContainer: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.lg,
     alignItems: 'center',
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   errorText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
   },
 
   // Plan Card
   planCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
     borderWidth: 2,
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   planCardPro: {},
   planHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   planTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   crownIcon: {
     width: 36,
     height: 36,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
   },
   planTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
     fontSize: 22,
+    lineHeight: 28,
   },
   planDescription: {
-    ...Typography.body,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.sm,
   },
   proConfirmationBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    marginTop: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.full,
+    marginTop: AtelierSpacing.sm,
   },
   proConfirmationText: {
-    ...Typography.small,
-    fontWeight: '700',
+    fontFamily: FontFamily.mono,
     fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 
   // Usage Section
   usageSection: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    ...Shadows.md,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    ...AtelierShadow.elevated,
   },
   sectionTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
     fontSize: 18,
-    marginBottom: Spacing.md,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.md,
   },
   usageItem: {
-    marginBottom: Spacing.md,
-    paddingBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   usageItemLast: {
@@ -495,100 +508,108 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-      marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   usageIconLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   usageLabel: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   usageCount: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 18,
+    lineHeight: 22,
   },
   usageCountSecondary: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
     fontSize: 12,
-    marginTop: Spacing.sm,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.sm,
     textAlign: 'right',
   },
   limitWarningBadge: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.sm,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
   },
   limitWarningText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
     fontSize: 10,
+    lineHeight: 16,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   progressBarContainer: {
     height: 10,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     overflow: 'hidden',
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
   progressBarContainerWarning: {},
   progressBar: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
   },
   progressBarWarning: {},
 
   // Actions Section
   actionsSection: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    ...Shadows.md,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.elevated,
   },
   upgradeHint: {
-    ...Typography.body,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
     lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: AtelierSpacing.md,
   },
   upgradeValueStatement: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
     fontSize: 12,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
     lineHeight: 16,
+    textAlign: 'center',
+    marginTop: AtelierSpacing.sm,
   },
   proConfirmation: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.md,
     borderLeftWidth: 4,
   },
   proConfirmationLargeText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
     textAlign: 'center',
-    fontSize: 16,
   },
   planSelectionContainer: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   planSelectionLabel: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 22,
     fontWeight: '600',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   planOptions: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   planOption: {
     flex: 1,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    borderRadius: AtelierRadius.md,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.sm,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -601,8 +622,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   planOptionText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 22,
     fontWeight: '600',
     marginBottom: 4,
   },
@@ -629,7 +651,7 @@ const styles = StyleSheet.create({
     right: -8,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
   },
   planOptionBadgeText: {
     fontSize: 10,
@@ -655,19 +677,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    marginTop: AtelierSpacing.md,
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
   },
   restoreButtonDisabled: {
     opacity: 0.7,
   },
   restoreButtonText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 22,
     fontWeight: '600',
   },
 });

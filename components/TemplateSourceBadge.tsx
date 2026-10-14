@@ -3,15 +3,15 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import type { TemplateSource } from '@/types/templates';
 import { getTemplateSourceLabel } from '@/lib/templateUtils';
 import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
-import { getTypography, Spacing, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 function getSourceColors(source: TemplateSource | string | null | undefined, colors: ThemeColors): { bg: string; text: string } {
   const sourceColors: Record<TemplateSource, { bg: string; text: string }> = {
-    local: { bg: colors.borderLight, text: colors.textSecondary },
+    local: { bg: colors.ruleSoft ?? colors.rule ?? colors.border, text: colors.ink3 },
     shared: { bg: colors.info + '20', text: colors.info },
-    api: { bg: colors.primaryLight, text: colors.primaryDark },
+    api: { bg: (colors.brassPale ?? colors.brass) + '18', text: colors.brassDeep ?? colors.brass },
   };
-  
+
   if (source === 'local' || source === 'shared' || source === 'api') {
     return sourceColors[source];
   }
@@ -30,22 +30,26 @@ interface TemplateSourceBadgeProps {
  */
 export function TemplateSourceBadge({ source, style }: TemplateSourceBadgeProps) {
   const { colors } = useTheme();
-  const typography = getTypography(colors);
   const label = getTemplateSourceLabel(source as TemplateSource);
   const { bg, text } = getSourceColors(source, colors);
-  
+
   return (
     <View style={[styles.badge, { backgroundColor: bg }, style]}>
-      <Text style={[typography.small, { color: text, fontWeight: '600' }]}>{label}</Text>
+      <Text style={[styles.smallText, { color: text, fontWeight: '600' }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.sm,
     alignSelf: 'flex-start',
+  },
+  smallText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

@@ -6,7 +6,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
-import { getTypography, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { Button } from '@/components/ui/Button';
 
 export interface ErrorBoundaryProps {
@@ -73,12 +73,11 @@ interface DefaultErrorFallbackProps {
 }
 
 function DefaultErrorFallback({ error, onRetry, onGoBack, colors, t }: DefaultErrorFallbackProps) {
-  const typography = getTypography(colors);
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[typography.bodyBold, styles.title, { color: colors.textPrimary }]}>{t('errorBoundary.title')}</Text>
+    <View style={[styles.container, { backgroundColor: colors.paper ?? colors.background }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{t('errorBoundary.title')}</Text>
       {typeof __DEV__ !== 'undefined' && __DEV__ && error.message ? (
-        <Text style={[typography.caption, styles.message, { color: colors.textSecondary }]} numberOfLines={5}>
+        <Text style={[styles.message, { color: colors.ink3 }]} numberOfLines={5}>
           {error.message}
         </Text>
       ) : null}
@@ -117,23 +116,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: AtelierSpacing.xl,
   },
   title: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   message: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
     maxWidth: 320,
   },
   actions: {
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
     alignSelf: 'stretch',
     maxWidth: 280,
   },
   goBack: {
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
   },
 });

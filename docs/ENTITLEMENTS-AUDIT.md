@@ -38,8 +38,6 @@ The user was subscribed in Sandbox, but the app did **not** recognize the active
 | **components/ProBadge.tsx** | Uses `usePremium().isPremium` and `loading` instead of subscription.plan. |
 | **app/subscription.tsx** | Uses `usePremium().isPremium` for isPro; after successful upgrade calls `refreshEntitlements()`. |
 | **app/(tabs)/profile.tsx** | Uses `usePremium().isPremium` for plan badge (PRO vs FREE). |
-| **app/order-details/[id].tsx** | Uses `usePremium().isPremium` for isPro. |
-| **app/pdf-customize.tsx** | Uses `usePremium().isPremium` for isPro. |
 
 ---
 

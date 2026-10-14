@@ -1,36 +1,22 @@
 /**
- * Global header component displaying the company name and page title.
- * Shown at the top of all authenticated screens.
- *
- * Title is determined by:
- * 1. Dynamic title override from context (for entity names like "John's Jacket")
- * 2. Route-to-title mapping (for static titles like "Orders", "Gallery")
- *
- * Back button is shown for all non-tab routes, unless overridden by context.
- *
- * Layout:
- * - Row 1: Company name (centered, primary color)
- * - Row 2: Back button (left) + Page title (center) - only if title is present
+ * Global header: company nameplate (top center) + bell icon + page title row.
  */
-
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { usePageTitleContext } from '@/contexts/PageTitleContext';
 import { useI18n } from '@/lib/i18n';
-import { Spacing, Typography, HeaderBackButtonSize } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { Button } from '@/components/ui/Button';
 import { ProBadge } from '@/components/ProBadge';
+import { useInboxUnread } from '@/contexts/InboxUnreadContext';
 
-/**
- * Maps route paths to i18n translation keys.
- * Routes with null use dynamic titles from context.
- * Routes not in this map also use dynamic titles from context.
- */
+const BACK_SIZE = 36;
+
 const ROUTE_TITLES: Record<string, string | null> = {
   '/(tabs)': null,
   '/(tabs)/index': null,
@@ -42,7 +28,10 @@ const ROUTE_TITLES: Record<string, string | null> = {
   '/clients/new': 'clients.new.pageTitle',
   '/subscription': 'subscription.title',
   '/financial': 'financial.title',
-  '/pdf-customize': 'pdf.customizePdf',
+  '/financial/receivables': 'financial.receivablesTitle',
+  '/financial/profit': 'financial.profitTitle',
+  '/financial/expenses': 'financial.expensesTitle',
+  '/financial/expense-new': 'financial.addExpense',
   '/settings/general': 'settings.generalTitle',
   '/account/legal': 'legal.title',
   '/account/feedback': 'feedback.menuItem',
@@ -55,6 +44,7 @@ const ROUTE_TITLES: Record<string, string | null> = {
   '/new-order/summary': 'newOrder.summary.orderSummaryTitle',
   '/order-details': 'orderDetails.title',
   '/client-details': 'clientDetails.title',
+  '/notifications': 'notifications.title',
 };
 
 function normalizePathname(pathname: string): string {
@@ -67,16 +57,9 @@ function normalizePathname(pathname: string): string {
 
 function getRouteTitleKey(pathname: string): string | null | undefined {
   const normalized = normalizePathname(pathname);
-
-  if (ROUTE_TITLES.hasOwnProperty(normalized)) {
-    return ROUTE_TITLES[normalized];
-  }
-
+  if (ROUTE_TITLES.hasOwnProperty(normalized)) return ROUTE_TITLES[normalized];
   const basePath = normalized.split('/').slice(0, 2).join('/');
-  if (basePath && ROUTE_TITLES.hasOwnProperty(basePath)) {
-    return ROUTE_TITLES[basePath];
-  }
-
+  if (basePath && ROUTE_TITLES.hasOwnProperty(basePath)) return ROUTE_TITLES[basePath];
   return undefined;
 }
 
@@ -92,20 +75,12 @@ const GlobalHeaderComponent = () => {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useInboxUnread();
 
   const title = useMemo(() => {
-    if (overrides.dynamicTitle != null) {
-      return overrides.dynamicTitle;
-    }
-
+    if (overrides.dynamicTitle != null) return overrides.dynamicTitle;
     const titleKey = getRouteTitleKey(pathname);
-    if (titleKey === null) {
-      return null;
-    }
-    if (titleKey === undefined) {
-      return null;
-    }
-
+    if (titleKey === null || titleKey === undefined) return null;
     return t(titleKey);
   }, [overrides.dynamicTitle, pathname, t]);
 
@@ -116,43 +91,52 @@ const GlobalHeaderComponent = () => {
         accessibilityLabel: overrides.backAccessibilityLabel ?? t('common.back'),
       };
     }
-
-    if (isTabRoute(pathname)) {
-      return null;
-    }
-
-    return {
-      onPress: () => router.back(),
-      accessibilityLabel: t('common.back'),
-    };
+    if (isTabRoute(pathname)) return null;
+    return { onPress: () => router.back(), accessibilityLabel: t('common.back') };
   }, [overrides.onBack, overrides.backAccessibilityLabel, pathname, router, t]);
+
+  if (isLoading) return null;
 
   const hasTitle = title != null;
   const hasBack = backHandler != null;
-
-  if (isLoading) {
-    return null;
-  }
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
-          borderBottomColor: colors.border,
-          paddingTop: insets.top + Spacing.sm,
+          backgroundColor: colors.paper ?? colors.background,
+          borderBottomColor: colors.rule ?? colors.border,
+          paddingTop: insets.top + AtelierSpacing.sm,
         },
       ]}
     >
-      {companyName ? (
+      <View style={styles.companyRowWrap}>
         <View style={styles.companyRow}>
-          <Text style={[styles.companyName, { color: colors.primary }]} numberOfLines={1}>
-            {companyName}
-          </Text>
-          <ProBadge size="sm" style={styles.proBadge} />
+          {companyName ? (
+            <>
+              <Text style={[styles.companyName, { color: colors.brass ?? colors.primary }]} numberOfLines={1}>
+                {companyName}
+              </Text>
+              <ProBadge size="sm" style={styles.proBadge} />
+            </>
+          ) : null}
         </View>
-      ) : null}
+        <TouchableOpacity
+          style={styles.bellWrap}
+          onPress={() => router.push('/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel={t('notifications.title')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Bell size={22} color={colors.textPrimary} strokeWidth={2} />
+          {unreadCount > 0 ? (
+            <View style={[styles.badge, { backgroundColor: colors.ember ?? colors.error }]}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+      </View>
 
       {hasTitle && (
         <View style={styles.titleRow}>
@@ -179,21 +163,56 @@ const GlobalHeaderComponent = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.sm,
     borderBottomWidth: 1,
+  },
+  companyRowWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: AtelierSpacing.xs,
+    position: 'relative',
+    minHeight: 28,
   },
   companyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.xs,
-    gap: Spacing.sm,
+    flex: 1,
+    gap: AtelierSpacing.sm,
+    paddingHorizontal: 40,
+  },
+  bellWrap: {
+    position: 'absolute',
+    right: 0,
+    top: Platform.OS === 'ios' ? 0 : 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#EFE9DC',
+    fontFamily: FontFamily.monoBold,
+    fontSize: 10,
+    lineHeight: 12,
   },
   companyName: {
-    ...Typography.caption,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
     textAlign: 'center',
   },
   proBadge: {
@@ -203,16 +222,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
   },
   pageTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     flex: 1,
     textAlign: 'center',
   },
   placeholder: {
-    width: HeaderBackButtonSize,
-    minWidth: HeaderBackButtonSize,
+    width: BACK_SIZE,
+    minWidth: BACK_SIZE,
   },
 });
 

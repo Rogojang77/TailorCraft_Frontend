@@ -1,45 +1,47 @@
 import { Tabs } from 'expo-router';
-import { Home, ShoppingBag, Image, User } from 'lucide-react-native';
+import { Home, ShoppingBag, Image, User, CalendarDays } from 'lucide-react-native';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Spacing, Typography } from '@/constants/design';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 
 export default function TabLayout() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  // Tab bar respects safe bottom inset (home indicator / nav bar). Hide tab bar when
-  // keyboard is open so it doesn’t push content and forms stay visible.
-  const tabBarPaddingBottom = Math.max(insets.bottom, Spacing.sm);
-  const tabBarHeight = 56 + Spacing.sm + tabBarPaddingBottom;
+
+  const tabBarPaddingBottom = Math.max(insets.bottom, AtelierSpacing.sm);
+  const tabBarHeight = 52 + AtelierSpacing.sm + tabBarPaddingBottom;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarActiveTintColor: colors.brass,
+        tabBarInactiveTintColor: colors.ink4,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.paper,
           borderTopWidth: 1,
-          borderTopColor: colors.border,
-          paddingTop: Spacing.sm,
+          borderTopColor: colors.rule,
+          paddingTop: AtelierSpacing.sm,
           paddingBottom: tabBarPaddingBottom,
           height: tabBarHeight,
           ...(Platform.OS === 'ios' && {
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            elevation: 8,
+            shadowColor: colors.ink2,
+            shadowOffset: { width: 0, height: -1 },
+            shadowOpacity: 0.06,
+            shadowRadius: 6,
+            elevation: 6,
           }),
         },
         tabBarLabelStyle: {
-          ...Typography.small,
-          fontWeight: '600',
+          fontFamily: FontFamily.monoMedium,
+          fontSize: 9,
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
         },
       }}>
       <Tabs.Screen
@@ -47,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: t('tabs.home'),
           tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
+            <Home size={size - 2} color={color} />
           ),
         }}
       />
@@ -56,7 +58,7 @@ export default function TabLayout() {
         options={{
           title: t('tabs.orders'),
           tabBarIcon: ({ size, color }) => (
-            <ShoppingBag size={size} color={color} />
+            <ShoppingBag size={size - 2} color={color} />
           ),
         }}
       />
@@ -65,19 +67,28 @@ export default function TabLayout() {
         options={{
           title: t('tabs.gallery'),
           tabBarIcon: ({ size, color }) => (
-            <Image size={size} color={color} />
+            <Image size={size - 2} color={color} />
           ),
-          // Unmount gallery screen when not visible to free memory
-          // This is critical for image-heavy screens
           unmountOnBlur: true,
         }}
       />
+      {FEATURE_FLAGS.calendarEnabled && (
+        <Tabs.Screen
+          name="calendar"
+          options={{
+            title: 'Calendar',
+            tabBarIcon: ({ size, color }) => (
+              <CalendarDays size={size - 2} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tabs.Screen
         name="profile"
         options={{
           title: t('tabs.profile'),
           tabBarIcon: ({ size, color }) => (
-            <User size={size} color={color} />
+            <User size={size - 2} color={color} />
           ),
         }}
       />

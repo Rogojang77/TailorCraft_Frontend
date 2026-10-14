@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { useSettings } from '@/contexts/SettingsContext';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 const EDIT_MODAL_MAX_WIDTH = 400;
 
@@ -37,6 +38,7 @@ export function OrderEditOrderInfoModal({
 }: OrderEditOrderInfoModalProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
+  const { preferredCurrency } = useSettings();
 
   return (
     <Modal
@@ -48,14 +50,14 @@ export function OrderEditOrderInfoModal({
     >
       <View style={styles.editModalRoot}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={[styles.editModalOverlay, { backgroundColor: colors.overlayModal }]} />
+          <View style={[styles.editModalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
         </TouchableWithoutFeedback>
         <View style={styles.editModalCentered} pointerEvents="box-none">
-          <View style={[styles.editModalCard, { maxWidth: EDIT_MODAL_MAX_WIDTH, backgroundColor: colors.surface }]}>
+          <View style={[styles.editModalCard, { maxWidth: EDIT_MODAL_MAX_WIDTH, backgroundColor: colors.card }]}>
             <View style={styles.editModalHeader}>
               <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>{t('orderDetails.paymentInfo')}</Text>
               <TouchableOpacity style={styles.editModalCloseBtn} onPress={onClose} disabled={loading} activeOpacity={0.7}>
-                <X size={22} color={colors.textSecondary} strokeWidth={2.5} />
+                <X size={22} color={colors.ink3} strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
             <KeyboardAwareScrollView
@@ -65,7 +67,7 @@ export function OrderEditOrderInfoModal({
             >
               <View style={styles.editModalSection}>
                 <Input
-                  label={t('newOrder.summary.totalLabelRon')}
+                  label={`${t('newOrder.summary.totalAmount')} (${preferredCurrency})`}
                   value={total}
                   onChangeText={onTotalChange}
                   placeholder={t('newOrder.summary.amountPlaceholder')}
@@ -73,7 +75,7 @@ export function OrderEditOrderInfoModal({
                   containerStyle={styles.editModalInput}
                 />
                 <Input
-                  label={t('newOrder.summary.paidAmount') + ' (RON)'}
+                  label={`${t('newOrder.summary.paidAmount')} (${preferredCurrency})`}
                   value={advance}
                   onChangeText={onAdvanceChange}
                   placeholder={t('newOrder.summary.amountPlaceholder')}
@@ -85,7 +87,7 @@ export function OrderEditOrderInfoModal({
                   value={notes}
                   onChangeText={onNotesChange}
                   placeholder={t('orderDetails.notesPlaceholder')}
-                  placeholderTextColor={colors.textTertiary}
+                  placeholderTextColor={colors.ink4}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
@@ -94,7 +96,7 @@ export function OrderEditOrderInfoModal({
                 />
               </View>
             </KeyboardAwareScrollView>
-            <View style={[styles.editModalActions, { borderTopColor: colors.border }]}>
+            <View style={[styles.editModalActions, { borderTopColor: colors.rule ?? colors.border }]}>
               <Button variant="secondary" onPress={onClose} disabled={loading} style={styles.editModalCancelBtn}>
                 {t('common.cancel')}
               </Button>
@@ -103,7 +105,7 @@ export function OrderEditOrderInfoModal({
                 onPress={onSave}
                 disabled={loading}
                 loading={loading}
-                leftIcon={loading ? undefined : <Save size={18} color={colors.textInverse} strokeWidth={2.5} />}
+                leftIcon={loading ? undefined : <Save size={18} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} />}
                 style={styles.editModalSaveBtn}
               >
                 {t('common.save')}
@@ -127,25 +129,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   editModalCard: {
     width: '100%',
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Shadows.xl,
+    borderRadius: AtelierRadius.lg,
+    ...AtelierShadow.elevated,
     overflow: 'hidden',
   },
   editModalHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   editModalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 18,
+    lineHeight: 26,
     flex: 0,
     maxWidth: '80%',
   },
@@ -158,18 +162,18 @@ const styles = StyleSheet.create({
   },
   editModalScroll: {
     maxHeight: 500,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
   },
   editModalSection: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   editModalInput: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   editModalActions: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    padding: Spacing.lg,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
   editModalCancelBtn: {

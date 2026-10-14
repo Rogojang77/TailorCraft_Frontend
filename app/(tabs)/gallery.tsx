@@ -32,8 +32,8 @@ import { useI18n } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { InlineSpinner } from '@/components/InlineSpinner';
-import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
 import { useTheme } from '@/contexts/ThemeContext';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierType, AtelierShadow } from '@/constants/atelierDesign';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GALLERY_VIEW_MODE_KEY = 'gallery:viewMode';
@@ -142,27 +142,29 @@ const GalleryItemCard = memo<{
         <Image
           source={{ uri: item.image }}
           style={styles.gridImage}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       </TouchableOpacity>
     );
   }
 
+  const itemCard = colors.card;
+  const itemRuleColor = colors.rule ?? colors.border;
+  const itemBrassColor = colors.brass;
+  const itemInkColor = colors.textPrimary;
+  const itemInk3 = colors.ink3 ?? colors.textSecondary;
+
   return (
     <TouchableOpacity
-      style={[styles.listItem, { backgroundColor: colors.surface }]}
+      style={[styles.listItem, { backgroundColor: itemCard, borderColor: itemRuleColor }]}
       onPress={handlePress}
       activeOpacity={0.9}
     >
       <View style={styles.galleryItemImageContainer}>
         <Image
           source={{ uri: item.image }}
-          style={[styles.listImage, { backgroundColor: colors.borderLight }]}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.3)']}
-          style={styles.galleryItemGradient}
+          style={[styles.listImage, { backgroundColor: itemRuleColor }]}
+          resizeMode="contain"
         />
         <TouchableOpacity
           style={styles.deleteIconBtn}
@@ -170,21 +172,21 @@ const GalleryItemCard = memo<{
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <View style={styles.deleteIconShadow}>
-            <Trash2 size={18} color="#FFFFFF" strokeWidth={2.5} />
+            <Trash2 size={16} color="#FFFFFF" strokeWidth={2.5} />
           </View>
         </TouchableOpacity>
       </View>
       <View style={styles.listInfo}>
-        <Text style={[styles.itemTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+        <Text style={[styles.itemTitle, { color: itemInkColor }]} numberOfLines={2}>
           {item.title}
         </Text>
         {item.description && (
-          <Text style={styles.itemDescription} numberOfLines={2}>
+          <Text style={[styles.itemDescription, { color: itemInk3 }]} numberOfLines={2}>
             {item.description}
           </Text>
         )}
-        <View style={[styles.itemCategoryBadge, { backgroundColor: colors.primaryLight }]}>
-          <Text style={[styles.itemCategoryText, { color: colors.primaryDark }]}>
+        <View style={[styles.itemCategoryBadge, { backgroundColor: `${itemBrassColor}18` }]}>
+          <Text style={[styles.itemCategoryText, { color: itemBrassColor }]}>
             {item.categoryName}
           </Text>
         </View>
@@ -534,53 +536,61 @@ export default function GalleryTab() {
     return null;
   }
 
+  const bg = colors.paper;
+  const inkColor = colors.textPrimary;
+  const ink3 = colors.ink3 ?? colors.textSecondary;
+  const ink4 = colors.ink4 ?? colors.textTertiary;
+  const brassColor = colors.brass;
+  const cardBg = colors.card;
+  const ruleColor = colors.rule ?? colors.border;
+
   return (
-    <ScreenContainer noPadding>
+    <ScreenContainer noPadding style={{ backgroundColor: bg }}>
       {/* Actions Row */}
       <View style={styles.actionsRow}>
         <View style={styles.viewModeButtons}>
           <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: viewMode === 'grid' ? colors.primary : colors.borderLight }, viewMode === 'grid' && styles.activeViewButton]}
+            style={[styles.viewButton, { backgroundColor: viewMode === 'grid' ? brassColor : cardBg, borderColor: ruleColor }]}
             onPress={() => setViewMode('grid')}
             activeOpacity={0.7}
           >
-            <Grid3X3 size={18} color={viewMode === 'grid' ? colors.textInverse : colors.textSecondary} strokeWidth={2.5} />
+            <Grid3X3 size={16} color={viewMode === 'grid' ? '#FFF' : ink3} strokeWidth={2} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.viewButton, { backgroundColor: viewMode === 'list' ? colors.primary : colors.borderLight }, viewMode === 'list' && styles.activeViewButton]}
+            style={[styles.viewButton, { backgroundColor: viewMode === 'list' ? brassColor : cardBg, borderColor: ruleColor }]}
             onPress={() => setViewMode('list')}
             activeOpacity={0.7}
           >
-            <List size={18} color={viewMode === 'list' ? colors.textInverse : colors.textSecondary} strokeWidth={2.5} />
+            <List size={16} color={viewMode === 'list' ? '#FFF' : ink3} strokeWidth={2} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.addButton} 
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: brassColor }]}
           onPress={handleAddItem}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Plus size={20} color={colors.textInverse} strokeWidth={2.5} />
+          <Plus size={18} color="#FFF" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
 
       {/* Category dropdown */}
-      <View style={[styles.categoriesWrapper, { borderBottomColor: colors.border }]}>
+      <View style={[styles.categoriesWrapper, { borderBottomColor: ruleColor }]}>
         <TouchableOpacity
-          style={[styles.categoryDropdownTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[styles.categoryDropdownTrigger, { backgroundColor: cardBg, borderColor: ruleColor }]}
           onPress={() => setCategoryDropdownOpen(true)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.categoryDropdownTriggerText, { color: colors.textPrimary }]} numberOfLines={1}>
+          <Text style={[styles.categoryDropdownTriggerText, { color: inkColor }]} numberOfLines={1}>
             {getFilterCategoryLabel(activeCategoryId)}
           </Text>
-          <ChevronDown size={20} color={colors.textSecondary} strokeWidth={2} />
+          <ChevronDown size={18} color={ink3} strokeWidth={2} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.manageCategoriesBtn}
           onPress={() => { fetchCategories(); setShowCategoriesModal(true); }}
         >
-          <FolderEdit size={18} color={colors.primary} strokeWidth={2} />
-          <Text style={[styles.manageCategoriesText, { color: colors.primary }]}>{t('gallery.manageCategories')}</Text>
+          <FolderEdit size={16} color={brassColor} strokeWidth={2} />
+          <Text style={[styles.manageCategoriesText, { color: brassColor }]}>{t('gallery.manageCategories')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -596,17 +606,14 @@ export default function GalleryTab() {
           activeOpacity={1}
           onPress={() => setCategoryDropdownOpen(false)}
         >
-          <View style={[styles.categoryDropdownPanel, { backgroundColor: colors.surface }]}>
-            <ScrollView
-              style={styles.categoryDropdownScroll}
-              keyboardShouldPersistTaps="handled"
-            >
+          <View style={[styles.categoryDropdownPanel, { backgroundColor: cardBg }]}>
+            <ScrollView style={styles.categoryDropdownScroll} keyboardShouldPersistTaps="handled">
               {[ALL_CATEGORIES_ID, ...categories.map((c) => c.id)].map((id) => (
                 <TouchableOpacity
                   key={id}
                   style={[
                     styles.categoryDropdownOption,
-                    activeCategoryId === id && [styles.categoryDropdownOptionActive, { backgroundColor: colors.primaryLight }],
+                    activeCategoryId === id && [styles.categoryDropdownOptionActive, { backgroundColor: `${brassColor}18` }],
                   ]}
                   onPress={() => {
                     setActiveCategoryId(id);
@@ -616,8 +623,8 @@ export default function GalleryTab() {
                   <Text
                     style={[
                       styles.categoryDropdownOptionText,
-                      { color: colors.textPrimary },
-                      activeCategoryId === id && [styles.categoryDropdownOptionTextActive, { color: colors.primary }],
+                      { color: inkColor },
+                      activeCategoryId === id && [styles.categoryDropdownOptionTextActive, { color: brassColor }],
                     ]}
                   >
                     {getFilterCategoryLabel(id)}
@@ -636,25 +643,24 @@ export default function GalleryTab() {
         </View>
       ) : galleryItems.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('gallery.empty')}</Text>
+          <Text style={[styles.emptyText, { color: ink3 }]}>{t('gallery.empty')}</Text>
         </View>
       ) : (
         <FlatList
           data={galleryItems}
-          key={viewMode} // Force re-render when view mode changes
+          key={viewMode}
           numColumns={viewMode === 'grid' ? 3 : 1}
           keyExtractor={(item) => item.id}
           style={styles.content}
           contentContainerStyle={viewMode === 'grid' ? styles.cleanGridContainer : styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brassColor} />
           }
-          // Performance optimizations for FlatList
-          windowSize={5} // Render 5 screens worth of items (reduces memory)
-          initialNumToRender={viewMode === 'grid' ? 6 : 10} // Render fewer items initially
-          maxToRenderPerBatch={viewMode === 'grid' ? 4 : 8} // Render in smaller batches
-          removeClippedSubviews={true} // Remove off-screen views from native hierarchy
+          windowSize={5}
+          initialNumToRender={viewMode === 'grid' ? 6 : 10}
+          maxToRenderPerBatch={viewMode === 'grid' ? 4 : 8}
+          removeClippedSubviews={true}
           renderItem={({ item }) => (
             <GalleryItemCard
               item={item}
@@ -674,33 +680,26 @@ export default function GalleryTab() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('gallery.addItem')}</Text>
-            <TouchableOpacity
-              onPress={() => setShowAddModal(false)}
-              style={styles.closeButton}
-            >
-              <X size={24} color={colors.textPrimary} />
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: bg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: ruleColor }]}>
+            <Text style={[styles.modalTitle, { color: inkColor }]}>{t('gallery.addItem')}</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
+              <X size={22} color={inkColor} />
             </TouchableOpacity>
           </View>
 
           <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity
-              style={styles.imagePicker}
-              onPress={handlePickImage}
-            >
+            <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
               {newItemImage ? (
                 <Image
                   source={{ uri: newItemImage }}
-                  style={[styles.pickedImage, { backgroundColor: colors.border }]}
-                  resizeMode="cover"
-                  // Explicit dimensions prevent loading full-resolution images
+                  style={[styles.pickedImage, { backgroundColor: ruleColor }]}
+                  resizeMode="contain"
                 />
               ) : (
-                <View style={[styles.imagePlaceholder, { backgroundColor: colors.borderLight, borderColor: colors.border }]}>
-                  <Plus size={32} color={colors.textTertiary} />
-                  <Text style={[styles.imagePlaceholderText, { color: colors.textTertiary }]}>{t('gallery.addImage')}</Text>
+                <View style={[styles.imagePlaceholder, { backgroundColor: cardBg, borderColor: ruleColor }]}>
+                  <Plus size={28} color={ink4} />
+                  <Text style={[styles.imagePlaceholderText, { color: ink4 }]}>{t('gallery.addImage')}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -721,9 +720,9 @@ export default function GalleryTab() {
               numberOfLines={4}
             />
 
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{t('gallery.categoryLabel')}</Text>
+            <Text style={[styles.inputLabel, { color: ink3 }]}>{t('gallery.categoryLabel')}</Text>
             {categories.length === 0 ? (
-              <Text style={[styles.noCategoriesHint, { color: colors.textSecondary }]}>{t('gallery.createCategoryFirst')}</Text>
+              <Text style={[styles.noCategoriesHint, { color: ink3 }]}>{t('gallery.createCategoryFirst')}</Text>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
                 {categories.map((c) => (
@@ -731,18 +730,11 @@ export default function GalleryTab() {
                     key={c.id}
                     style={[
                       styles.categoryOption,
-                      { backgroundColor: newItemCategoryId === c.id ? colors.primary : colors.borderLight },
-                      newItemCategoryId === c.id && styles.activeCategoryOption,
+                      { backgroundColor: newItemCategoryId === c.id ? brassColor : cardBg, borderColor: ruleColor },
                     ]}
                     onPress={() => setNewItemCategoryId(c.id)}
                   >
-                    <Text
-                      style={[
-                        styles.categoryOptionText,
-                        { color: newItemCategoryId === c.id ? colors.textInverse : colors.textSecondary },
-                        newItemCategoryId === c.id && styles.activeCategoryOptionText,
-                      ]}
-                    >
+                    <Text style={[styles.categoryOptionText, { color: newItemCategoryId === c.id ? '#FFF' : ink3 }]}>
                       {c.name}
                     </Text>
                   </TouchableOpacity>
@@ -751,14 +743,14 @@ export default function GalleryTab() {
             )}
 
             <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.primary }, saving && styles.saveButtonDisabled]}
+              style={[styles.saveButton, { backgroundColor: brassColor }, saving && styles.saveButtonDisabled]}
               onPress={handleSaveItem}
               disabled={saving}
             >
               {saving ? (
                 <InlineSpinner variant="inverse" />
               ) : (
-                <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>{t('gallery.save')}</Text>
+                <Text style={styles.saveButtonText}>{t('gallery.save')}</Text>
               )}
             </TouchableOpacity>
           </KeyboardAwareScrollView>
@@ -790,11 +782,11 @@ export default function GalleryTab() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowCategoriesModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('gallery.manageCategories')}</Text>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: bg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: ruleColor }]}>
+            <Text style={[styles.modalTitle, { color: inkColor }]}>{t('gallery.manageCategories')}</Text>
             <TouchableOpacity onPress={() => setShowCategoriesModal(false)} style={styles.closeButton}>
-              <X size={24} color={colors.textPrimary} />
+              <X size={22} color={inkColor} />
             </TouchableOpacity>
           </View>
           <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
@@ -823,15 +815,15 @@ export default function GalleryTab() {
                 style={styles.cancelEditBtn}
                 onPress={() => { setCategoryEditId(null); setCategoryNameInput(''); }}
               >
-                <Text style={[styles.cancelEditText, { color: colors.primary }]}>{t('common.cancel')}</Text>
+                <Text style={[styles.cancelEditText, { color: brassColor }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             )}
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{t('gallery.yourCategories')}</Text>
+            <Text style={[styles.inputLabel, { color: ink3 }]}>{t('gallery.yourCategories')}</Text>
             {categories.length === 0 ? (
-              <Text style={[styles.noCategoriesHint, { color: colors.textSecondary }]}>{t('gallery.noCategoriesYet')}</Text>
+              <Text style={[styles.noCategoriesHint, { color: ink3 }]}>{t('gallery.noCategoriesYet')}</Text>
             ) : (
               categories.map((c) => (
-                <View key={c.id} style={[styles.categoryRow, { borderBottomColor: colors.border }]}>
+                <View key={c.id} style={[styles.categoryRow, { borderBottomColor: ruleColor }]}>
                   <TouchableOpacity
                     style={styles.categoryRowName}
                     onPress={() => {
@@ -839,9 +831,9 @@ export default function GalleryTab() {
                       setCategoryNameInput(c.name);
                     }}
                   >
-                    <Text style={[styles.categoryRowNameText, { color: colors.textPrimary }]}>{c.name}</Text>
+                    <Text style={[styles.categoryRowNameText, { color: inkColor }]}>{c.name}</Text>
                     {c.itemCount != null && c.itemCount > 0 && (
-                      <Text style={[styles.categoryRowCount, { color: colors.textTertiary }]}>{c.itemCount}</Text>
+                      <Text style={[styles.categoryRowCount, { color: ink4 }]}>{c.itemCount}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -849,7 +841,7 @@ export default function GalleryTab() {
                     onPress={() => setCategoryDeleteTarget(c)}
                     disabled={(c.itemCount ?? 0) > 0}
                   >
-                    <Trash2 size={18} color={(c.itemCount ?? 0) > 0 ? colors.textTertiary : colors.error} strokeWidth={2} />
+                    <Trash2 size={16} color={(c.itemCount ?? 0) > 0 ? ink4 : colors.ember} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
               ))
@@ -880,164 +872,153 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.sm,
   },
   viewModeButtons: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   viewButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  activeViewButton: {
-    ...Shadows.primary,
-  },
+  activeViewButton: {},
   addButton: {
-    ...ButtonStyles.primaryIcon,
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoriesWrapper: {
-    paddingBottom: Spacing.sm,
-    paddingTop: Spacing.xs,
-    paddingHorizontal: Spacing.md,
+    paddingBottom: AtelierSpacing.sm,
+    paddingTop: AtelierSpacing.xs,
+    paddingHorizontal: AtelierSpacing.pagePad,
     borderBottomWidth: 1,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   categoryDropdownTrigger: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
-    minHeight: 44,
+    borderRadius: AtelierRadius.sm,
+    minHeight: 38,
   },
   categoryDropdownTriggerText: {
-    ...Typography.body,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
     flex: 1,
   },
   categoryDropdownBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   categoryDropdownPanel: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
     maxHeight: 320,
-    ...Shadows.lg,
+    ...AtelierShadow.elevated,
   },
-  categoryDropdownScroll: {
-    maxHeight: 320,
-  },
+  categoryDropdownScroll: { maxHeight: 320 },
   categoryDropdownOption: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.sm,
   },
-  categoryDropdownOptionActive: {
-  },
+  categoryDropdownOptionActive: {},
   categoryDropdownOptionText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 14,
+    lineHeight: 20,
   },
   categoryDropdownOptionTextActive: {
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
   },
   manageCategoriesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    marginRight: Spacing.md,
+    gap: 4,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.sm,
   },
   manageCategoriesText: {
-    ...Typography.label,
-    fontWeight: '600',
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 0.6,
   },
   noCategoriesHint: {
-    ...Typography.body,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
     fontStyle: 'italic',
+    marginBottom: AtelierSpacing.md,
   },
   categoryFormRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
+    gap: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
   },
-  categoryInput: {
-    flex: 1,
-    marginBottom: 0,
-  },
+  categoryInput: { flex: 1, marginBottom: 0 },
   categorySubmitText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
   },
   cancelEditBtn: {
     alignSelf: 'flex-start',
-    marginBottom: 16,
+    marginBottom: AtelierSpacing.md,
   },
   cancelEditText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
   },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xs,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: 2,
     borderBottomWidth: 1,
   },
-  categoryRowName: {
-    flex: 1,
-  },
+  categoryRowName: { flex: 1 },
   categoryRowNameText: {
-    ...Typography.body,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 14,
   },
   categoryRowCount: {
-    ...Typography.small,
-    marginTop: Spacing.xxs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    marginTop: 2,
   },
-  categoryRowDelete: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
-  },
-  cleanGridContainer: {
-    padding: 0,
-  },
+  categoryRowDelete: { padding: 8 },
+  content: { flex: 1 },
+  cleanGridContainer: { padding: 0 },
   listContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingVertical: AtelierSpacing.md,
   },
-  gridItem: {
-    width: '33.333%',
-  },
+  gridItem: { width: '33.333%' },
   listItem: {
     width: '100%',
-    minHeight: 160,
+    minHeight: 140,
     flexDirection: 'row',
-    borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.lg,
+    marginBottom: AtelierSpacing.md,
     overflow: 'hidden',
-    ...Shadows.md,
+    borderWidth: 1,
+    ...AtelierShadow.card,
   },
   galleryItemImageContainer: {
     position: 'relative',
@@ -1052,11 +1033,11 @@ const styles = StyleSheet.create({
   },
   deleteIconBtn: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 4,
+    right: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1065,10 +1046,10 @@ const styles = StyleSheet.create({
     android: {},
     default: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 1, height: 1 },
       shadowOpacity: 0.5,
-      shadowRadius: 4,
-      elevation: 4,
+      shadowRadius: 3,
+      elevation: 3,
     },
   }),
   gridImage: {
@@ -1076,74 +1057,69 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
   },
   listImage: {
-    width: 100,
-    minHeight: 160,
+    width: 90,
+    minHeight: 140,
   },
-  gridInfo: {
-    padding: Spacing.md,
-  },
+  gridInfo: { padding: AtelierSpacing.sm },
   listInfo: {
     flex: 1,
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
+    gap: 4,
   },
   itemTitle: {
-    ...Typography.h3,
-    fontSize: 16,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    lineHeight: 19,
   },
   itemDescription: {
-    ...Typography.caption,
-    lineHeight: 18,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
+    lineHeight: 17,
   },
   itemCategoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.sm + 2,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: AtelierRadius.xs,
   },
   itemCategoryText: {
+    fontFamily: FontFamily.monoMedium,
     fontSize: 9,
-    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
-  // Image Viewer Delete Button Style
   imageViewerDeleteBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(244, 63, 94, 0.7)',
+    backgroundColor: 'rgba(162, 62, 46, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
-    flex: 1,
-  },
+  modalContainer: { flex: 1 },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingVertical: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    ...Typography.h2,
+    fontFamily: FontFamily.serif,
     fontSize: 20,
+    lineHeight: 26,
   },
-  closeButton: {
-    padding: 4,
-  },
+  closeButton: { padding: 4 },
   modalContent: {
     flex: 1,
-    padding: Spacing.lg,
+    padding: AtelierSpacing.pagePad,
   },
   imagePicker: {
     width: '100%',
-    height: 200,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xl,
+    height: 180,
+    borderRadius: AtelierRadius.md,
+    marginBottom: AtelierSpacing.lg,
     overflow: 'hidden',
   },
   imagePlaceholder: {
@@ -1151,70 +1127,71 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderStyle: 'dashed',
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
+    gap: AtelierSpacing.sm,
   },
   imagePlaceholderText: {
-    marginTop: Spacing.sm,
-    ...Typography.body,
-    fontWeight: '500',
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
   },
   pickedImage: {
     width: '100%',
     height: '100%',
   },
   inputLabel: {
-    ...Typography.label,
-    fontWeight: '600',
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: AtelierSpacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
-  categorySelector: {
-    marginBottom: Spacing.lg,
-  },
+  categorySelector: { marginBottom: AtelierSpacing.lg },
   categoryOption: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    marginRight: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: 6,
+    borderRadius: AtelierRadius.xs,
+    borderWidth: 1,
+    marginRight: AtelierSpacing.sm,
   },
-  activeCategoryOption: {
-  },
+  activeCategoryOption: {},
   categoryOptionText: {
-    ...Typography.caption,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
   },
-  activeCategoryOptionText: {
-  },
+  activeCategoryOptionText: {},
   saveButton: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     alignItems: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
-    ...Shadows.primary,
+    marginTop: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.lg,
   },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
+  saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: '#FFF',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: AtelierSpacing.xl,
   },
   loadingText: {
-    ...Typography.body,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 14,
+    marginTop: AtelierSpacing.md,
   },
   emptyState: {
-    paddingVertical: Spacing.xxxl,
+    paddingVertical: AtelierSpacing.xxl,
     alignItems: 'center',
   },
   emptyText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 14,
   },
 });

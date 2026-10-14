@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
-import { BorderRadius } from '@/constants/design';
+import { AtelierRadius } from '@/constants/atelierDesign';
 
 export type LapelType = 'clasic' | 'spit' | 'sal';
 
@@ -22,8 +22,8 @@ const SIZES = {
 export function LapelIcon({ type, active = false, size = 'md', style }: LapelIconProps) {
   const { colors } = useTheme();
   const dimensions = SIZES[size];
-  
-  const strokeColor = active ? colors.primary : colors.textTertiary;
+
+  const strokeColor = active ? colors.brass ?? colors.primary : colors.ink4 ?? colors.textTertiary;
   const strokeWidth = active ? 2.5 : 1.5;
 
   const renderPath = () => {
@@ -59,13 +59,13 @@ export function LapelIcon({ type, active = false, size = 'md', style }: LapelIco
               y1="5"
               x2="50"
               y2="115"
-              stroke={colors.border}
+              stroke={colors.rule ?? colors.border}
               strokeWidth={0.5}
               strokeDasharray="4 4"
             />
           </Svg>
         );
-      
+
       case 'spit':
         return (
           <Svg viewBox="0 0 100 120" width={dimensions.width - dimensions.padding * 2} height={dimensions.height - dimensions.padding * 2}>
@@ -90,13 +90,13 @@ export function LapelIcon({ type, active = false, size = 'md', style }: LapelIco
               y1="5"
               x2="50"
               y2="115"
-              stroke={colors.border}
+              stroke={colors.rule ?? colors.border}
               strokeWidth={0.5}
               strokeDasharray="4 4"
             />
           </Svg>
         );
-      
+
       case 'sal':
         return (
           <Svg viewBox="0 0 100 120" width={dimensions.width - dimensions.padding * 2} height={dimensions.height - dimensions.padding * 2}>
@@ -114,13 +114,13 @@ export function LapelIcon({ type, active = false, size = 'md', style }: LapelIco
               y1="5"
               x2="50"
               y2="115"
-              stroke={colors.border}
+              stroke={colors.rule ?? colors.border}
               strokeWidth={0.5}
               strokeDasharray="4 4"
             />
           </Svg>
         );
-      
+
       default:
         return null;
     }
@@ -134,8 +134,8 @@ export function LapelIcon({ type, active = false, size = 'md', style }: LapelIco
           width: dimensions.width,
           height: dimensions.height,
           padding: dimensions.padding,
-          borderColor: active ? colors.primary : colors.border,
-          backgroundColor: active ? `${colors.primary}08` : colors.surface,
+          borderColor: active ? colors.brass ?? colors.primary : colors.rule ?? colors.border,
+          backgroundColor: active ? `${colors.brass ?? colors.primary}08` : colors.card,
         },
         style,
       ]}
@@ -148,7 +148,7 @@ export function LapelIcon({ type, active = false, size = 'md', style }: LapelIco
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1.5,
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -17,7 +17,7 @@ import { MeasurementForm, MeasurementDisplay } from '@/components/MeasurementFor
 import { TemplateSourceBadge } from '@/components/TemplateSourceBadge';
 import { getLatestClientMeasurements } from '@/lib/measurement';
 import { getEffectiveTemplateSource, getMeasurementFormReadOnly } from '@/lib/templateUtils';
-import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
 import { getGarmentTypeById, getMeasurementDefinitions, GARMENT_TYPES } from '@/constants/garments';
@@ -46,13 +46,13 @@ function DuplicateBlock({
     <TouchableOpacity
       style={[
         duplicateButtonStyles.button,
-        { backgroundColor: `${colors.primaryLight}40`, borderColor: colors.primary },
+        { backgroundColor: (colors.brassPale ?? colors.brass ?? colors.primary) + '18', borderColor: colors.brass ?? colors.primary },
       ]}
       onPress={() => onDuplicate(templateId)}
       activeOpacity={0.7}
     >
-      <Copy size={18} color={colors.primary} />
-      <Text style={[duplicateButtonStyles.text, { color: colors.primary }]}>
+      <Copy size={18} color={colors.brass ?? colors.primary} />
+      <Text style={[duplicateButtonStyles.text, { color: colors.brass ?? colors.primary }]}>
         Duplică ca șablon local
       </Text>
     </TouchableOpacity>
@@ -64,15 +64,17 @@ const duplicateButtonStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.sm,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
   },
   text: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });
 
@@ -266,25 +268,25 @@ export default function GarmentFormScreen() {
               onPress={handleSave}
               activeOpacity={0.7}
             >
-              <Save size={20} color={colors.textInverse} />
+              <Save size={20} color={colors.paper ?? '#EFE9DC'} />
             </TouchableOpacity>
           )}
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {draftOrder.customer.id && (
-            <View style={[styles.section, styles.clientSection, { backgroundColor: colors.surface, borderLeftColor: colors.info }]}>
+            <View style={[styles.section, styles.clientSection, { backgroundColor: colors.card, borderLeftColor: colors.ocean ?? colors.brass ?? colors.primary }]}>
               <View style={styles.sectionHeader}>
-                <User size={20} color={colors.info} />
+                <User size={20} color={colors.ocean ?? colors.brass ?? colors.primary} />
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('legacy.clientDataSection')}</Text>
               </View>
-              <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
+              <Text style={[styles.sectionHint, { color: colors.ink3 }]}>
                 {t('legacy.clientSectionHint')}
               </Text>
               {loadingClientLatest ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={colors.info} />
-                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('legacy.loading')}</Text>
+                  <ActivityIndicator size="small" color={colors.ocean ?? colors.brass ?? colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.ink3 }]}>{t('legacy.loading')}</Text>
                 </View>
               ) : clientLatest && Object.keys(clientLatest).length > 0 ? (
                 <MeasurementDisplay
@@ -293,22 +295,22 @@ export default function GarmentFormScreen() {
                   twoColumns
                 />
               ) : (
-                <Text style={[styles.emptyHint, { color: colors.textTertiary }]}>{t('legacy.emptyMeasurements')}</Text>
+                <Text style={[styles.emptyHint, { color: colors.ink4 ?? colors.textTertiary }]}>{t('legacy.emptyMeasurements')}</Text>
               )}
             </View>
           )}
 
-          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
-              <FileEdit size={20} color={colors.primary} />
+              <FileEdit size={20} color={colors.brass ?? colors.primary} />
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                 {t('legacy.forThisOrderSnapshot')}
                 {isReadOnly && (
-                  <Text style={[styles.readOnlyHint, { color: colors.textTertiary }]}>{t('legacy.readOnlyHint')}</Text>
+                  <Text style={[styles.readOnlyHint, { color: colors.ink4 ?? colors.textTertiary }]}>{t('legacy.readOnlyHint')}</Text>
                 )}
               </Text>
             </View>
-            <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
+            <Text style={[styles.sectionHint, { color: colors.ink3 }]}>
               {isReadOnly
                 ? t('legacy.sharedReadOnlyHint')
                 : t('legacy.savedForOrderHint')}
@@ -349,12 +351,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   backButton: {
-    ...ButtonStyles.back,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerCenter: {
     flex: 1,
@@ -362,64 +368,79 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     textAlign: 'center',
   },
   sourceBadge: {
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
   },
   headerRightPlaceholder: {
     width: 44,
     height: 44,
   },
   saveButton: {
-    ...ButtonStyles.primaryIcon,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   readOnlyHint: {
-    ...Typography.caption,
-    fontWeight: '400',
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   content: {
     flex: 1,
   },
   section: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    ...Shadows.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   sectionTitle: {
-    ...Typography.h3,
-    marginLeft: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginLeft: AtelierSpacing.sm,
   },
   clientSection: {
     borderLeftWidth: 4,
   },
   sectionHint: {
-    ...Typography.caption,
-    marginBottom: Spacing.lg,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.lg,
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.lg,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.lg,
   },
   loadingText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   emptyHint: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     fontStyle: 'italic',
-    paddingVertical: Spacing.md,
+    paddingVertical: AtelierSpacing.md,
   },
   bottomSpacer: {
-    height: Spacing.xxxl,
+    height: AtelierSpacing.xxl,
   },
 });

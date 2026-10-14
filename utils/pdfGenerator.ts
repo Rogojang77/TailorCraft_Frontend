@@ -15,7 +15,7 @@ import {
   getSnapshotDisplayLabel,
   type SnapshotDefinitionRef,
 } from '@/utils/snapshotDisplay';
-import { formatMeasurementValueForDisplay } from '@/lib/measurement';
+import { formatMeasurementValueForDisplay } from '@/lib/measurement/measurementValues';
 
 /* ============================= */
 /*            TYPES              */
@@ -146,9 +146,22 @@ function generateHTML(
   order: PDFOrderData,
   company: PDFCompanyData,
   garmentDisplayNames: GarmentDisplayNames,
-  labels: PDFLabels = DEFAULT_LABELS
+  labels: PDFLabels = DEFAULT_LABELS,
+  /**
+   * When true, remove almost all outer spacing so the PDF content fills
+   * the printable area as much as possible (used on Android).
+   */
+  noMargins = false
 ): string {
   const safe = (v?: string) => escapeHtml(v);
+
+  const pageMargin = noMargins ? '0' : '24px 12px 24px 12px';
+  const headerPadding = noMargins ? '4px 8px 4px' : '8px 16px 6px';
+  const mainPadding = noMargins ? '8px' : '16px';
+  const mainPaddingTop = noMargins ? '32px' : '40px';
+  const mainPaddingBottom = noMargins ? '16px' : '32px';
+  const footerHeight = noMargins ? '20px' : '28px';
+  const footerPadding = noMargins ? '0 8px' : '0 16px';
 
   const measurementSections: string[] = [];
   const measurements = order.measurements ?? {};
@@ -263,7 +276,7 @@ function generateHTML(
 <style>
   @page {
     size: 595px 842px;
-    margin: 72px 24px 48px 24px;
+    margin: ${pageMargin};
   }
 
   body {
@@ -281,7 +294,7 @@ function generateHTML(
     right: 0;
     z-index: 10;
     background: #fff;
-    padding: 12px 24px 10px;
+    padding: ${headerPadding};
     box-sizing: border-box;
     display: flex;
     align-items: flex-start;
@@ -291,9 +304,9 @@ function generateHTML(
   }
 
   .main-content {
-    padding: 24px;
-    padding-top: 50px;
-    padding-bottom: 50px;
+    padding: ${mainPadding};
+    padding-top: ${mainPaddingTop};   /* leave room for header */
+    padding-bottom: ${mainPaddingBottom};
     box-sizing: border-box;
   }
 
@@ -413,12 +426,12 @@ function generateHTML(
     left: 0;
     right: 0;
     z-index: 10;
-    height: 40px;
+    height: ${footerHeight};
     display: flex;
     align-items: center;
     justify-content: center;
     background: #fff;
-    padding: 0 24px;
+    padding: ${footerPadding};
     box-sizing: border-box;
     font-size: 10px;
     color: #777;
@@ -505,17 +518,24 @@ async function createPDF(
   garmentDisplayNames: GarmentDisplayNames,
   labels: PDFLabels = DEFAULT_LABELS
 ) {
-  const html = generateHTML(order, company, garmentDisplayNames, labels);
+  const html = generateHTML(
+    order,
+    company,
+    garmentDisplayNames,
+    labels,
+    Platform.OS === 'android'
+  );
 
   return Print.printToFileAsync({
     html,
     width: 595,   // A4 width in points
     height: 842,  // A4 height in points
     margins: {
-      left: 20,
-      right: 20,
-      top: 20,
-      bottom: 20,
+      // On Android, ask expo-print for zero margins; on iOS keep a small safety margin.
+      left: Platform.OS === 'android' ? 0 : 16,
+      right: Platform.OS === 'android' ? 0 : 16,
+      top: Platform.OS === 'android' ? 0 : 16,
+      bottom: Platform.OS === 'android' ? 0 : 16,
     },
   });
 }

@@ -12,7 +12,7 @@ import { useI18n } from '@/lib/i18n';
 import { getLocalizedApiMessage } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
-import { Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 export default function ChangePasswordScreen() {
   const { colors } = useTheme();
@@ -207,47 +207,53 @@ export default function ChangePasswordScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xxxl,
+    padding: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.xxl,
   },
   subtitle: {
-    ...Typography.body,
-    marginBottom: Spacing.xl,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xl,
   },
   input: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   errorContainer: {
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    marginBottom: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
-    ...StatusStyles.error,
   },
   errorText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
     lineHeight: 21,
   },
   submitButton: {
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
   successContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: AtelierSpacing.xl,
   },
   successTitle: {
-    ...Typography.h2,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    marginTop: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.sm,
     textAlign: 'center',
   },
   successMessage: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: AtelierSpacing.xl,
   },
   successButton: {
     minWidth: 160,

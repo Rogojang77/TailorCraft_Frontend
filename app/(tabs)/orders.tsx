@@ -32,8 +32,8 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { Button } from '@/components/ui/Button';
 import { ErrorText } from '@/components/ui/ErrorText';
-import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, StatusStyles } from '@/constants/design';
 import { useTheme } from '@/contexts/ThemeContext';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierType, AtelierShadow } from '@/constants/atelierDesign';
 
 type ClientListItemData = {
   id: string;
@@ -616,8 +616,20 @@ export default function OrdersTab() {
     [currentFilterState]
   );
 
+  const hasFilters = orderStatusFilter !== 'all' || clientOrderFilter !== 'all' ||
+    paymentStatusFilter !== 'all' || orderDateRangeFilter !== 'all' ||
+    totalAmountFilter !== 'all' || advanceAmountFilter !== 'all' || clientDateRangeFilter !== 'all';
+
+  const inkColor = colors.textPrimary;
+  const ink3 = colors.ink3 ?? colors.textSecondary;
+  const ink4 = colors.ink4 ?? colors.textTertiary;
+  const brassColor = colors.brass;
+  const bg = colors.paper;
+  const cardBg = colors.card;
+  const ruleColor = colors.rule ?? colors.border;
+
   return (
-    <ScreenContainer noPadding>
+    <ScreenContainer noPadding style={{ backgroundColor: bg }}>
       {error ? (
         <View style={styles.errorBanner}>
           <ErrorText>{error}</ErrorText>
@@ -628,95 +640,78 @@ export default function OrdersTab() {
       {clients.length > 0 ? (
         <>
       <View style={styles.searchRow}>
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: cardBg, borderColor: ruleColor }]}>
+          <Search size={18} color={ink3} style={styles.searchIcon} />
           <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
+            style={[styles.searchInput, { color: inkColor }]}
             placeholder={t('orders.searchPlaceholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={ink4}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
             activeOpacity={0.7}
           >
-              <Filter 
-              size={20} 
-              color={
-                (orderStatusFilter !== 'all' || 
-                 clientOrderFilter !== 'all' || 
-                 paymentStatusFilter !== 'all' ||
-                 orderDateRangeFilter !== 'all' ||
-                 totalAmountFilter !== 'all' ||
-                 advanceAmountFilter !== 'all' ||
-                 clientDateRangeFilter !== 'all') 
-                  ? colors.primary 
-                  : colors.textSecondary
-              } 
-            />
+            <Filter size={18} color={hasFilters ? brassColor : ink3} />
           </TouchableOpacity>
         </View>
-        <Button
-          variant="primaryIcon"
+        <TouchableOpacity
+          style={[styles.addBtn, { backgroundColor: brassColor }]}
           onPress={() => router.push('/new-order')}
           disabled={!canCreateOrder}
-          accessibilityLabel={t('home.addOrder')}
+          activeOpacity={0.85}
         >
-          <Plus size={22} color={colors.textInverse} strokeWidth={2.5} />
-        </Button>
+          <Plus size={20} color="#FFF" strokeWidth={2.5} />
+        </TouchableOpacity>
       </View>
 
       {/* Active Filters */}
       {clients.length > 0 && getActiveFilters.length > 0 && (
         <View style={styles.activeFiltersContainer}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.activeFiltersContent}
           >
             {getActiveFilters.map((filter) => (
               <TouchableOpacity
                 key={filter.id}
-                style={[styles.filterChip, { backgroundColor: colors.primary }]}
+                style={[styles.filterChip, { backgroundColor: `${brassColor}18`, borderColor: `${brassColor}40` }]}
                 onPress={() => removeFilter(filter.type)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.filterChipText, { color: colors.textInverse }]}>{filter.label}</Text>
-                <X size={14} color={colors.textInverse} strokeWidth={2.5} style={styles.filterChipIcon} />
+                <Text style={[styles.filterChipText, { color: brassColor }]}>{filter.label}</Text>
+                <X size={12} color={brassColor} strokeWidth={2.5} style={styles.filterChipIcon} />
               </TouchableOpacity>
             ))}
             <TouchableOpacity
-              style={[styles.resetFiltersChip, { borderColor: colors.border }]}
+              style={[styles.resetFiltersChip, { borderColor: ruleColor }]}
               onPress={resetAllFilters}
               activeOpacity={0.7}
             >
-              <Text style={[styles.resetFiltersChipText, { color: colors.textSecondary }]}>{t('orders.filterReset')}</Text>
+              <Text style={[styles.resetFiltersChipText, { color: ink3 }]}>{t('orders.filterReset')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
       )}
 
       {/* Tab Selector */}
-      <View style={[styles.tabContainer, { backgroundColor: colors.border }]}>
+      <View style={[styles.tabContainer, { backgroundColor: colors.paperDeep ?? colors.borderLight }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'orders' && [styles.activeTab, { backgroundColor: colors.surface }]]}
+          style={[styles.tab, activeTab === 'orders' && [styles.activeTab, { backgroundColor: cardBg }]]}
           onPress={() => setActiveTab('orders')}
         >
-          <Text
-            style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'orders' && { color: colors.textPrimary }]}
-          >
+          <Text style={[styles.tabText, { color: ink4 }, activeTab === 'orders' && { color: brassColor }]}>
             {t('orders.tabs.orderHistory')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'clients' && [styles.activeTab, { backgroundColor: colors.surface }]]}
+          style={[styles.tab, activeTab === 'clients' && [styles.activeTab, { backgroundColor: cardBg }]]}
           onPress={() => setActiveTab('clients')}
         >
-          <Text
-            style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'clients' && { color: colors.textPrimary }]}
-          >
+          <Text style={[styles.tabText, { color: ink4 }, activeTab === 'clients' && { color: brassColor }]}>
             {t('orders.tabs.clients')}
           </Text>
         </TouchableOpacity>
@@ -724,23 +719,23 @@ export default function OrdersTab() {
         </>
       ) : null}
 
-      {/* No clients empty state - block order creation and guide to add client */}
+      {/* No clients empty state */}
       {!loading && !refreshing && clients.length === 0 ? (
         <View style={styles.noClientsContainer}>
-          <View style={[styles.noClientsCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.noClientsTitle, { color: colors.textPrimary }]}>{t('orders.noClients.title')}</Text>
-            <Text style={[styles.noClientsSubtitle, { color: colors.textSecondary }]}>
+          <View style={[styles.noClientsCard, { backgroundColor: cardBg }, AtelierShadow.card]}>
+            <Text style={[styles.noClientsTitle, { color: inkColor }]}>{t('orders.noClients.title')}</Text>
+            <Text style={[styles.noClientsSubtitle, { color: ink3 }]}>
               {t('orders.noClients.subtitle')}
             </Text>
-            {!canCreateClient && <Text style={[styles.limitHint, { color: colors.textSecondary }]}>{limitMsgs.clientLimitReached}</Text>}
+            {!canCreateClient && <Text style={[styles.limitHint, { color: ink3 }]}>{limitMsgs.clientLimitReached}</Text>}
             <TouchableOpacity
-              style={[styles.addClientButton, !canCreateClient && styles.addClientButtonDisabled]}
+              style={[styles.addClientButton, { backgroundColor: brassColor }, !canCreateClient && styles.addClientButtonDisabled]}
               onPress={() => canCreateClient && router.push('/clients/new')}
               disabled={!canCreateClient}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Plus size={20} color={colors.textInverse} strokeWidth={2.5} />
-              <Text style={[styles.addClientButtonText, { color: colors.textInverse }]}>{t('orders.noClients.button')}</Text>
+              <Plus size={18} color="#FFF" strokeWidth={2.5} />
+              <Text style={styles.addClientButtonText}>{t('orders.noClients.button')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -757,15 +752,13 @@ export default function OrdersTab() {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brassColor} />
           }
-          ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('orders.emptyClients')}</Text>}
-          // Performance optimizations for FlatList
-          windowSize={5} // Render 5 screens worth of items (reduces memory)
-          initialNumToRender={10} // Render 10 items initially
-          maxToRenderPerBatch={8} // Render in smaller batches
-          removeClippedSubviews={true} // Remove off-screen views from native hierarchy
-          // Update cells less frequently for better performance
+          ListEmptyComponent={<Text style={[styles.emptyText, { color: ink4 }]}>{t('orders.emptyClients')}</Text>}
+          windowSize={5}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          removeClippedSubviews={true}
           updateCellsBatchingPeriod={50}
         />
       ) : (
@@ -777,15 +770,13 @@ export default function OrdersTab() {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brassColor} />
           }
-          ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.textSecondary }]}>{t('orders.emptyOrders')}</Text>}
-          // Performance optimizations for FlatList
-          windowSize={5} // Render 5 screens worth of items (reduces memory)
-          initialNumToRender={10} // Render 10 items initially
-          maxToRenderPerBatch={8} // Render in smaller batches
-          removeClippedSubviews={true} // Remove off-screen views from native hierarchy
-          // Update cells less frequently for better performance
+          ListEmptyComponent={<Text style={[styles.emptyText, { color: ink4 }]}>{t('orders.emptyOrders')}</Text>}
+          windowSize={5}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          removeClippedSubviews={true}
           updateCellsBatchingPeriod={50}
         />
       )}
@@ -797,21 +788,18 @@ export default function OrdersTab() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowFilterModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('orders.filterTitle')}</Text>
-            <TouchableOpacity
-              onPress={() => setShowFilterModal(false)}
-              style={styles.closeButton}
-            >
-              <X size={24} color={colors.textPrimary} />
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: bg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: ruleColor }]}>
+            <Text style={[styles.modalTitle, { color: inkColor }]}>{t('orders.filterTitle')}</Text>
+            <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.closeButton}>
+              <X size={22} color={inkColor} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
             {activeTab === 'orders' ? (
               <>
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.presetsLabel')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.presetsLabel')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {ORDER_FILTER_PRESETS.map((preset) => {
                     const active = isPresetActive(preset);
@@ -820,18 +808,12 @@ export default function OrdersTab() {
                         key={preset.id}
                         style={[
                           styles.filterOption,
-                          { backgroundColor: colors.borderLight },
-                          active && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                          { backgroundColor: cardBg, borderColor: ruleColor },
+                          active && { backgroundColor: brassColor, borderColor: brassColor },
                         ]}
                         onPress={() => applyPreset(preset)}
                       >
-                        <Text
-                          style={[
-                            styles.filterOptionText,
-                            { color: colors.textSecondary },
-                            active && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                          ]}
-                        >
+                        <Text style={[styles.filterOptionText, { color: ink3 }, active && { color: '#FFF' }]}>
                           {t('orders.filters.' + preset.labelKey)}
                         </Text>
                       </TouchableOpacity>
@@ -839,125 +821,95 @@ export default function OrdersTab() {
                   })}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.orderStatus')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.orderStatus')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {ORDER_STATUS_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        orderStatusFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        orderStatusFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setOrderStatusFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          orderStatusFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, orderStatusFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + orderStatusLabelId(id))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.paymentStatus')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.paymentStatus')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {PAYMENT_STATUS_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        paymentStatusFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        paymentStatusFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setPaymentStatusFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          paymentStatusFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, paymentStatusFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + (id === 'fully_paid' ? 'fullyPaid' : id === 'partially_paid' ? 'partiallyPaid' : 'unpaid'))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.orderDate')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.orderDate')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {DATE_RANGE_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        orderDateRangeFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        orderDateRangeFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setOrderDateRangeFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          orderDateRangeFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, orderDateRangeFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.totalAmount')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.totalAmount')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {AMOUNT_RANGE_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        totalAmountFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        totalAmountFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setTotalAmountFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          totalAmountFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, totalAmountFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.advance')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.advance')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {AMOUNT_RANGE_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        advanceAmountFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        advanceAmountFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setAdvanceAmountFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          advanceAmountFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, advanceAmountFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
@@ -966,50 +918,38 @@ export default function OrdersTab() {
               </>
             ) : (
               <>
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.orderCount')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.orderCount')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {CLIENT_ORDER_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        clientOrderFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        clientOrderFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setClientOrderFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          clientOrderFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, clientOrderFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + (id === 'all' ? 'all' : id === '0' ? 'noOrders' : id === '1' ? '1orders' : id === '5' ? '5orders' : '10orders'))}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>{t('orders.filters.registrationDate')}</Text>
+                <Text style={[styles.inputLabel, { color: ink3 }]}>{t('orders.filters.registrationDate')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterSelector}>
                   {DATE_RANGE_IDS.map((id) => (
                     <TouchableOpacity
                       key={id}
                       style={[
                         styles.filterOption,
-                        { backgroundColor: colors.borderLight },
-                        clientDateRangeFilter === id && [styles.activeFilterOption, { backgroundColor: colors.primaryLegacy }],
+                        { backgroundColor: cardBg, borderColor: ruleColor },
+                        clientDateRangeFilter === id && { backgroundColor: brassColor, borderColor: brassColor },
                       ]}
                       onPress={() => setClientDateRangeFilter(id)}
                     >
-                      <Text
-                        style={[
-                          styles.filterOptionText,
-                          { color: colors.textSecondary },
-                          clientDateRangeFilter === id && [styles.activeFilterOptionText, { color: colors.textInverse }],
-                        ]}
-                      >
+                      <Text style={[styles.filterOptionText, { color: ink3 }, clientDateRangeFilter === id && { color: '#FFF' }]}>
                         {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
@@ -1020,18 +960,16 @@ export default function OrdersTab() {
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.resetButton, { backgroundColor: colors.borderLight }]}
+                style={[styles.resetButton, { backgroundColor: cardBg, borderColor: ruleColor }]}
                 onPress={resetAllFilters}
               >
-                <Text style={[styles.resetButtonText, { color: colors.textSecondary }]}>{t('orders.filterReset')}</Text>
+                <Text style={[styles.resetButtonText, { color: ink3 }]}>{t('orders.filterReset')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.applyButton, { backgroundColor: colors.primaryLegacy }]}
-                onPress={() => {
-                  setShowFilterModal(false);
-                }}
+                style={[styles.applyButton, { backgroundColor: brassColor }]}
+                onPress={() => setShowFilterModal(false)}
               >
-                <Text style={[styles.applyButtonText, { color: colors.textInverse }]}>{t('common.apply')}</Text>
+                <Text style={[styles.applyButtonText, { color: '#FFF' }]}>{t('common.apply')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -1058,246 +996,227 @@ export default function OrdersTab() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
-  title: {
-    ...Typography.h1,
-  },
   noClientsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.pagePad,
   },
   noClientsCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xxl,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.xl,
     alignItems: 'center',
     maxWidth: 320,
-    ...Shadows.md,
+    gap: AtelierSpacing.sm,
   },
   noClientsTitle: {
-    ...Typography.h3,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 20,
+    lineHeight: 26,
     textAlign: 'center',
   },
   noClientsSubtitle: {
-    ...Typography.body,
+    ...AtelierType.uiSm,
     textAlign: 'center',
-    marginBottom: Spacing.xxl,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   limitHint: {
-    ...Typography.caption,
+    ...AtelierType.uiXs,
     textAlign: 'center',
-    marginBottom: Spacing.md,
   },
   addClientButton: {
     flexDirection: 'row',
-    gap: Spacing.sm,
-    ...ButtonStyles.primary,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.sm,
+    alignItems: 'center',
+    marginTop: AtelierSpacing.sm,
   },
   addClientButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: '#FFF',
   },
-  addClientButtonDisabled: {
-    opacity: 0.5,
+  addClientButtonDisabled: { opacity: 0.5 },
+  addBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: AtelierRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
+    gap: AtelierSpacing.sm,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1.5,
-    paddingHorizontal: Spacing.md,
-    minHeight: 44,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.sm,
+    borderWidth: 1,
+    paddingHorizontal: AtelierSpacing.md,
+    minHeight: 40,
   },
-  searchIcon: {
-    marginRight: Spacing.sm,
-  },
+  searchIcon: { marginRight: AtelierSpacing.sm },
   searchInput: {
     flex: 1,
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 14,
     paddingVertical: 0,
-    minHeight: 44,
+    minHeight: 40,
   },
-  filterButton: {
-    marginLeft: Spacing.sm,
-  },
+  filterButton: { marginLeft: AtelierSpacing.sm },
   activeFiltersContainer: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.sm,
   },
   activeFiltersContent: {
     flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    gap: AtelierSpacing.sm,
+    paddingVertical: 2,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 20,
-    gap: Spacing.xs,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: 4,
+    borderRadius: AtelierRadius.xs,
+    borderWidth: 1,
+    gap: 4,
   },
   filterChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
-  filterChipIcon: {
-    marginLeft: 2,
-  },
+  filterChipIcon: { marginLeft: 2 },
   resetFiltersChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 20,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: 4,
+    borderRadius: AtelierRadius.xs,
     borderWidth: 1,
     alignSelf: 'center',
   },
   resetFiltersChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.xs,
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: 3,
   },
   tab: {
     flex: 1,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
     alignItems: 'center',
   },
   activeTab: {
-    ...Shadows.md,
+    shadowColor: '#3F362A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
   tabText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  activeTabText: {
-  },
-  content: {
-    flex: 1,
-  },
+  content: { flex: 1 },
   listContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingBottom: AtelierSpacing.md,
   },
   errorBanner: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    ...StatusStyles.error,
-    borderRadius: BorderRadius.sm,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xxl,
-  },
-  loadingText: {
-    ...Typography.body,
-    marginTop: Spacing.md,
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.sm,
   },
   emptyText: {
-    ...Typography.caption,
+    ...AtelierType.uiSm,
     textAlign: 'center',
-    paddingVertical: Spacing.xxl,
+    paddingVertical: AtelierSpacing.xxl,
   },
-  modalContainer: {
-    flex: 1,
-  },
+  modalContainer: { flex: 1 },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingVertical: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
+    fontFamily: FontFamily.serif,
     fontSize: 20,
-    fontWeight: '700',
+    lineHeight: 26,
   },
-  closeButton: {
-    padding: 4,
-  },
+  closeButton: { padding: 4 },
   modalContent: {
     flex: 1,
-    padding: 20,
+    padding: AtelierSpacing.pagePad,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 8,
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: AtelierSpacing.sm,
+    marginTop: AtelierSpacing.md,
   },
-  filterSelector: {
-    marginBottom: 24,
-  },
+  filterSelector: { marginBottom: AtelierSpacing.md },
   filterOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  activeFilterOption: {
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: 8,
+    borderRadius: AtelierRadius.xs,
+    marginRight: AtelierSpacing.sm,
+    borderWidth: 1,
   },
   filterOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeFilterOptionText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
+    lineHeight: 18,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-    marginBottom: 20,
+    gap: AtelierSpacing.sm,
+    marginTop: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   resetButton: {
     flex: 1,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     alignItems: 'center',
+    borderWidth: 1,
   },
   resetButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 14,
   },
   applyButton: {
     flex: 1,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     alignItems: 'center',
   },
   applyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: '#FFF',
   },
 });

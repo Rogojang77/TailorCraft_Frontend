@@ -29,6 +29,8 @@ export interface DraftOrder {
     name: string;
     phone: string;
     email?: string;
+    gender?: 'male' | 'female' | null;
+    referenceImage?: string | null;
   };
   measurements: Record<string, GarmentMeasurements>; // Generic: garmentId -> measurements
   catalogSelections: Record<string, GarmentCatalogSelections>; // garmentId -> categoryCode -> itemId(s)
@@ -37,6 +39,15 @@ export interface DraftOrder {
     paidAmount: number;
   };
   deliveryDate?: string; // ISO date string for expected delivery date
+  fittings?: Array<{
+    id?: string;
+    scheduledAt: string;
+    status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+    notes?: string | null;
+    photos?: string[];
+  }>;
+  wantsOrderSketch: boolean;
+  sketchDraftUri?: string;
   notes?: string;
 }
 
@@ -56,15 +67,34 @@ interface OrderDraftContextType {
   updateCatalogSelections: (garmentId: string, categoryCode: string, itemIds: string | string[]) => void;
   updatePayment: (payment: Partial<DraftOrder['payment']>) => void;
   updateDeliveryDate: (date: string | undefined) => void;
+  updateFittings: (fittings: Array<{ id?: string; scheduledAt: string; status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED'; notes?: string | null; photos?: string[] }>) => void;
+  updateWantsOrderSketch: (wants: boolean) => void;
+  updateSketchDraftUri: (uri: string | undefined) => void;
   updateNotes: (notes: string | undefined) => void;
   loadOrderData: (orderData: {
     id: string;
-    customer?: { id: string; firstName: string; lastName: string; phone: string; email: string | null };
+    customer?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string | null;
+      gender?: 'male' | 'female' | null;
+      referenceImage?: string | null;
+    };
     measurements?: Record<string, Record<string, unknown>> | null;
     catalogSelections?: Record<string, GarmentCatalogSelections> | null;
     totalAmount: number;
     paidAmount: number;
     deliveryDate?: string | null;
+    fittings?: Array<{
+      id?: string;
+      scheduledAt: string;
+      status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+      notes?: string | null;
+      photos?: string[];
+    }> | null;
+    sketches?: Array<{ id: string; imageUrl: string; title?: string | null }> | null;
     notes?: string | null;
   }) => void;
   clearDraft: () => void;
@@ -82,6 +112,8 @@ const defaultDraftOrder: DraftOrder = {
     totalAmount: 0,
     paidAmount: 0,
   },
+  fittings: [],
+  wantsOrderSketch: false,
 };
 
 const OrderDraftContext = createContext<OrderDraftContextType | undefined>(undefined);
@@ -234,6 +266,28 @@ export function OrderDraftProvider({
     }));
   }, []);
 
+  const updateFittings = useCallback((fittings: Array<{ id?: string; scheduledAt: string; status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED'; notes?: string | null; photos?: string[] }>) => {
+    setDraftOrder((prev) => ({
+      ...prev,
+      fittings,
+    }));
+  }, []);
+
+  const updateWantsOrderSketch = useCallback((wants: boolean) => {
+    setDraftOrder((prev) => ({
+      ...prev,
+      wantsOrderSketch: wants,
+      sketchDraftUri: wants ? prev.sketchDraftUri : undefined,
+    }));
+  }, []);
+
+  const updateSketchDraftUri = useCallback((uri: string | undefined) => {
+    setDraftOrder((prev) => ({
+      ...prev,
+      sketchDraftUri: uri,
+    }));
+  }, []);
+
   const updateNotes = useCallback((notes: string | undefined) => {
     setDraftOrder((prev) => ({
       ...prev,
@@ -247,13 +301,29 @@ export function OrderDraftProvider({
 
   const loadOrderData = (orderData: {
     id: string;
-    customer?: { id: string; firstName: string; lastName: string; phone: string; email: string | null };
+    customer?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string | null;
+      gender?: 'male' | 'female' | null;
+      referenceImage?: string | null;
+    };
     measurements?: Record<string, Record<string, unknown>> | null;
     catalogSelections?: Record<string, GarmentCatalogSelections> | null;
     totalAmount: number;
     paidAmount: number;
     deliveryDate?: string | null;
+    fittings?: Array<{
+      id?: string;
+      scheduledAt: string;
+      status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+      notes?: string | null;
+      photos?: string[];
+    }> | null;
     paymentMethod?: string | null;
+    sketches?: Array<{ id: string; imageUrl: string; title?: string | null }> | null;
     notes?: string | null;
   }) => {
     // Helper to convert unknown to string
@@ -288,6 +358,8 @@ export function OrderDraftProvider({
             name: [customer.firstName, customer.lastName].filter(Boolean).join(' ') || '',
             phone: customer.phone || '',
             email: customer.email || undefined,
+            gender: customer.gender ?? undefined,
+            referenceImage: customer.referenceImage ?? undefined,
           }
         : defaultDraftOrder.customer,
       measurements: convertedMeasurements,
@@ -297,6 +369,8 @@ export function OrderDraftProvider({
         paidAmount: orderData.paidAmount || 0,
       },
       deliveryDate: orderData.deliveryDate || undefined,
+      fittings: orderData.fittings ?? [],
+      wantsOrderSketch: (orderData.sketches?.length ?? 0) > 0,
       notes: orderData.notes || undefined,
     });
     setDraftStatus('active');
@@ -311,6 +385,9 @@ export function OrderDraftProvider({
       measurements: {},
       catalogSelections: {},
       payment: { totalAmount: 0, paidAmount: 0 },
+      fittings: [],
+      wantsOrderSketch: false,
+      sketchDraftUri: undefined,
     });
     setDraftStatus('none');
     if (user?.id) {
@@ -332,6 +409,9 @@ export function OrderDraftProvider({
         updateCatalogSelections,
         updatePayment,
         updateDeliveryDate,
+        updateFittings,
+        updateWantsOrderSketch,
+        updateSketchDraftUri,
         updateNotes,
         loadOrderData,
         clearDraft,

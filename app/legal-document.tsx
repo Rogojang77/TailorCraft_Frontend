@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/Header';
 import { Loader } from '@/components/ui/Loader';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
-import { Spacing, Typography } from '@/constants/design';
+import { AtelierSpacing } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
 import { TERMS_URL, PRIVACY_POLICY_URL } from '@/constants/legal';
@@ -46,7 +46,7 @@ export default function LegalDocumentScreen() {
       <ScreenContainer noPadding>
         <Header title={title} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} />
         <View style={styles.errorContainer}>
-          <AlertCircle size={48} color={colors.error} />
+          <AlertCircle size={48} color={colors.ember ?? colors.error} />
           <ErrorText>{t('legalDocument.noUrl')}</ErrorText>
         </View>
       </ScreenContainer>
@@ -58,14 +58,14 @@ export default function LegalDocumentScreen() {
       <Header title={title} onBack={() => router.back()} backAccessibilityLabel={t('common.back')} titleNumberOfLines={1} />
 
       {loading && (
-        <View style={[styles.loadingOverlay, { backgroundColor: colors.background }]}>
+        <View style={[styles.loadingOverlay, { backgroundColor: colors.paper ?? colors.background }]}>
           <Loader message={t('legalDocument.loading')} />
         </View>
       )}
 
       {error ? (
         <View style={styles.errorContainer}>
-          <AlertCircle size={48} color={colors.error} />
+          <AlertCircle size={48} color={colors.ember ?? colors.error} />
           <ErrorText>{error}</ErrorText>
           <Button variant="primary" onPress={() => { setError(null); setLoading(true); }} style={styles.retryButton}>
             {t('legalDocument.retry')}
@@ -74,7 +74,7 @@ export default function LegalDocumentScreen() {
       ) : (
         <WebView
           source={{ uri }}
-          style={[styles.webview, { backgroundColor: colors.surface }]}
+          style={[styles.webview, { backgroundColor: colors.card }]}
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
           onError={(e) => {
@@ -110,9 +110,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: AtelierSpacing.xl,
   },
   retryButton: {
-    marginTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
   },
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Phone, Clock } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, getCardStyles, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { Button } from '@/components/ui/Button';
 
 interface Client {
@@ -19,23 +19,29 @@ interface ClientCardProps {
 
 export function ClientCard({ client, onPress }: ClientCardProps) {
   const { colors } = useTheme();
-  const cardStyles = getCardStyles(colors);
-  const typography = getTypography(colors);
 
   return (
-    <Button variant="ghost" style={[cardStyles.card, styles.card]} onPress={onPress}>
+    <Button
+      variant="ghost"
+      style={[styles.card, { backgroundColor: colors.card }, AtelierShadow.card]}
+      onPress={onPress}
+    >
       <View style={styles.header}>
-        <Text style={[typography.bodySemiBold, styles.name]} numberOfLines={1}>{client.name}</Text>
+        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+          {client.name}
+        </Text>
       </View>
-      
+
       <View style={styles.detail}>
-        <Phone size={14} color={colors.textSecondary} />
-        <Text style={[typography.statLabel, styles.phone]} numberOfLines={1}>{client.phone}</Text>
+        <Phone size={14} color={colors.ink3} />
+        <Text style={[styles.phone, { color: colors.ink3 }]} numberOfLines={1}>
+          {client.phone}
+        </Text>
       </View>
-      
+
       <View style={styles.detail}>
-        <Clock size={14} color={colors.textSecondary} />
-        <Text style={typography.statLabel}>{client.lastOrder}</Text>
+        <Clock size={14} color={colors.ink3} />
+        <Text style={[styles.meta, { color: colors.ink3 }]}>{client.lastOrder}</Text>
       </View>
     </Button>
   );
@@ -43,25 +49,38 @@ export function ClientCard({ client, onPress }: ClientCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    marginRight: Spacing.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginRight: AtelierSpacing.sm,
     alignItems: 'stretch',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: Spacing.sm,
+    paddingBottom: AtelierSpacing.sm,
   },
   name: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
     flex: 1,
   },
   detail: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
+    gap: AtelierSpacing.xs,
   },
   phone: {
-    marginLeft: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     flex: 1,
+  },
+  meta: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

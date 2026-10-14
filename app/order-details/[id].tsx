@@ -1,19 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { useSubscription, usePremium } from '@/contexts/SubscriptionContext';
 import { getOrderStatusDisplayConfig } from '@/lib/api';
+import { api, apiFetch, getLocalizedApiMessage, uploadImage } from '@/lib/api';
+import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
+import { FittingStatusModal } from '@/components/FittingStatusModal';
 import { AiPreviewSection } from '@/components/AiPreviewSection';
-import { PaywallModal } from '@/components/subscription';
-import { Spacing } from '@/constants/design';
+import { AtelierSpacing } from '@/constants/atelierDesign';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { FITTING_STATUSES, getFittingStatusDisplayConfig, type FittingStatus, type FittingPayloadSource, toFittingPayload } from '@/lib/fittings';
 import type { GarmentTypeRecord } from '@/types/templates';
 import {
   OrderHeader,
@@ -22,6 +25,8 @@ import {
   OrderMeasurements,
   OrderCatalog,
   OrderPdfActions,
+  OrderFittingsSection,
+  OrderSketchesSection,
   OrderEditItemModal,
   OrderEditOrderInfoModal,
 } from '@/components/order-details';
@@ -54,12 +59,17 @@ export default function OrderDetailsScreen() {
   const { t, locale } = useI18n();
   const { colors, isDark } = useTheme();
   const { preferredUnit } = useSettings();
-  const { upgradeToPro } = useSubscription();
-  const { isPremium: isPro } = usePremium();
   const insets = useSafeAreaInsets();
   const FOOTER_HEIGHT = FOOTER_BASE_HEIGHT + FOOTER_VERTICAL_PADDING + insets.bottom;
 
   const { orderData, setOrderData, companyData, garmentTypes, loading } = useOrderDetails(orderId);
+  const [showFittingDatePicker, setShowFittingDatePicker] = useState(false);
+  const [selectedFittingIndex, setSelectedFittingIndex] = useState<number | null>(null);
+  const [fittingsUpdating, setFittingsUpdating] = useState(false);
+  const [uploadingPhotoFittingIndex, setUploadingPhotoFittingIndex] = useState<number | null>(null);
+  const [pendingNewFittingDate, setPendingNewFittingDate] = useState<Date | null>(null);
+  const [fittingStatusModalVisible, setFittingStatusModalVisible] = useState(false);
+  const [selectedFittingStatusIndex, setSelectedFittingStatusIndex] = useState<number | null>(null);
 
   const onOrderUpdated = useMemo(
     () => (updater: (prev: NonNullable<typeof orderData>) => NonNullable<typeof orderData>) => {
@@ -91,19 +101,8 @@ export default function OrderDetailsScreen() {
   });
 
   const garmentUnavailableLabel = t('orderDetails.garmentDeleted');
-  const garmentDisplayNamesForPDF = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const g of garmentTypes) {
-      out[g.id] = getGarmentDisplayName(g, garmentUnavailableLabel);
-    }
-    return out;
-  }, [garmentTypes, garmentUnavailableLabel]);
 
   const pdf = useOrderPdf(orderId, orderData, companyData, {
-    displayDefinitionsByGarment: measurements.displayDefinitionsByGarment,
-    orderGarmentIdsSorted: measurements.orderGarmentIdsSorted,
-    garmentDisplayNamesForPDF,
-    isPro,
     t,
   });
 
@@ -123,6 +122,19 @@ export default function OrderDetailsScreen() {
       month: 'long',
       day: 'numeric',
     });
+  const formatFittingDateTimeDisplay = (date: Date): string =>
+    date.toLocaleString(locale === 'ro' ? 'ro-RO' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const formatFittingStatus = (value?: FittingStatus): string =>
+    t(`orderDetails.fittings.status.${value ?? 'SCHEDULED'}`);
+  const getFittingStatusConfig = (value?: FittingStatus) => getFittingStatusDisplayConfig(value, colors);
+  const hasExplicitTime = (date: Date): boolean => date.getHours() !== 0 || date.getMinutes() !== 0;
 
   const handleExportPDFWithCompany = async () => {
     if (!companyData) {
@@ -140,14 +152,243 @@ export default function OrderDetailsScreen() {
     await pdf.handleSharePDF();
   };
 
-  const handleDownloadFromModal = async (mode: 'classic' | 'custom') => {
-    pdf.setDownloadModeModalVisible(false);
-    await pdf.doDownloadPdf(mode);
+  const saveFittings = async (
+    nextFittings: FittingPayloadSource[]
+  ) => {
+    if (!orderId || !orderData) return;
+    setFittingsUpdating(true);
+    try {
+      await apiFetch(api.orders(orderId), {
+        method: 'PUT',
+        body: JSON.stringify({
+          fittings: nextFittings.map(toFittingPayload),
+        }),
+      });
+      setOrderData((prev) => {
+        if (!prev) return prev;
+        const normalizedFittings = nextFittings.map((fitting, index) => ({
+          id: fitting.id ?? prev.fittings?.[index]?.id ?? `${fitting.scheduledAt}-${index}`,
+          scheduledAt: fitting.scheduledAt,
+          status: fitting.status ?? 'SCHEDULED',
+          notes: fitting.notes ?? null,
+          photos: fitting.photos ?? [],
+        }));
+        return { ...prev, fittings: normalizedFittings };
+      });
+    } catch (error) {
+      Alert.alert(t('common.error'), getLocalizedApiMessage(error, t, t('orderDetails.fittings.saveError')));
+    } finally {
+      setFittingsUpdating(false);
+    }
   };
 
-  const handleSaveToFolderFromModal = async (mode: 'classic' | 'custom') => {
-    pdf.setDownloadModeModalVisible(false);
-    await pdf.doSavePdfToFolder(mode);
+  const commitNewFitting = async (date: Date) => {
+    if (!orderData) return;
+    if (!hasExplicitTime(date)) {
+      Alert.alert(t('orderDetails.fittings.timeRequiredTitle'), t('orderDetails.fittings.timeRequiredMessage'));
+      return;
+    }
+    const next = [
+      ...(orderData.fittings ?? []),
+      { scheduledAt: date.toISOString(), status: 'SCHEDULED' as const, notes: null },
+    ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    await saveFittings(next);
+  };
+
+  const addFitting = async () => {
+    if (!orderData) return;
+    const baseDate = orderData.deliveryDate ? new Date(orderData.deliveryDate) : new Date();
+    const suggestedDate = new Date(baseDate);
+    suggestedDate.setDate(suggestedDate.getDate() - 7);
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: suggestedDate,
+        mode: 'date',
+        onChange: async (event, date) => {
+          if (event.type !== 'set' || !date) return;
+          DateTimePickerAndroid.open({
+            value: date,
+            mode: 'time',
+            is24Hour: true,
+            onChange: async (timeEvent, timeValue) => {
+              if (timeEvent.type !== 'set' || !timeValue) return;
+              const next = new Date(date);
+              next.setHours(timeValue.getHours(), timeValue.getMinutes(), 0, 0);
+              if (!hasExplicitTime(next)) {
+                Alert.alert(t('orderDetails.fittings.timeRequiredTitle'), t('orderDetails.fittings.timeRequiredMessage'));
+                return;
+              }
+              await commitNewFitting(next);
+            },
+          });
+        },
+      });
+      return;
+    }
+    setSelectedFittingIndex(null);
+    setPendingNewFittingDate(suggestedDate);
+    setShowFittingDatePicker(true);
+  };
+
+  const pickFittingPhoto = async (source: 'camera' | 'library'): Promise<string | null> => {
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert(t('common.error'), t('orderDetails.fittings.photos.permissionDenied'));
+      return null;
+    }
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8 };
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+    return result.canceled ? null : (result.assets[0]?.uri ?? null);
+  };
+
+  const uploadFittingPhoto = async (index: number, source: 'camera' | 'library') => {
+    const localUri = await pickFittingPhoto(source);
+    if (!localUri || !orderData?.fittings?.[index]) return;
+    setUploadingPhotoFittingIndex(index);
+    try {
+      const url = await uploadImage(localUri);
+      const next = [...(orderData.fittings ?? [])];
+      next[index] = { ...next[index], photos: [...(next[index].photos ?? []), url] };
+      await saveFittings(next);
+    } catch (error) {
+      Alert.alert(t('common.error'), getLocalizedApiMessage(error, t, t('orderDetails.fittings.photos.uploadError')));
+    } finally {
+      setUploadingPhotoFittingIndex(null);
+    }
+  };
+
+  const addFittingPhoto = (index: number) => {
+    Alert.alert(t('orderDetails.fittings.photos.add'), undefined, [
+      { text: t('orderDetails.fittings.photos.takePhoto'), onPress: () => void uploadFittingPhoto(index, 'camera') },
+      { text: t('orderDetails.fittings.photos.chooseFromLibrary'), onPress: () => void uploadFittingPhoto(index, 'library') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
+  const removeFittingPhoto = (index: number, photoIndex: number) => {
+    Alert.alert(t('orderDetails.fittings.photos.remove'), t('orderDetails.fittings.photos.removeConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          if (!orderData?.fittings?.[index]) return;
+          const next = [...orderData.fittings];
+          next[index] = { ...next[index], photos: (next[index].photos ?? []).filter((_, i) => i !== photoIndex) };
+          void saveFittings(next);
+        },
+      },
+    ]);
+  };
+
+  const removeFitting = async (index: number) => {
+    if (!orderData) return;
+    const next = (orderData.fittings ?? []).filter((_, i) => i !== index);
+    await saveFittings(next);
+  };
+
+  const openFittingStatusPicker = (index: number) => {
+    if (!orderData?.fittings?.[index]) return;
+    setSelectedFittingStatusIndex(index);
+    setFittingStatusModalVisible(true);
+  };
+
+  const handleSelectFittingStatusFromModal = async (statusValue: FittingStatus) => {
+    if (!orderData || selectedFittingStatusIndex === null) return;
+    const next = [...(orderData.fittings ?? [])];
+    if (!next[selectedFittingStatusIndex]) return;
+    next[selectedFittingStatusIndex] = { ...next[selectedFittingStatusIndex], status: statusValue };
+    await saveFittings(next);
+    setFittingStatusModalVisible(false);
+    setSelectedFittingStatusIndex(null);
+  };
+
+  const openFittingDatePicker = (index: number) => {
+    if (!orderData?.fittings?.[index]) return;
+    const current = orderData.fittings[index];
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: new Date(current.scheduledAt),
+        mode: 'date',
+        onChange: async (event, date) => {
+          if (event.type !== 'set' || !date || !orderData) return;
+          DateTimePickerAndroid.open({
+            value: date,
+            mode: 'time',
+            is24Hour: true,
+            onChange: async (timeEvent, timeValue) => {
+              if (timeEvent.type !== 'set' || !timeValue || !orderData) return;
+              const nextDate = new Date(date);
+              nextDate.setHours(timeValue.getHours(), timeValue.getMinutes(), 0, 0);
+              if (!hasExplicitTime(nextDate)) {
+                Alert.alert(t('orderDetails.fittings.timeRequiredTitle'), t('orderDetails.fittings.timeRequiredMessage'));
+                return;
+              }
+              const next = [...(orderData.fittings ?? [])];
+              if (!next[index]) return;
+              next[index] = { ...next[index], scheduledAt: nextDate.toISOString() };
+              next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+              await saveFittings(next);
+            },
+          });
+        },
+      });
+      return;
+    }
+    setSelectedFittingIndex(index);
+    setShowFittingDatePicker(true);
+  };
+
+  const onFittingDateChange = async (event: { type: string }, selectedDate?: Date) => {
+    if (event.type !== 'set' || !selectedDate || selectedFittingIndex === null || !orderData) return;
+    const next = [...(orderData.fittings ?? [])];
+    if (!next[selectedFittingIndex]) return;
+    next[selectedFittingIndex] = { ...next[selectedFittingIndex], scheduledAt: selectedDate.toISOString() };
+    next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    await saveFittings(next);
+  };
+
+  const onFittingDateChangeIos = (event: { type: string }, selectedDate?: Date) => {
+    if (event.type !== 'set' || !selectedDate || !orderData) return;
+    if (selectedFittingIndex === null) {
+      setPendingNewFittingDate(selectedDate);
+      return;
+    }
+    const next = [...(orderData.fittings ?? [])];
+    if (!next[selectedFittingIndex]) return;
+    next[selectedFittingIndex] = { ...next[selectedFittingIndex], scheduledAt: selectedDate.toISOString() };
+    next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    setOrderData((prev) => (prev ? { ...prev, fittings: next } : prev));
+  };
+
+  const closeFittingPicker = () => {
+    setShowFittingDatePicker(false);
+    setSelectedFittingIndex(null);
+    setPendingNewFittingDate(null);
+  };
+
+  const confirmFittingPicker = async () => {
+    if (!orderData) return;
+    if (selectedFittingIndex === null) {
+      if (pendingNewFittingDate) {
+        if (!hasExplicitTime(pendingNewFittingDate)) {
+          Alert.alert(t('orderDetails.fittings.timeRequiredTitle'), t('orderDetails.fittings.timeRequiredMessage'));
+          return;
+        }
+        await commitNewFitting(pendingNewFittingDate);
+      }
+      closeFittingPicker();
+      return;
+    }
+    const next = orderData.fittings ?? [];
+    await saveFittings(next);
+    closeFittingPicker();
   };
 
   if (loading) {
@@ -183,7 +424,30 @@ export default function OrderDetailsScreen() {
             onDeleteRequest={deleteOrder.handleDeleteRequest}
             onEditOrderInfo={orderInfoEdit.openEditOrderInfoModal}
             onStatusPress={() => status.setStatusModalVisible(true)}
+            onMarkFullyPaid={status.handleMarkAsFullyPaid}
+            markFullyPaidLoading={status.fullPayUpdating}
+            markFullyPaidDisabled={status.statusUpdating || status.fullPayUpdating}
             statusConfig={statusConfig}
+          />
+
+          <OrderFittingsSection
+            fittings={orderData.fittings ?? []}
+            fittingsUpdating={fittingsUpdating}
+            onAddFitting={addFitting}
+            onOpenFittingDatePicker={openFittingDatePicker}
+            onOpenFittingStatusPicker={openFittingStatusPicker}
+            onRemoveFitting={removeFitting}
+            onAddFittingPhoto={addFittingPhoto}
+            onRemoveFittingPhoto={removeFittingPhoto}
+            uploadingPhotoFittingIndex={uploadingPhotoFittingIndex}
+            formatFittingDateTimeDisplay={formatFittingDateTimeDisplay}
+            formatFittingStatus={formatFittingStatus}
+            getFittingStatusDisplayConfig={getFittingStatusConfig}
+            showFittingDatePicker={Platform.OS === 'ios' && showFittingDatePicker}
+            selectedFittingIndex={selectedFittingIndex}
+            pendingNewFittingDate={pendingNewFittingDate}
+            onConfirmFittingPicker={confirmFittingPicker}
+            onFittingDateChangeIos={onFittingDateChangeIos}
           />
 
           <OrderStatusSection
@@ -198,6 +462,8 @@ export default function OrderDetailsScreen() {
             onCloseDeliveryDatePicker={() => status.setShowDeliveryDatePicker(false)}
             isDark={isDark}
           />
+
+          <OrderSketchesSection sketches={orderData.sketches ?? []} />
 
           {orderData.measurements && Object.keys(orderData.measurements).length > 0 && (
             <OrderMeasurements
@@ -242,17 +508,7 @@ export default function OrderDetailsScreen() {
           onExportPDF={handleExportPDFWithCompany}
           onSharePDF={handleSharePDFWithCompany}
           isExporting={pdf.isExporting}
-          downloadModeModalVisible={pdf.downloadModeModalVisible}
-          setDownloadModeModalVisible={pdf.setDownloadModeModalVisible}
-          pdfDownloadMode={pdf.pdfDownloadMode}
-          setPdfDownloadMode={pdf.setPdfDownloadMode}
-          pdfDocumentTemplates={pdf.pdfDocumentTemplates}
-          selectedPdfTemplateId={pdf.selectedPdfTemplateId}
-          setSelectedPdfTemplateId={pdf.setSelectedPdfTemplateId}
-          onDownload={handleDownloadFromModal}
-          onSaveToFolder={handleSaveToFolderFromModal}
           t={t}
-          isAndroid={Platform.OS === 'android'}
         />
       </View>
 
@@ -309,14 +565,20 @@ export default function OrderDetailsScreen() {
         onStatusSelect={status.handleStatusUpdate}
       />
 
-      <PaywallModal
-        visible={pdf.showPdfUpgradeModal}
-        onClose={() => pdf.setShowPdfUpgradeModal(false)}
-        onUpgrade={async (plan) => {
-          const result = await upgradeToPro(plan);
-          if (result.success) pdf.setShowPdfUpgradeModal(false);
-          else if (result.errorMessage) Alert.alert(t('common.error'), result.errorMessage);
+      <FittingStatusModal
+        visible={fittingStatusModalVisible}
+        onClose={() => {
+          if (fittingsUpdating) return;
+          setFittingStatusModalVisible(false);
+          setSelectedFittingStatusIndex(null);
         }}
+        statuses={FITTING_STATUSES}
+        selectedStatus={
+          selectedFittingStatusIndex !== null ? (orderData.fittings?.[selectedFittingStatusIndex]?.status as FittingStatus | undefined) : undefined
+        }
+        onSelect={handleSelectFittingStatusFromModal}
+        getStatusLabel={formatFittingStatus}
+        getStatusDisplayConfig={getFittingStatusConfig}
       />
     </ScreenContainer>
   );
@@ -336,6 +598,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
 });

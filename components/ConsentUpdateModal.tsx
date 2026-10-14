@@ -13,7 +13,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { AlertCircle } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, getButtonStyles, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 import type { ConsentUpdateInfo } from '@/contexts/ConsentContext';
 
@@ -30,8 +30,6 @@ interface ConsentUpdateModalProps {
 export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateModalProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
-  const buttonStyles = getButtonStyles(colors);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,12 +62,12 @@ export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateMod
       statusBarTranslucent
     >
       <View style={[styles.overlay, { backgroundColor: colors.overlayDark }]}>
-        <View style={[styles.container, { backgroundColor: colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: colors.card }]}>
           <View style={styles.iconWrap}>
-            <AlertCircle size={48} color={colors.primary} />
+            <AlertCircle size={48} color={colors.brass ?? colors.primary} />
           </View>
-          <Text style={[typography.h3, styles.title]}>{t('legal.updateModal.title')}</Text>
-          <Text style={[typography.body, { color: colors.textSecondary }, styles.summary]}>{info.summary}</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{t('legal.updateModal.title')}</Text>
+          <Text style={[styles.bodyText, { color: colors.ink3 }, styles.summary]}>{info.summary}</Text>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             <ConsentCheckbox
@@ -91,14 +89,14 @@ export function ConsentUpdateModal({ visible, info, onAccept }: ConsentUpdateMod
           </ScrollView>
 
           <TouchableOpacity
-            style={[buttonStyles.primary, (!canAccept || isSubmitting) && { opacity: 0.5 }]}
+            style={[styles.primaryBtn, { backgroundColor: colors.brass ?? colors.primary }, (!canAccept || isSubmitting) && { opacity: 0.5 }]}
             onPress={handleAccept}
             disabled={!canAccept || isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color={colors.paper ?? '#EFE9DC'} />
             ) : (
-              <Text style={[typography.bodyBold, { color: colors.textInverse }]}>{t('legal.updateModal.accept')}</Text>
+              <Text style={[styles.bodyBoldText, { color: colors.paper ?? '#EFE9DC' }]}>{t('legal.updateModal.accept')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -112,29 +110,49 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   container: {
     borderRadius: 16,
-    padding: Spacing.xl,
+    padding: AtelierSpacing.xl,
     maxWidth: 400,
     width: '100%',
     maxHeight: '85%',
   },
   iconWrap: {
     alignSelf: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   title: {
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   summary: {
     textAlign: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   scroll: {
     maxHeight: 200,
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
+  },
+  bodyText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bodyBoldText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  primaryBtn: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

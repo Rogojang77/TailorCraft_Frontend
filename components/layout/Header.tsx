@@ -1,26 +1,21 @@
 /**
  * Screen header: back button (left), title (center or left), optional right actions.
- * Uses theme-aware styles from ThemeContext.
  */
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getHeaderStyles, HeaderBackButtonSize } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { Button } from '@/components/ui/Button';
 
+const BACK_SIZE = 36;
+
 export interface HeaderProps {
-  /** Title text */
   title: string;
-  /** Back press handler (if set, shows back button) */
   onBack?: () => void;
-  /** Accessibility label for back button */
   backAccessibilityLabel?: string;
-  /** Right-side actions (e.g. icon buttons) */
   rightActions?: React.ReactNode;
-  /** Title alignment: center (default) or left */
   titleAlign?: 'center' | 'left';
-  /** Title number of lines */
   titleNumberOfLines?: number;
   style?: ViewStyle;
 }
@@ -35,11 +30,9 @@ const HeaderComponent = ({
   style,
 }: HeaderProps) => {
   const { colors } = useTheme();
-  const headerStyles = getHeaderStyles(colors);
-  const titleStyle = titleAlign === 'left' ? headerStyles.titleLeft : headerStyles.title;
-  
+
   return (
-    <View style={[headerStyles.container, style]}>
+    <View style={[styles.container, style]}>
       {onBack != null ? (
         <Button
           variant="back"
@@ -51,11 +44,18 @@ const HeaderComponent = ({
       ) : (
         <View style={styles.placeholder} />
       )}
-      <Text style={titleStyle} numberOfLines={titleNumberOfLines}>
+      <Text
+        style={[
+          styles.title,
+          { color: colors.textPrimary },
+          titleAlign === 'left' && styles.titleLeft,
+        ]}
+        numberOfLines={titleNumberOfLines}
+      >
         {title}
       </Text>
       {rightActions != null ? (
-        <View style={headerStyles.actions}>{rightActions}</View>
+        <View style={styles.actions}>{rightActions}</View>
       ) : (
         <View style={styles.placeholder} />
       )}
@@ -64,9 +64,32 @@ const HeaderComponent = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
+  },
+  title: {
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    flex: 1,
+    textAlign: 'center',
+  },
+  titleLeft: {
+    textAlign: 'left',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AtelierSpacing.sm,
+  },
   placeholder: {
-    width: HeaderBackButtonSize,
-    minWidth: HeaderBackButtonSize,
+    width: BACK_SIZE,
+    minWidth: BACK_SIZE,
   },
 });
 

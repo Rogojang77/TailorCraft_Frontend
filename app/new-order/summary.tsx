@@ -15,34 +15,45 @@ import { Input } from '@/components/ui/Input';
 import { useCustomBack } from '@/contexts/PageTitleContext';
 import { Section } from '@/components/ui/Section';
 import { useRouter } from 'expo-router';
-import { CreditCard, Calendar } from 'lucide-react-native';
+import { Calendar } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
-import { clearDraftStorage } from '@/lib/order';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { clearDraftStorage } from '@/lib/order';
 import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { PaywallModal } from '@/components/subscription';
-import { api, apiFetch, getErrorMessage, ApiError, ApiErrorCode, API_BASE_URL } from '@/lib/api';
+import {
+  api,
+  apiFetch,
+  getErrorMessage,
+  getLocalizedApiMessage,
+  ApiError,
+  ApiErrorCode,
+  API_BASE_URL,
+  uploadImage,
+  fetchGarmentTypesList,
+  normalizeGarmentTypeRecord,
+  definitionRecordToFormDefinition,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { fetchGarmentTypesList } from '@/lib/api';
 import { sortGarmentIdsByOrder } from '@/lib/order';
-import { normalizeGarmentTypeRecord, definitionRecordToFormDefinition } from '@/lib/api';
 import type { GarmentTypeRecord, MeasurementDefinitionRecord } from '@/types/templates';
 import type { MeasurementDefinition } from '@/constants/garments';
 import type { GarmentCatalogItem, GarmentCatalogResponse } from '@/types/catalog';
 import {
   filterDefinitionsWithValidKey,
-  resolveMeasurementDisplay,
   formatMeasurementValueForDisplay,
 } from '@/lib/measurement';
 import { useSettings } from '@/contexts/SettingsContext';
-
-const DEFAULT_DELIVERY_WEEKS = 3;
 import { getSnapshotEntriesInDefinitionOrder, getSnapshotDisplayLabel } from '@/utils';
 import { ErrorText } from '@/components/ui/ErrorText';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
+import { toFittingPayload } from '@/lib/fittings';
+
+const DEFAULT_DELIVERY_WEEKS = 3;
+const DEFAULT_FITTING_DAYS_BEFORE_DELIVERY = 7;
 
 function getGarmentDisplayName(garment: GarmentTypeRecord, garmentUnavailableLabel: string): string {
   const name = (garment.label ?? garment.name ?? '').trim();
@@ -65,10 +76,10 @@ export default function SummaryScreen() {
   const router = useRouter();
   const { t, locale } = useI18n();
   const { colors, isDark } = useTheme();
-  const { preferredUnit } = useSettings();
+  const { preferredCurrency } = useSettings();
   const { user } = useAuth();
-  const { draftOrder, orderMode, updatePayment, updateDeliveryDate } = useOrderDraft();
-  const { subscription, upgradeToPro, refreshSubscription, checkCanCreateOrder, getLimitMessages } = useSubscription();
+  const { draftOrder, orderMode, updatePayment, updateDeliveryDate, updateFittings, updateSketchDraftUri } = useOrderDraft();
+  const { upgradeToPro, checkCanCreateOrder, getLimitMessages } = useSubscription();
   const canCreateOrder = checkCanCreateOrder();
   const limitMsgs = getLimitMessages();
 
@@ -92,6 +103,9 @@ export default function SummaryScreen() {
   const [summaryDefinitionsByGarment, setSummaryDefinitionsByGarment] = useState<Record<string, MeasurementDefinition[]>>({});
   const [summaryDefinitionErrors, setSummaryDefinitionErrors] = useState<Record<string, boolean>>({});
   const [resolvedCatalogItems, setResolvedCatalogItems] = useState<Record<string, GarmentCatalogItem>>({});
+  const [showFittingDatePicker, setShowFittingDatePicker] = useState(false);
+  const [selectedFittingIndex, setSelectedFittingIndex] = useState<number | null>(null);
+  const [pendingNewFittingDate, setPendingNewFittingDate] = useState<Date | null>(null);
 
   const totalNum = parseFloat(String(totalAmount ?? '').trim()) || 0;
   const paidNum = parseFloat(String(paidAmount ?? '').trim()) || 0;
@@ -107,6 +121,7 @@ export default function SummaryScreen() {
   }, []);
 
   const deliveryDate = draftOrder.deliveryDate ? new Date(draftOrder.deliveryDate) : new Date();
+  const fittings = draftOrder.fittings ?? [];
   const minDeliveryDate = new Date();
   minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
 
@@ -129,6 +144,88 @@ export default function SummaryScreen() {
     } else {
       setShowDatePicker(true);
     }
+  };
+
+  const commitNewFitting = (date: Date) => {
+    const next = [
+      ...fittings,
+      { scheduledAt: date.toISOString(), status: 'SCHEDULED' as const, notes: null },
+    ];
+    next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    updateFittings(next);
+  };
+
+  const addFitting = () => {
+    const nextDate = new Date(deliveryDate);
+    nextDate.setDate(nextDate.getDate() - DEFAULT_FITTING_DAYS_BEFORE_DELIVERY);
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: nextDate,
+        mode: 'date',
+        onChange: (event, date) => {
+          if (event.type !== 'set' || !date) return;
+          commitNewFitting(date);
+        },
+      });
+      return;
+    }
+    setSelectedFittingIndex(null);
+    setPendingNewFittingDate(nextDate);
+    setShowFittingDatePicker(true);
+  };
+
+  const removeFitting = (index: number) => {
+    const next = fittings.filter((_, i) => i !== index);
+    updateFittings(next);
+  };
+
+  const openFittingDatePicker = (index: number) => {
+    const fitting = fittings[index];
+    if (!fitting) return;
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: new Date(fitting.scheduledAt),
+        mode: 'date',
+        onChange: (event, date) => {
+          if (event.type !== 'set' || !date) return;
+          const next = [...fittings];
+          next[index] = { ...next[index], scheduledAt: date.toISOString() };
+          next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+          updateFittings(next);
+        },
+      });
+      return;
+    }
+    setSelectedFittingIndex(index);
+    setShowFittingDatePicker(true);
+  };
+
+  const onFittingDateChange = (event: { type: string }, selectedDate?: Date) => {
+    if (event.type !== 'set' || !selectedDate) return;
+    if (selectedFittingIndex === null) {
+      setPendingNewFittingDate(selectedDate);
+      return;
+    }
+    const next = [...fittings];
+    if (!next[selectedFittingIndex]) return;
+    next[selectedFittingIndex] = {
+      ...next[selectedFittingIndex],
+      scheduledAt: selectedDate.toISOString(),
+    };
+    next.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    updateFittings(next);
+  };
+
+  const closeFittingPicker = () => {
+    setShowFittingDatePicker(false);
+    setSelectedFittingIndex(null);
+    setPendingNewFittingDate(null);
+  };
+
+  const confirmAddFittingFromPicker = () => {
+    if (!pendingNewFittingDate) return;
+    commitNewFitting(pendingNewFittingDate);
+    closeFittingPicker();
   };
 
   const formatDeliveryDate = (date: Date): string => {
@@ -262,16 +359,6 @@ export default function SummaryScreen() {
     return sel && Object.keys(sel).length > 0;
   });
 
-  const formatDate = (isoDate?: string): string => {
-    if (!isoDate) return '—';
-    try {
-      const date = new Date(isoDate);
-      return date.toLocaleDateString('ro-RO');
-    } catch {
-      return '—';
-    }
-  };
-
   const handleFinalize = async () => {
     const isCreating = orderMode === 'create';
     if (isCreating && !canCreateOrder) return;
@@ -350,6 +437,7 @@ export default function SummaryScreen() {
         paidAmount: paid,
         deliveryDate: draftOrder.deliveryDate || undefined,
         notes: draftOrder.notes || undefined,
+        fittings: (draftOrder.fittings ?? []).map(toFittingPayload),
         measurements,
         orderGarmentSnapshots,
         catalogSelections: Object.keys(catalogSelections).length > 0 ? catalogSelections : undefined,
@@ -392,6 +480,22 @@ export default function SummaryScreen() {
         }
       }
 
+      if (draftOrder.sketchDraftUri) {
+        try {
+          const uploadedUrl = await uploadImage(draftOrder.sketchDraftUri);
+          await apiFetch(api.orderSketches(order.id), {
+            method: 'POST',
+            body: JSON.stringify({
+              imageUrl: uploadedUrl,
+              title: `Order draft sketch ${new Date().toISOString()}`,
+            }),
+          });
+          updateSketchDraftUri(undefined);
+        } catch (sketchError) {
+          console.warn('Failed to attach draft sketch to order:', sketchError);
+        }
+      }
+
       Alert.alert(
         t('common.success'),
         isEditing
@@ -411,8 +515,9 @@ export default function SummaryScreen() {
     } catch (error) {
       Alert.alert(
         t('common.error'),
-        getErrorMessage(
+        getLocalizedApiMessage(
           error,
+          t,
           orderMode === 'edit' ? t('newOrder.summary.updateError') : t('newOrder.summary.createError')
         )
       );
@@ -461,26 +566,26 @@ export default function SummaryScreen() {
           {garmentsLoadError ? (
             <ErrorText style={styles.loadErrorBanner}>{garmentsLoadError}</ErrorText>
           ) : null}
-          <Section style={styles.section}>
+          <Section style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newOrder.summary.sectionOrderInfo')}</Text>
             </View>
-            <View style={styles.summaryCard}>
+            <View style={[styles.summaryCard, { backgroundColor: colors.paper ?? colors.background, borderColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
               <Text style={[styles.clientName, { color: colors.textPrimary }]}>{draftOrder.customer.name || '—'}</Text>
-              <Text style={[styles.clientPhone, { color: colors.textSecondary }]}>{draftOrder.customer.phone || '—'}</Text>
-              <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
+              <Text style={[styles.clientPhone, { color: colors.ink3 }]}>{draftOrder.customer.phone || '—'}</Text>
+              <Text style={[styles.orderDate, { color: colors.ink3 }]}>
                 Data comenzii: {new Date().toLocaleDateString('ro-RO')}
               </Text>
             </View>
 
-            <Text style={[styles.deliveryLabel, { color: colors.textSecondary }]}>{t('newOrder.summary.deliveryDateLabel')}</Text>
+            <Text style={[styles.deliveryLabel, { color: colors.ink3 }]}>{t('newOrder.summary.deliveryDateLabel')}</Text>
             <TouchableOpacity
               style={styles.dateDisplay}
               onPress={openDatePicker}
               activeOpacity={0.7}
             >
               <View style={styles.dateContent}>
-                <Calendar size={20} color={colors.textSecondary} />
+                <Calendar size={20} color={colors.ink3} />
                 <Text style={[styles.dateText, { color: colors.textPrimary }]}>{formatDeliveryDate(deliveryDate)}</Text>
               </View>
             </TouchableOpacity>
@@ -488,7 +593,7 @@ export default function SummaryScreen() {
               <View style={styles.datePickerInline}>
                 <View style={styles.datePickerDoneRow}>
                   <TouchableOpacity onPress={() => setShowDatePicker(false)} activeOpacity={0.7}>
-                    <Text style={[styles.datePickerDoneText, { color: colors.primary }]}>{t('common.done')}</Text>
+                    <Text style={[styles.datePickerDoneText, { color: colors.brass ?? colors.primary }]}>{t('common.done')}</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -503,11 +608,71 @@ export default function SummaryScreen() {
               </View>
             )}
 
+            <View style={styles.fittingsHeader}>
+              <Text style={[styles.deliveryLabel, { color: colors.ink3 }]}>Date probe</Text>
+              <TouchableOpacity onPress={addFitting} activeOpacity={0.7}>
+                <Text style={[styles.addFittingText, { color: colors.brass ?? colors.primary }]}>+ Adaugă probă</Text>
+              </TouchableOpacity>
+            </View>
+            {fittings.length === 0 ? (
+              <Text style={[styles.fittingsEmptyText, { color: colors.ink3 }]}>
+                Nu există probe planificate.
+              </Text>
+            ) : (
+              fittings.map((fitting, index) => (
+                <View key={`${fitting.id ?? 'new'}-${index}`} style={styles.fittingRow}>
+                  <TouchableOpacity
+                    style={styles.fittingDateButton}
+                    onPress={() => openFittingDatePicker(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Calendar size={16} color={colors.ink3} />
+                    <Text style={[styles.fittingDateText, { color: colors.textPrimary }]}>
+                      {formatDeliveryDate(new Date(fitting.scheduledAt))}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => removeFitting(index)} activeOpacity={0.7}>
+                    <Text style={[styles.removeFittingText, { color: colors.ember ?? colors.error }]}>Șterge</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+            {Platform.OS === 'ios' && showFittingDatePicker && (
+              <View style={styles.datePickerInline}>
+                <View style={styles.datePickerDoneRow}>
+                  <TouchableOpacity onPress={closeFittingPicker} activeOpacity={0.7}>
+                    <Text style={[styles.datePickerDoneText, { color: colors.ink3 }]}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                  {selectedFittingIndex === null ? (
+                    <TouchableOpacity onPress={confirmAddFittingFromPicker} activeOpacity={0.7}>
+                      <Text style={[styles.datePickerDoneText, { color: colors.brass ?? colors.primary }]}>Salvează</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={closeFittingPicker} activeOpacity={0.7}>
+                      <Text style={[styles.datePickerDoneText, { color: colors.brass ?? colors.primary }]}>{t('common.done')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <DateTimePicker
+                  value={
+                    selectedFittingIndex === null
+                      ? (pendingNewFittingDate ?? new Date())
+                      : new Date(fittings[selectedFittingIndex].scheduledAt)
+                  }
+                  mode="date"
+                  display="spinner"
+                  onChange={onFittingDateChange}
+                  textColor={colors.textPrimary}
+                  themeVariant={isDark ? 'dark' : 'light'}
+                />
+              </View>
+            )}
+
 
             {/* Garments & measurements — PDF-style layout */}
             {garmentIdsWithMeasurements.length === 0 && garmentIdsWithCatalog.length === 0 ? (
               <View style={styles.pdfSection}>
-                <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.textPrimary }]}>{t('newOrder.summary.noItemsSelected')}</Text>
+                <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.rule ?? colors.border }]}>{t('newOrder.summary.noItemsSelected')}</Text>
               </View>
             ) : null}
             {garmentIdsWithMeasurements.map((garmentId) => {
@@ -523,7 +688,7 @@ export default function SummaryScreen() {
                   {summaryDefinitionErrors[garmentId] ? (
                     <ErrorText style={styles.pdfTableError}>{t('orderDetails.definitionsLoadError')}</ErrorText>
                   ) : null}
-                  <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.textPrimary }]}>{displayName}</Text>
+                  <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.rule ?? colors.border }]}>{displayName}</Text>
                   <View style={styles.pdfTable}>
                     {rows.map(([key, value]) => {
                       const def = defs.find((d) => d.key === key);
@@ -531,9 +696,9 @@ export default function SummaryScreen() {
                       const isSelect = def?.inputType === 'select' && def?.options?.length;
                       const displayValue = isSelect ? resolveSelectDisplayValue(value, def?.options) : formatMeasurementValueForDisplay(value);
                       return (
-                        <View key={key} style={[styles.pdfTableRow, { borderBottomColor: colors.border }]}>
-                          <Text style={[styles.pdfTableLabel, { color: colors.textPrimary }]} numberOfLines={1}>{label}</Text>
-                          <Text style={[styles.pdfTableValue, { color: colors.textSecondary }]} numberOfLines={1}>{displayValue}</Text>
+                        <View key={key} style={[styles.pdfTableRow, { borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
+                          <Text style={[styles.pdfTableLabel, { color: colors.textPrimary }]}>{label}</Text>
+                          <Text style={[styles.pdfTableValue, { color: colors.ink3 }]}>{displayValue}</Text>
                         </View>
                       );
                     })}
@@ -547,17 +712,17 @@ export default function SummaryScreen() {
               const stylesLabel = t('catalog.styleAndMaterials');
               return (
                 <View key={`cat-${garmentId}`} style={styles.pdfSection}>
-                  <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.textPrimary }]}>{displayName} - {stylesLabel}</Text>
+                  <Text style={[styles.pdfSectionTitle, { color: colors.textPrimary, borderBottomColor: colors.rule ?? colors.border }]}>{displayName} - {stylesLabel}</Text>
                   <View style={styles.pdfTable}>
                     {Object.entries(selections).map(([categoryCode, itemIdOrIds]) => {
                       const itemId = Array.isArray(itemIdOrIds) ? itemIdOrIds[0] : itemIdOrIds;
                       if (!itemId) return null;
                       const catalogItem = resolvedCatalogItems[itemId];
-                      const categoryLabel = t(`catalog.categories.${categoryCode}`, { defaultValue: categoryCode });
+                      const categoryLabel = (catalogItem?.categoryName ?? '').trim() || categoryCode;
                       const itemName = catalogItem?.name ?? itemId;
                       return (
-                        <View key={categoryCode} style={[styles.pdfTableRow, { borderBottomColor: colors.border }]}>
-                          <Text style={[styles.pdfTableLabel, { color: colors.textPrimary }]} numberOfLines={1}>{categoryLabel}</Text>
+                        <View key={categoryCode} style={[styles.pdfTableRow, { borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
+                          <Text style={[styles.pdfTableLabel, { color: colors.textPrimary }]}>{categoryLabel}</Text>
                           <View style={styles.pdfTableValueCell}>
                             {catalogItem?.imageUrl ? (
                               <Image source={{ uri: catalogItem.imageUrl.startsWith('http') ? catalogItem.imageUrl : `${API_BASE_URL}${catalogItem.imageUrl}` }} style={styles.pdfCatalogThumb} />
@@ -565,7 +730,7 @@ export default function SummaryScreen() {
                             {catalogItem?.color ? (
                               <View style={[styles.pdfColorSwatch, { backgroundColor: catalogItem.color }]} />
                             ) : null}
-                            <Text style={[styles.pdfTableValue, { color: colors.textSecondary }]} numberOfLines={1}>{itemName}</Text>
+                            <Text style={[styles.pdfTableValue, { color: colors.ink3 }]}>{itemName}</Text>
                           </View>
                         </View>
                       );
@@ -576,12 +741,12 @@ export default function SummaryScreen() {
             })}
           </Section>
 
-          <Section style={styles.section}>
+          <Section style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('newOrder.summary.paymentSection')}</Text>
             </View>
             <Input
-              label={t('newOrder.summary.totalLabelRon')}
+              label={`${t('newOrder.summary.totalAmount')} (${preferredCurrency})`}
               value={totalAmount}
               onChangeText={(text) => {
                 setTotalAmount(text);
@@ -593,7 +758,7 @@ export default function SummaryScreen() {
             />
 
             <Input
-              label={t('newOrder.summary.paidAmount') + ' (RON)'}
+              label={`${t('newOrder.summary.paidAmount')} (${preferredCurrency})`}
               value={paidAmount}
               onChangeText={(text) => {
                 setPaidAmount(text);
@@ -605,15 +770,15 @@ export default function SummaryScreen() {
             />
 
             {remaining > 0 && (
-              <View style={styles.remainingContainer}>
-                <Text style={[styles.remainingLabel, { color: colors.primaryDark }]}>{t('newOrder.summary.remainingLabel')}</Text>
-                <Text style={[styles.remainingAmount, { color: colors.primaryDark }]}>{remaining.toFixed(2)} RON</Text>
+              <View style={[styles.remainingContainer, { backgroundColor: (colors.brassPale ?? colors.brass) + '18', borderRadius: AtelierRadius.sm }]}>
+                <Text style={[styles.remainingLabel, { color: colors.brassDeep ?? colors.brass }]}>{t('newOrder.summary.remainingLabel')}</Text>
+                <Text style={[styles.remainingAmount, { color: colors.brassDeep ?? colors.brass }]}>{remaining.toFixed(2)} {preferredCurrency}</Text>
               </View>
             )}
           </Section>
 
           {isCreating && !canCreateOrder && (
-            <Text style={[styles.limitMessage, { color: colors.textSecondary }]}>{limitMsgs.orderLimitReached}</Text>
+            <Text style={[styles.limitMessage, { color: colors.ink3 }]}>{limitMsgs.orderLimitReached}</Text>
           )}
         </KeyboardAwareScrollView>
 
@@ -647,51 +812,63 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xxl,
   },
   loadErrorBanner: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   section: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   sectionTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   summaryCard: {
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginBottom: AtelierSpacing.md,
+    padding: AtelierSpacing.md,
+    borderWidth: 1,
   },
   clientName: {
-    marginBottom: Spacing.sm,
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.sm,
   },
   clientPhone: {
-    ...Typography.caption,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: AtelierSpacing.sm,
   },
   orderDate: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   pdfSection: {
     marginTop: 25,
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   pdfSectionTitle: {
-    ...Typography.bodyBold,
-    fontSize: 13,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
     textTransform: 'uppercase',
-    borderBottomWidth: 2,
+    letterSpacing: 0.5,
+    borderBottomWidth: 1,
     paddingBottom: 5,
     marginBottom: 10,
   },
@@ -700,30 +877,33 @@ const styles = StyleSheet.create({
   },
   pdfTableRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 5,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
   },
   pdfTableLabel: {
-    ...Typography.body,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 13,
+    lineHeight: 18,
     width: '50%',
-    fontWeight: '500',
   },
   pdfTableValue: {
     flex: 1,
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
   },
   pdfTableValueCell: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   pdfCatalogThumb: {
     width: 28,
     height: 28,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
   },
   pdfColorSwatch: {
     width: 12,
@@ -734,88 +914,150 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
   },
   pdfTableError: {
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   inputGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   remainingContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.lg,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.lg,
+    marginTop: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.lg,
   },
   remainingLabel: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   remainingAmount: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 20,
+    lineHeight: 26,
   },
   optionGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   optionLabel: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.md,
   },
   optionRow: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   paymentOption: {
     flex: 1,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
     alignItems: 'center',
   },
   optionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   deliveryLabel: {
-    ...Typography.bodyBold,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: AtelierSpacing.sm,
   },
   dateDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: BorderRadius.sm,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    paddingVertical: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   dateContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   dateText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   datePickerInline: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   datePickerDoneRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    gap: AtelierSpacing.lg,
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    width: '100%',
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
   },
   datePickerDoneText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  fittingsHeader: {
+    marginTop: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addFittingText: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  fittingsEmptyText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: 'italic',
+    marginBottom: AtelierSpacing.md,
+  },
+  fittingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: AtelierSpacing.sm,
+  },
+  fittingDateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AtelierSpacing.sm,
+  },
+  fittingDateText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  removeFittingText: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   limitMessage: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.lg,
   },
 });

@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/Input';
 import { api, apiFetch, uploadImage } from '@/lib/api';
 import { fetchCompanySettings, invalidateCompanyCache } from '@/lib/api';
 import { useCompany } from '@/contexts/CompanyContext';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 interface CompanyDetailsRequiredModalProps {
   visible: boolean;
@@ -103,8 +103,6 @@ export function CompanyDetailsRequiredModal({
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
@@ -185,20 +183,20 @@ export function CompanyDetailsRequiredModal({
       statusBarTranslucent
       onRequestClose={() => {}}
     >
-      <View style={[styles.overlay, { backgroundColor: colors.background }]}>
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
+      <View style={[styles.overlay, { backgroundColor: colors.paper ?? colors.background }]}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <View style={[styles.header, { borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
               {t('auth.companyRequired.title')}
             </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.subtitle, { color: colors.ink3 }]}>
               {t('auth.companyRequired.message')}
             </Text>
           </View>
           {loading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              <ActivityIndicator size="large" color={colors.brass ?? colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.ink3 }]}>
                 {t('profile.loadingCompany')}
               </Text>
             </View>
@@ -208,12 +206,12 @@ export function CompanyDetailsRequiredModal({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
                 {t('profile.companyLogo')}
               </Text>
               <View style={styles.logoRow}>
                 <TouchableOpacity
-                  style={[styles.logoCard, { backgroundColor: colors.surface }]}
+                  style={[styles.logoCard, { backgroundColor: colors.card }]}
                   onPress={handleImagePicker}
                   activeOpacity={0.8}
                 >
@@ -231,9 +229,9 @@ export function CompanyDetailsRequiredModal({
                           style={styles.logoGradient}
                         />
                       </View>
-                      <View style={[styles.logoEditBadge, { backgroundColor: `${colors.primary}F0` }]}>
-                        <Camera size={18} color={colors.textInverse} />
-                        <Text style={[styles.logoEditBadgeText, { color: colors.textInverse }]}>
+                      <View style={[styles.logoEditBadge, { backgroundColor: `${colors.brass ?? colors.primary}F0` }]}>
+                        <Camera size={18} color={colors.paper ?? '#EFE9DC'} />
+                        <Text style={[styles.logoEditBadgeText, { color: colors.paper ?? '#EFE9DC' }]}>
                           {t('profile.change')}
                         </Text>
                       </View>
@@ -243,15 +241,15 @@ export function CompanyDetailsRequiredModal({
                       style={[
                         styles.logoPlaceholder,
                         {
-                          backgroundColor: colors.primaryLight || colors.border,
-                          borderColor: colors.primary,
+                          backgroundColor: (colors.brassPale ?? colors.brass) + '18',
+                          borderColor: colors.brass ?? colors.primary,
                         },
                       ]}
                     >
                       <Text style={[styles.logoPlaceholderTitle, { color: colors.textPrimary }]}>
                         {t('profile.addLogo')}
                       </Text>
-                      <Text style={[styles.logoPlaceholderSubtitle, { color: colors.textSecondary }]}>
+                      <Text style={[styles.logoPlaceholderSubtitle, { color: colors.ink3 }]}>
                         {t('profile.tapToSelect')}
                       </Text>
                     </View>
@@ -259,7 +257,7 @@ export function CompanyDetailsRequiredModal({
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
                 {t('profile.companyInfo')}
               </Text>
               <Input
@@ -267,7 +265,7 @@ export function CompanyDetailsRequiredModal({
                 value={draft.name}
                 onChangeText={(text) => setDraft((prev) => ({ ...prev, name: text }))}
                 placeholder={t('profile.companyNamePlaceholder')}
-                leftIcon={<Building size={18} color={colors.primary} />}
+                leftIcon={<Building size={18} color={colors.brass ?? colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -275,7 +273,7 @@ export function CompanyDetailsRequiredModal({
                 value={draft.owner}
                 onChangeText={(text) => setDraft((prev) => ({ ...prev, owner: text }))}
                 placeholder={t('profile.ownerPlaceholder')}
-                leftIcon={<User size={18} color={colors.primary} />}
+                leftIcon={<User size={18} color={colors.brass ?? colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -284,7 +282,7 @@ export function CompanyDetailsRequiredModal({
                 onChangeText={(text) => setDraft((prev) => ({ ...prev, phone: text }))}
                 placeholder={t('profile.phonePlaceholder')}
                 keyboardType="phone-pad"
-                leftIcon={<Phone size={18} color={colors.primary} />}
+                leftIcon={<Phone size={18} color={colors.brass ?? colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -293,7 +291,7 @@ export function CompanyDetailsRequiredModal({
                 onChangeText={(text) => setDraft((prev) => ({ ...prev, email: text }))}
                 placeholder={t('profile.emailPlaceholder')}
                 keyboardType="email-address"
-                leftIcon={<Mail size={18} color={colors.primary} />}
+                leftIcon={<Mail size={18} color={colors.brass ?? colors.primary} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -301,26 +299,26 @@ export function CompanyDetailsRequiredModal({
                 value={draft.address}
                 onChangeText={(text) => setDraft((prev) => ({ ...prev, address: text }))}
                 placeholder={t('profile.addressPlaceholder')}
-                leftIcon={<MapPin size={18} color={colors.primary} />}
+                leftIcon={<MapPin size={18} color={colors.brass ?? colors.primary} />}
                 containerStyle={styles.inputGroupLast}
                 optional
               />
             </KeyboardAwareScrollView>
           )}
           {!loading && (
-            <View style={[styles.actions, { borderTopColor: colors.borderLight }]}>
+            <View style={[styles.actions, { borderTopColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
               <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: colors.primary }]}
+                style={[styles.saveButton, { backgroundColor: colors.brass ?? colors.primary }]}
                 onPress={handleSave}
                 disabled={saving}
                 activeOpacity={0.8}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color={colors.textInverse} />
+                  <ActivityIndicator size="small" color={colors.paper ?? '#EFE9DC'} />
                 ) : (
                   <>
-                    <Save size={18} color={colors.textInverse} strokeWidth={2.5} />
-                    <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>
+                    <Save size={18} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} />
+                    <Text style={[styles.saveButtonText, { color: colors.paper ?? '#EFE9DC' }]}>
                       {t('common.save')}
                     </Text>
                   </>
@@ -346,18 +344,19 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
     fontSize: 20,
-    marginBottom: Spacing.xs,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.xs,
   },
   subtitle: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -372,17 +371,18 @@ const styles = StyleSheet.create({
   },
   scroll: {
     maxHeight: 420,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
   },
   sectionLabel: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
     fontSize: 14,
-    marginBottom: Spacing.sm,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.sm,
   },
   logoRow: {
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   logoCard: {
     width: 160,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   logoGradient: {
     position: 'absolute',
@@ -461,28 +461,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   inputGroupLast: {
-    marginBottom: Spacing.xl,
+    marginBottom: AtelierSpacing.xl,
   },
   actions: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
     borderTopWidth: 1,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
     paddingVertical: 14,
-    borderRadius: BorderRadius.md,
-    ...Shadows.primary,
+    borderRadius: AtelierRadius.md,
   },
   saveButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 16,
+    lineHeight: 22,
   },
 });

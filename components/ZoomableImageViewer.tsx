@@ -28,7 +28,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, BorderRadius, Typography } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -90,10 +90,10 @@ const SlideItem = React.memo(({ item, index, currentIndex, onClose, opacity }: S
 
     const scaledWidth = SCREEN_WIDTH * currentScale;
     const scaledHeight = SCREEN_HEIGHT * 0.6 * currentScale;
-    
+
     const maxX = Math.max(0, (scaledWidth - SCREEN_WIDTH) / 2);
     const maxY = Math.max(0, (scaledHeight - SCREEN_HEIGHT * 0.6) / 2);
-    
+
     return { maxX, maxY };
   }, []);
 
@@ -139,7 +139,7 @@ const SlideItem = React.memo(({ item, index, currentIndex, onClose, opacity }: S
     .failOffsetX([-20, 20])
     .onUpdate((event) => {
       if (!isActive) return;
-      
+
       if (scale.value > 1) {
         // When zoomed, allow panning in both directions
         const newX = savedTranslateX.value + event.translationX;
@@ -160,7 +160,7 @@ const SlideItem = React.memo(({ item, index, currentIndex, onClose, opacity }: S
     })
     .onEnd((event) => {
       if (!isActive) return;
-      
+
       if (scale.value > 1) {
         const clamped = clampTranslate(translateX.value, translateY.value);
         translateX.value = withSpring(clamped.x, { damping: 20, stiffness: 200 });
@@ -189,7 +189,7 @@ const SlideItem = React.memo(({ item, index, currentIndex, onClose, opacity }: S
     .numberOfTaps(2)
     .onEnd((event) => {
       if (!isActive) return;
-      
+
       if (scale.value > 1) {
         scale.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.cubic) });
         savedScale.value = 1;
@@ -206,13 +206,13 @@ const SlideItem = React.memo(({ item, index, currentIndex, onClose, opacity }: S
         const focusYPos = event.y - SCREEN_HEIGHT * 0.3;
         const offsetX = -focusXPos * (targetScale - 1);
         const offsetY = -focusYPos * (targetScale - 1);
-        
+
         const maxX = Math.max(0, (SCREEN_WIDTH * targetScale - SCREEN_WIDTH) / 2);
         const maxY = Math.max(0, (SCREEN_HEIGHT * 0.6 * targetScale - SCREEN_HEIGHT * 0.6) / 2);
-        
+
         const clampedX = Math.min(Math.max(offsetX, -maxX), maxX);
         const clampedY = Math.min(Math.max(offsetY, -maxY), maxY);
-        
+
         translateX.value = withTiming(clampedX, { duration: 250, easing: Easing.out(Easing.cubic) });
         translateY.value = withTiming(clampedY, { duration: 250, easing: Easing.out(Easing.cubic) });
         savedTranslateX.value = clampedX;
@@ -271,7 +271,7 @@ export function ZoomableImageViewer({
     if (visible) {
       setCurrentIndex(initialIndex);
       opacity.value = withTiming(1, { duration: 200 });
-      
+
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
       }, 50);
@@ -360,7 +360,7 @@ export function ZoomableImageViewer({
             >
               <X size={24} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
-            
+
             <View style={styles.headerRight}>
               {headerRight?.(currentIndex)}
             </View>
@@ -375,7 +375,7 @@ export function ZoomableImageViewer({
               <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
           )}
-          
+
           {images.length > 1 && canNavigateNext && (
             <TouchableOpacity
               style={[styles.navButton, styles.navButtonRight]}
@@ -423,8 +423,8 @@ export function ZoomableImageViewer({
                   <Text style={styles.infoDescription}>{currentImage.description}</Text>
                 )}
                 {currentImage?.category && (
-                  <View style={[styles.categoryBadge, { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}33` }]}>
-                    <Text style={[styles.categoryText, { color: colors.primary }]}>
+                  <View style={[styles.categoryBadge, { borderColor: `${colors.brass ?? colors.primary}66`, backgroundColor: `${colors.brass ?? colors.primary}33` }]}>
+                    <Text style={[styles.categoryText, { color: colors.brass ?? colors.primary }]}>
                       {currentImage.category}
                     </Text>
                   </View>
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   navButton: {
     position: 'absolute',
@@ -540,11 +540,11 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.md - 2,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: AtelierSpacing.md - 2,
+    paddingVertical: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   categoryText: {
     fontSize: 12,
@@ -553,9 +553,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   counterText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: '500',
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
 });

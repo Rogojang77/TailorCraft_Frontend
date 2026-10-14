@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LapelIcon, CollarIcon, LapelType, CollarType } from '@/components/garments';
 import { ErrorText } from '@/components/ui/ErrorText';
@@ -7,7 +7,7 @@ import { getSnapshotEntriesInDefinitionOrder, getSnapshotDisplayLabel } from '@/
 import { resolveMeasurementDisplay } from '@/lib/measurement';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { OrderDetailsData } from '@/types/orderDetails';
 import type { GarmentTypeRecord } from '@/types/templates';
 import type { MeasurementDefinition } from '@/constants/garments';
@@ -45,6 +45,16 @@ export function OrderMeasurements({
   const router = useRouter();
   const { t } = useI18n();
   const { colors } = useTheme();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [maxMeasuredCardHeight, setMaxMeasuredCardHeight] = useState(0);
+  const [measurementsGridWidth, setMeasurementsGridWidth] = useState(0);
+
+  const measurementItemWidth = useMemo(() => {
+    const availableWidth = measurementsGridWidth > 0 ? measurementsGridWidth : screenWidth - AtelierSpacing.md * 2;
+    const columns = screenWidth > screenHeight ? 3 : 2;
+    const totalGapWidth = AtelierSpacing.md * Math.max(0, columns - 1);
+    return (availableWidth - totalGapWidth) / columns;
+  }, [measurementsGridWidth, screenHeight, screenWidth]);
 
   const measurementsMap = orderData.measurements ?? {};
   const garmentNameById = new Map<string, string>();
@@ -93,19 +103,19 @@ export function OrderMeasurements({
               <View style={styles.garmentSectionHeaderContent}>
                 {canNavigate ? (
                   <TouchableOpacity onPress={() => router.push(`/garments/${garmentId}`)} activeOpacity={0.7}>
-                    <Text style={[styles.garmentSectionTitle, { color: colors.primaryDark }]}>{displayName.toUpperCase()}</Text>
+                    <Text style={[styles.garmentSectionTitle, { color: colors.brassDeep ?? colors.brass }]}>{displayName.toUpperCase()}</Text>
                   </TouchableOpacity>
                 ) : (
                   <Text style={[styles.garmentSectionTitle, { color: colors.textPrimary }]}>{displayName.toUpperCase()}</Text>
                 )}
-                <Text style={[styles.garmentSectionSubtitle, { color: colors.textSecondary }]}>
+                <Text style={[styles.garmentSectionSubtitle, { color: colors.ink3 }]}>
                   {entries.length} {entries.length === 1 ? t('orderDetails.measurement') : t('orderDetails.measurementsCount')}
                 </Text>
               </View>
             </View>
 
             {hasVisualConfig && (
-              <View style={[styles.visualConfigRow, { backgroundColor: colors.borderLight }]}>
+              <View style={[styles.visualConfigRow, { backgroundColor: colors.ruleSoft ?? colors.rule }]}>
                 {showLapelIcon && (
                   <TouchableOpacity
                     style={styles.visualConfigItem}
@@ -113,7 +123,7 @@ export function OrderMeasurements({
                     activeOpacity={isEditable ? 0.7 : 1}
                     disabled={!isEditable}
                   >
-                    <Text style={[styles.visualConfigLabel, { color: colors.textSecondary }]}>{t('garmentForm.lapelType')}</Text>
+                    <Text style={[styles.visualConfigLabel, { color: colors.ink3 }]}>{t('garmentForm.lapelType')}</Text>
                     <LapelIcon type={(measurements.lapelType as LapelType) || 'clasic'} active size="sm" />
                   </TouchableOpacity>
                 )}
@@ -124,7 +134,7 @@ export function OrderMeasurements({
                     activeOpacity={isEditable ? 0.7 : 1}
                     disabled={!isEditable}
                   >
-                    <Text style={[styles.visualConfigLabel, { color: colors.textSecondary }]}>{t('garmentForm.collarType')}</Text>
+                    <Text style={[styles.visualConfigLabel, { color: colors.ink3 }]}>{t('garmentForm.collarType')}</Text>
                     <CollarIcon type={(measurements.collarType as CollarType) || 'clasic'} active size="sm" />
                   </TouchableOpacity>
                 )}
@@ -134,7 +144,15 @@ export function OrderMeasurements({
             {defsLoadFailed ? (
               <ErrorText style={styles.measurementsLoadError}>{t('orderDetails.definitionsLoadError')}</ErrorText>
             ) : (
-              <View style={styles.measurementsGrid}>
+              <View
+                style={styles.measurementsGrid}
+                onLayout={(event) => {
+                  const nextWidth = event.nativeEvent.layout.width;
+                  if (nextWidth > 0 && Math.abs(nextWidth - measurementsGridWidth) > 0.5) {
+                    setMeasurementsGridWidth(nextWidth);
+                  }
+                }}
+              >
                 {entries.map(([key, value]) => {
                   const def = defs.find((d) => d.key === key);
                   const resolved = resolveMeasurementDisplay({
@@ -149,8 +167,25 @@ export function OrderMeasurements({
                     ? `${resolved.displayValue} ${resolved.displayUnit}`
                     : resolved.displayValue;
                   const row = (
-                    <View style={[styles.measurementItem, { backgroundColor: colors.borderLight }]}>
-                      <Text style={[styles.measurementLabel, { color: colors.textSecondary }]}>{label}</Text>
+                    <View
+                      onLayout={(event) => {
+                        const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+                        if (measuredHeight > maxMeasuredCardHeight) {
+                          setMaxMeasuredCardHeight(measuredHeight);
+                        }
+                      }}
+                      style={[
+                        styles.measurementItem,
+                        {
+                          backgroundColor: colors.ruleSoft ?? colors.rule,
+                          width: measurementItemWidth,
+                          minWidth: measurementItemWidth,
+                          maxWidth: measurementItemWidth,
+                          minHeight: maxMeasuredCardHeight || undefined,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.measurementLabel, { color: colors.ink3 }]}>{label}</Text>
                       <Text style={[styles.measurementValue, { color: colors.textPrimary }]}>{valueWithUnit}</Text>
                     </View>
                   );
@@ -177,72 +212,79 @@ export function OrderMeasurements({
 
 const styles = StyleSheet.create({
   garmentSection: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.lg,
     overflow: 'hidden',
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   garmentSectionHeader: {
     flexDirection: 'row',
     alignItems: 'stretch',
     paddingLeft: 0,
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   garmentSectionHeaderContent: {
     flex: 1,
   },
   garmentSectionTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
     letterSpacing: 1.5,
   },
   garmentSectionSubtitle: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   visualConfigRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.sm,
+    gap: AtelierSpacing.lg,
+    padding: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
   },
   visualConfigItem: {
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   visualConfigLabel: {
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 9,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   measurementsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
     width: '100%',
     alignSelf: 'stretch',
   },
   measurementItem: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
-    flex: 1,
-    width: '100%',
-    minWidth: '48.4%',
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
+    flexGrow: 0,
+    flexShrink: 0,
   },
   measurementLabel: {
-    ...Typography.small,
-    fontWeight: '600',
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 10,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: AtelierSpacing.xs,
   },
   measurementValue: {
-    ...Typography.bodyBold,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 20,
   },
   measurementsLoadError: {
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
 });

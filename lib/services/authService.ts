@@ -8,6 +8,7 @@ import type { User } from '@/contexts/AuthContext';
 
 /** Backend deletion status. Used for GET /me/deletion-status and after DELETE /me. */
 export type DeletionStatus = 'active' | 'pending' | 'deleted';
+export type UserLocale = 'en' | 'ro';
 
 export interface DeletionStatusResponse {
   status: DeletionStatus;
@@ -44,6 +45,10 @@ export interface AuthResponse {
   needsCompanyDetails?: boolean;
   /** True when user signed up with Apple and must set a password (social-only account). */
   needsPassword?: boolean;
+}
+
+function normalizeUserLocale(locale: unknown): UserLocale {
+  return locale === 'ro' ? 'ro' : 'en';
 }
 
 /** Signup success: no tokens; user must verify email before logging in. */
@@ -180,6 +185,36 @@ export async function resetPassword(token: string, password: string): Promise<vo
     body: JSON.stringify({ token, password }),
     skipAuth: true,
   });
+}
+
+/**
+ * Get the current authenticated user profile.
+ * Backend locale is normalized so frontend only handles supported locales.
+ */
+export async function getCurrentUser(accessToken: string | null): Promise<User> {
+  const user = await apiFetch<User & { locale?: string }>(api.me, {
+    method: 'GET',
+    token: accessToken,
+  });
+  return {
+    ...user,
+    locale: normalizeUserLocale(user.locale),
+  };
+}
+
+/**
+ * Persist authenticated user's locale preference in backend.
+ */
+export async function updateLocale(
+  accessToken: string | null,
+  locale: UserLocale
+): Promise<UserLocale> {
+  const data = await apiFetch<{ success?: boolean; locale?: string }>(api.meLocale, {
+    method: 'PUT',
+    token: accessToken,
+    body: JSON.stringify({ locale }),
+  });
+  return normalizeUserLocale(data.locale);
 }
 
 /**

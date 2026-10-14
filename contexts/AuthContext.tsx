@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 import * as authService from '@/lib/services/authService';
 import type { SignupData } from '@/lib/services/authService';
 import * as diagnostics from '@/lib/diagnostics';
+import { deactivatePushDeviceWithBackend } from '@/lib/pushNotifications';
 import {
   getBiometricAvailability,
   authenticateWithBiometric,
@@ -13,6 +15,8 @@ export interface User {
   id: string;
   email: string;
   role: string;
+  /** User locale from backend profile settings. */
+  locale?: 'en' | 'ro';
   emailVerified?: boolean;
   avatar?: string | null;
   /** When set, use for GET /api/garment-types?tailorId=... when user has no Tailor resolved server-side. */
@@ -33,8 +37,10 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /** True when the user previously opted in to biometric login; token is stored but not loaded until biometric succeeds. */
+  /** True when the user previously opted in to biometric login. */
   isBiometricEnabled: boolean;
+  /** True when user is authenticated but app access is locked behind biometric prompt. */
+  isBiometricLocked: boolean;
   /** True when user signed up with Apple and must complete company details before using the app. Persisted so modal shows on next launch. */
   needsCompanyDetails: boolean;
   /** True when user signed up with Apple and must set a password (social-only account). Persisted so modal shows on next launch. */
@@ -54,7 +60,7 @@ interface AuthContextType {
   clearNeedsPassword: () => Promise<void>;
   /** Enable biometric login after a successful email/password login. Only stores the flag; tokens are already stored. */
   enableBiometricLogin: () => Promise<void>;
-  /** Run biometric prompt, then restore session from stored token. */
+  /** Run biometric prompt and unlock app access. */
   loginWithBiometric: (options?: { promptMessage?: string }) => Promise<
     | { success: true }
     | { success: false; reason: 'cancelled' | 'session_expired' | 'unavailable' }
@@ -77,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isBiometricLocked, setIsBiometricLocked] = useState(false);
   const [needsCompanyDetails, setNeedsCompanyDetails] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
 
@@ -99,15 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsCompanyDetails(needsCompany === 'true');
       setNeedsPassword(needsPass === 'true');
 
-      if (biometricOn) {
-        // User opted in to biometric: do not auto-load token; show login screen with "Login with Face ID / Fingerprint"
-        setIsBiometricEnabled(true);
-        setAccessToken(null);
-        setUser(null);
-      } else if (storedToken && storedUser) {
+      if (storedToken && storedUser) {
         setAccessToken(storedToken);
         setUser(JSON.parse(storedUser));
-        setIsBiometricEnabled(false);
+        setIsBiometricEnabled(biometricOn);
+        setIsBiometricLocked(biometricOn);
+      } else {
+        setAccessToken(null);
+        setUser(null);
+        setIsBiometricEnabled(biometricOn);
+        setIsBiometricLocked(false);
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
@@ -137,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(response.accessToken);
       setUser(response.user);
+      setIsBiometricLocked(false);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -166,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.all(toStore);
     setAccessToken(response.accessToken);
     setUser(response.user);
+    setIsBiometricLocked(false);
     return { needsCompanyDetails: response.needsCompanyDetails, needsPassword: response.needsPassword };
   };
 
@@ -177,10 +187,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      await deactivatePushDeviceWithBackend(accessToken);
       await authService.logout(accessToken);
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
+      await Notifications.setBadgeCountAsync(0).catch(() => {
+        /* ignore badge clear failures */
+      });
+
       // Clear all persisted storage - auth tokens
       await Promise.all([
         SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
@@ -196,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null);
       setUser(null);
       setIsBiometricEnabled(false);
+      setIsBiometricLocked(false);
       setNeedsCompanyDetails(false);
       setNeedsPassword(false);
     }
@@ -204,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const enableBiometricLogin = async () => {
     await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, 'true');
     setIsBiometricEnabled(true);
+    setIsBiometricLocked(false);
   };
 
   const loginWithBiometric = async (options?: {
@@ -222,6 +239,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, reason };
     }
 
+    if (accessToken && user) {
+      setIsBiometricLocked(false);
+      return { success: true };
+    }
+
     try {
       const [storedToken, storedUser] = await Promise.all([
         SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
@@ -231,17 +253,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!storedToken || !storedUser) {
         await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
         setIsBiometricEnabled(false);
+        setIsBiometricLocked(false);
         return { success: false, reason: 'session_expired' };
       }
 
       const parsedUser = JSON.parse(storedUser) as User;
       setAccessToken(storedToken);
       setUser(parsedUser);
+      setIsBiometricLocked(false);
       return { success: true };
     } catch (error) {
       console.error('Biometric login: failed to restore session', error);
       await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
       setIsBiometricEnabled(false);
+      setIsBiometricLocked(false);
       return { success: false, reason: 'session_expired' };
     }
   };
@@ -262,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(response.accessToken);
       setUser(response.user);
+      setIsBiometricLocked(false);
       diagnostics.recordAuthRefresh('success');
       return true;
     } catch (error) {
@@ -278,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isAuthenticated: !!user && !!accessToken,
     isBiometricEnabled,
+    isBiometricLocked,
     needsCompanyDetails,
     needsPassword,
     login,

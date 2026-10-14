@@ -32,7 +32,7 @@ import { ErrorText } from '@/components/ui/ErrorText';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 function getNextSortOrder(items: GarmentCatalogItem[]): number {
   if (items.length === 0) return 0;
@@ -339,9 +339,9 @@ export default function CategoryItemsScreen() {
             style={[
               styles.footer,
               {
-                paddingBottom: Math.max(insets.bottom, Spacing.md),
-                backgroundColor: colors.background,
-                borderTopColor: colors.border,
+                paddingBottom: Math.max(insets.bottom, AtelierSpacing.md),
+                backgroundColor: colors.paper ?? colors.background,
+                borderTopColor: colors.rule ?? colors.border,
               },
             ]}
           >
@@ -349,7 +349,7 @@ export default function CategoryItemsScreen() {
               variant="primary"
               size="lg"
               onPress={handleAddItem}
-              leftIcon={<Plus size={18} color={colors.textInverse} />}
+              leftIcon={<Plus size={18} color={colors.paper ?? '#EFE9DC'} />}
               style={styles.addButton}
             >
               {t('catalog.addItem')}
@@ -394,10 +394,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   retryBtn: {
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
   },
   mainWithFooter: {
     flex: 1,
@@ -409,97 +409,111 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   draggableListContent: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xl,
   },
   headerCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.lg,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   categoryName: {
-    ...Typography.h3,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.xs,
   },
   categoryDescription: {
-    ...Typography.body,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xs,
   },
   itemCount: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   emptyItems: {
-    marginHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
+    marginHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.lg,
     alignItems: 'center',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
+    ...AtelierShadow.card,
   },
   itemRowActive: {
     opacity: 0.95,
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   dragHandle: {
-    padding: Spacing.xs,
-    marginRight: Spacing.sm,
+    padding: AtelierSpacing.xs,
+    marginRight: AtelierSpacing.sm,
     justifyContent: 'center',
   },
   itemImage: {
     width: 48,
     height: 48,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginRight: AtelierSpacing.md,
   },
   itemColorSwatch: {
     width: 48,
     height: 48,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginRight: AtelierSpacing.md,
   },
   itemPlaceholder: {
     width: 48,
     height: 48,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginRight: AtelierSpacing.md,
   },
   itemMain: {
     flex: 1,
   },
   itemName: {
-    ...Typography.bodyBold,
-    marginBottom: Spacing.xs / 2,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xs / 2,
   },
   itemCode: {
-    ...Typography.small,
-    marginBottom: Spacing.xs / 2,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs / 2,
   },
   itemDescription: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   itemActions: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   itemActionBtn: {
     minHeight: 36,
     minWidth: 36,
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: AtelierSpacing.xs,
   },
   itemActionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   footer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
   },
   addButton: {

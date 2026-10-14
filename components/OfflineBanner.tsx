@@ -1,7 +1,5 @@
 /**
  * Global banner shown when the device has no internet connection.
- * Renders below the header so tailors in low-connectivity environments see a clear
- * "No connection" message and can tap Retry to re-check connectivity.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
@@ -9,7 +7,7 @@ import { RefreshCw } from 'lucide-react-native';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 import { InlineSpinner } from '@/components/InlineSpinner';
 
 export function OfflineBanner() {
@@ -18,9 +16,7 @@ export function OfflineBanner() {
   const { colors } = useTheme();
   const [retrying, setRetrying] = useState(false);
 
-  if (isConnected !== false) {
-    return null;
-  }
+  if (isConnected !== false) return null;
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -32,21 +28,19 @@ export function OfflineBanner() {
     }
   };
 
-  const typography = getTypography(colors);
+  const emberColor = colors.ember ?? colors.error;
+
   return (
     <View
       style={[
         styles.banner,
         {
-          backgroundColor: colors.errorBg ?? colors.error + '18',
-          borderBottomColor: colors.errorBorder ?? colors.error + '40',
+          backgroundColor: emberColor + '18',
+          borderBottomColor: emberColor + '40',
         },
       ]}
     >
-      <Text
-        style={[typography.caption, { color: colors.textSecondary }, styles.message]}
-        numberOfLines={2}
-      >
+      <Text style={[styles.message, { color: colors.ink3 }]} numberOfLines={2}>
         {t('offline.message')}
       </Text>
       <TouchableOpacity
@@ -59,8 +53,10 @@ export function OfflineBanner() {
           <InlineSpinner />
         ) : (
           <>
-            <RefreshCw size={14} color={colors.primary} style={styles.retryIcon} />
-            <Text style={[typography.captionBold, { color: colors.primary }]}>{t('common.retry')}</Text>
+            <RefreshCw size={14} color={colors.brass ?? colors.primary} style={styles.retryIcon} />
+            <Text style={[styles.retryLabel, { color: colors.brass ?? colors.primary }]}>
+              {t('common.retry')}
+            </Text>
           </>
         )}
       </TouchableOpacity>
@@ -73,24 +69,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   message: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     flex: 1,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    marginLeft: Spacing.sm,
+    paddingVertical: AtelierSpacing.xs,
+    paddingHorizontal: AtelierSpacing.sm,
+    marginLeft: AtelierSpacing.sm,
   },
-  retryButtonDisabled: {
-    opacity: 0.6,
-  },
-  retryIcon: {
-    marginRight: Spacing.xs,
+  retryButtonDisabled: { opacity: 0.6 },
+  retryIcon: { marginRight: AtelierSpacing.xs },
+  retryLabel: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

@@ -6,7 +6,7 @@ import { DeadlineProgressBar } from '@/components/DeadlineProgressBar';
 import { InlineSpinner } from '@/components/InlineSpinner';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { OrderDetailsData } from '@/types/orderDetails';
 
 export interface OrderStatusSectionProps {
@@ -38,16 +38,16 @@ export function OrderStatusSection({
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.deadlineSection, { backgroundColor: colors.surface }]}>
+    <View style={[styles.deadlineSection, { backgroundColor: colors.card }]}>
       <TouchableOpacity
         style={styles.deliveryDateRow}
         onPress={deliveryDateUpdating ? undefined : onDeliveryDatePress}
         activeOpacity={0.7}
         disabled={deliveryDateUpdating}
       >
-        <Calendar size={18} color={colors.textSecondary} />
+        <Calendar size={18} color={colors.ink3} />
         <View style={styles.deliveryDateRowText}>
-          <Text style={[styles.deliveryDateLabel, { color: colors.textSecondary }]}>
+          <Text style={[styles.deliveryDateLabel, { color: colors.ink3 }]}>
             {t('orderDetails.deliveryDateLabel')}
           </Text>
           {orderData.deliveryDate ? (
@@ -55,7 +55,7 @@ export function OrderStatusSection({
               {formatDeliveryDateDisplay(new Date(orderData.deliveryDate))}
             </Text>
           ) : (
-            <Text style={[styles.deliveryDateValue, { color: colors.primary }]}>
+            <Text style={[styles.deliveryDateValue, { color: colors.brass }]}>
               {t('orderDetails.setDeliveryDate')}
             </Text>
           )}
@@ -63,7 +63,7 @@ export function OrderStatusSection({
         {deliveryDateUpdating ? (
           <InlineSpinner size="small" />
         ) : (
-          <FileEdit size={18} color={colors.textTertiary} />
+          <FileEdit size={18} color={colors.ink4} />
         )}
       </TouchableOpacity>
       {orderData.deliveryDate ? (
@@ -80,7 +80,7 @@ export function OrderStatusSection({
         <View style={styles.deliveryDatePickerInline}>
           <View style={styles.deliveryDatePickerDoneRow}>
             <TouchableOpacity onPress={onCloseDeliveryDatePicker} activeOpacity={0.7}>
-              <Text style={[styles.deliveryDatePickerDoneText, { color: colors.primary }]}>{t('common.done')}</Text>
+              <Text style={[styles.deliveryDatePickerDoneText, { color: colors.brass }]}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
           <DateTimePicker
@@ -100,38 +100,43 @@ export function OrderStatusSection({
 
 const styles = StyleSheet.create({
   deadlineSection: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    ...Shadows.sm,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   deliveryDateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    gap: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   deliveryDateRowText: {
     flex: 1,
   },
   deliveryDateLabel: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
+    lineHeight: 18,
   },
   deliveryDateValue: {
-    ...Typography.body,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
     marginTop: 2,
   },
   deliveryDatePickerInline: {
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
   deliveryDatePickerDoneRow: {
     alignItems: 'flex-end',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   deliveryDatePickerDoneText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   deadlineProgressWrapper: {
     flex: 1,

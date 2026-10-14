@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, BorderRadius, Shadows, Typography } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { LucideIcon } from 'lucide-react-native';
 
 interface MetricCardProps {
@@ -11,7 +11,6 @@ interface MetricCardProps {
   icon: LucideIcon;
   iconColor?: string;
   onPress?: () => void;
-  /** When 'large', card is full width with bigger content (e.g. when recent orders are hidden on homepage). */
   size?: 'default' | 'large';
 }
 
@@ -31,12 +30,13 @@ export function MetricCard({
     <View
       style={[
         styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.card, borderColor: colors.rule ?? colors.border },
+        AtelierShadow.card,
         isLarge && styles.cardLarge,
       ]}
     >
       <View style={[styles.iconContainer, isLarge && styles.iconContainerLarge]}>
-        <Icon size={isLarge ? 28 : 20} color={iconColor ?? colors.primary} strokeWidth={1.5} />
+        <Icon size={isLarge ? 28 : 20} color={iconColor ?? (colors.brass ?? colors.primary)} strokeWidth={1.5} />
       </View>
       {value !== undefined ? (
         <Text style={[styles.value, { color: colors.textPrimary }, isLarge && styles.valueLarge]}>
@@ -44,14 +44,14 @@ export function MetricCard({
         </Text>
       ) : null}
       <Text
-        style={[styles.title, { color: colors.textSecondary }, isLarge && styles.titleLarge]}
+        style={[styles.title, { color: colors.ink3 }, isLarge && styles.titleLarge]}
         numberOfLines={1}
       >
         {title}
       </Text>
       {subtitle ? (
         <Text
-          style={[styles.subtitle, { color: colors.textTertiary }, isLarge && styles.subtitleLarge]}
+          style={[styles.subtitle, { color: colors.ink4 ?? colors.textTertiary }, isLarge && styles.subtitleLarge]}
           numberOfLines={1}
         >
           {subtitle}
@@ -72,40 +72,29 @@ export function MetricCard({
     );
   }
 
-  return (
-    <View style={[styles.touchable, isLarge && styles.touchableLarge]}>{content}</View>
-  );
+  return <View style={[styles.touchable, isLarge && styles.touchableLarge]}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
-  touchable: {
-    width: '48%',
-  },
-  touchableLarge: {
-    width: '100%',
-  },
+  touchable: { width: '48%' },
+  touchableLarge: { width: '100%' },
   card: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
     borderWidth: 1,
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 100,
-    ...Shadows.sm,
   },
   cardLarge: {
     minHeight: 140,
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
-  iconContainer: {
-    marginBottom: Spacing.xs,
-  },
-  iconContainerLarge: {
-    marginBottom: Spacing.sm,
-  },
+  iconContainer: { marginBottom: AtelierSpacing.xs },
+  iconContainerLarge: { marginBottom: AtelierSpacing.sm },
   value: {
+    fontFamily: FontFamily.serif,
     fontSize: 28,
-    fontWeight: '700',
     lineHeight: 34,
   },
   valueLarge: {
@@ -113,21 +102,28 @@ const styles = StyleSheet.create({
     lineHeight: 42,
   },
   title: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginTop: Spacing.xxs,
+    marginTop: 2,
   },
   titleLarge: {
-    fontSize: 15,
-    marginTop: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: AtelierSpacing.xs,
   },
   subtitle: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
     marginTop: 2,
   },
   subtitleLarge: {
     fontSize: 13,
+    lineHeight: 18,
     marginTop: 4,
   },
 });

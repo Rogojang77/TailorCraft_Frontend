@@ -16,7 +16,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
 import { useI18n } from '@/lib/i18n';
 import { api, apiFetch, getErrorMessage, ApiError, HttpStatus } from '@/lib/api';
-import { Spacing, Typography, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierShadow } from '@/constants/atelierDesign';
 
 const MAX_MESSAGE_LENGTH = 5000;
 
@@ -143,42 +143,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    padding: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xxl,
   },
   content: {
     flex: 1,
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   intro: {
-    ...Typography.body,
-    marginBottom: Spacing.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.lg,
   },
   section: {
     borderRadius: 12,
-    padding: Spacing.md,
-    ...Shadows.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.elevated,
   },
   inputContainer: {
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   hint: {
-    ...Typography.caption,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.md,
   },
   successTitle: {
-    ...Typography.h3,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.sm,
     textAlign: 'center',
   },
   successMessage: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: AtelierSpacing.xl,
   },
   successButton: {
     minWidth: 160,

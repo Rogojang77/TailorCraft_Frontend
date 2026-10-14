@@ -33,11 +33,11 @@ import {
   Crown,
   ShoppingBag,
   LayoutTemplate,
+  GraduationCap,
   Globe,
   Check,
   Trash2,
   Shield,
-  FileText,
   Lock,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -47,8 +47,8 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { useI18n } from '@/lib/i18n';
 import { api, apiFetch, uploadImage } from '@/lib/api';
 import { fetchCompanySettings, invalidateCompanyCache } from '@/lib/api';
-import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
 import { useTheme } from '@/contexts/ThemeContext';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierType, AtelierShadow } from '@/constants/atelierDesign';
 import { PaywallModal } from '@/components/subscription';
 import { getDiagnostics } from '@/lib/diagnostics';
 
@@ -140,8 +140,6 @@ export default function ProfileTab() {
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.8,
       });
       if (!result.canceled && result.assets[0]) {
@@ -256,19 +254,28 @@ export default function ProfileTab() {
     }
   };
 
+  const bg = colors.paper;
+  const inkColor = colors.textPrimary;
+  const ink2 = colors.ink2 ?? colors.textPrimary;
+  const ink3 = colors.ink3 ?? colors.textSecondary;
+  const ink4 = colors.ink4 ?? colors.textTertiary;
+  const brassColor = colors.brass;
+  const cardBg = colors.card;
+  const ruleColor = colors.rule ?? colors.border;
+
   return (
-    <ScreenContainer noPadding>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScreenContainer noPadding style={{ backgroundColor: bg }}>
+      <ScrollView style={[styles.content, { backgroundColor: bg }]} showsVerticalScrollIndicator={false}>
         {companyLoading ? (
           <View style={styles.loadingSection}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('profile.loadingCompany')}</Text>
+            <ActivityIndicator size="large" color={brassColor} />
+            <Text style={[styles.loadingText, { color: ink3 }]}>{t('profile.loadingCompany')}</Text>
           </View>
         ) : (
           <>
         {/* Company Logo (read-only on profile) */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.companyLogo')}</Text>
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
+          <Text style={[styles.sectionTitle, { color: inkColor }]}>{t('profile.companyLogo')}</Text>
           <View style={styles.logoWrapper}>
             <View style={styles.logoCardReadOnly}>
               {(companyData.logo ?? companyData.logoUrl) ? (
@@ -280,9 +287,9 @@ export default function ProfileTab() {
                   <View style={styles.logoGlow} />
                 </View>
               ) : (
-                <View style={[styles.logoPlaceholderReadOnlyModern, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-                  <Text style={[styles.logoPlaceholderTitleReadOnly, { color: colors.textPrimary }]}>{t('profile.addCompanyLogoPlaceholder')}</Text>
-                  <Text style={[styles.logoPlaceholderSubtitleReadOnly, { color: colors.textSecondary }]}>
+                <View style={[styles.logoPlaceholderReadOnlyModern, { backgroundColor: colors.brassPale + '22', borderColor: brassColor }]}>
+                  <Text style={[styles.logoPlaceholderTitleReadOnly, { color: inkColor }]}>{t('profile.addCompanyLogoPlaceholder')}</Text>
+                  <Text style={[styles.logoPlaceholderSubtitleReadOnly, { color: ink3 }]}>
                     {t('profile.logoPlaceholderSubtitle')}
                   </Text>
                 </View>
@@ -292,93 +299,93 @@ export default function ProfileTab() {
         </View>
 
         {/* Company Information (read-only on profile) */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleNoMargin, { color: colors.textPrimary }]}>{t('profile.companyInfo')}</Text>
+            <Text style={[styles.sectionTitle, styles.sectionTitleNoMargin, { color: inkColor }]}>{t('profile.companyInfo')}</Text>
             <TouchableOpacity
-              style={[styles.editCompanyButton, { backgroundColor: colors.primaryLight }]}
+              style={[styles.editCompanyButton, { backgroundColor: colors.brassPale + '33' }]}
               onPress={openEditModal}
               activeOpacity={0.7}
             >
-              <Edit size={14} color={colors.primary} strokeWidth={2.5} />
-              <Text style={[styles.editCompanyButtonText, { color: colors.primary }]}>{t('common.edit')}</Text>
+              <Edit size={14} color={brassColor} strokeWidth={2.5} />
+              <Text style={[styles.editCompanyButtonText, { color: brassColor }]}>{t('common.edit')}</Text>
             </TouchableOpacity>
           </View>
-          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
+          <View style={[styles.infoRow, { borderBottomColor: ruleColor }]}>
             <View style={styles.infoIcon}>
-              <Building size={18} color={colors.textSecondary} />
+              <Building size={18} color={ink3} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.companyName')}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.name || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: ink4 }]}>{t('profile.companyName')}</Text>
+              <Text style={[styles.infoValue, { color: inkColor }]}>{companyData.name || '—'}</Text>
             </View>
           </View>
 
-          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
+          <View style={[styles.infoRow, { borderBottomColor: ruleColor }]}>
             <View style={styles.infoIcon}>
-              <User size={18} color={colors.textSecondary} />
+              <User size={18} color={ink3} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.owner')}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.owner || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: ink4 }]}>{t('profile.owner')}</Text>
+              <Text style={[styles.infoValue, { color: inkColor }]}>{companyData.owner || '—'}</Text>
             </View>
           </View>
 
-          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
+          <View style={[styles.infoRow, { borderBottomColor: ruleColor }]}>
             <View style={styles.infoIcon}>
-              <Phone size={18} color={colors.textSecondary} />
+              <Phone size={18} color={ink3} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.phone')}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.phone || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: ink4 }]}>{t('profile.phone')}</Text>
+              <Text style={[styles.infoValue, { color: inkColor }]}>{companyData.phone || '—'}</Text>
             </View>
           </View>
 
-          <View style={[styles.infoRow, { borderBottomColor: colors.borderLight }]}>
+          <View style={[styles.infoRow, { borderBottomColor: ruleColor }]}>
             <View style={styles.infoIcon}>
-              <Mail size={18} color={colors.textSecondary} />
+              <Mail size={18} color={ink3} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.email')}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.email || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: ink4 }]}>{t('profile.email')}</Text>
+              <Text style={[styles.infoValue, { color: inkColor }]}>{companyData.email || '—'}</Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, styles.infoRowLast]}>
             <View style={styles.infoIcon}>
-              <MapPin size={18} color={colors.textSecondary} />
+              <MapPin size={18} color={ink3} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('profile.address')}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{companyData.address || '—'}</Text>
+              <Text style={[styles.infoLabel, { color: ink4 }]}>{t('profile.address')}</Text>
+              <Text style={[styles.infoValue, { color: inkColor }]}>{companyData.address || '—'}</Text>
             </View>
           </View>
         </View>
 
         {/* Subscription Section */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.subscription')}</Text>
-          
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
+          <Text style={[styles.sectionTitle, { color: inkColor }]}>{t('profile.subscription')}</Text>
+
           {subscriptionLoading ? (
             <View style={styles.subscriptionLoading}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.subscriptionLoadingText, { color: colors.textSecondary }]}>{t('subscription.verifying')}</Text>
+              <ActivityIndicator size="small" color={brassColor} />
+              <Text style={[styles.subscriptionLoadingText, { color: ink3 }]}>{t('subscription.verifying')}</Text>
             </View>
           ) : subscription ? (
             <>
               {/* Plan Badge */}
               <View style={[
                 styles.planBadgeContainer,
-                { backgroundColor: colors.background, borderColor: colors.border },
-                isPremium && { backgroundColor: colors.primary, borderColor: colors.primary }
+                { backgroundColor: bg, borderColor: ruleColor },
+                isPremium && { backgroundColor: brassColor, borderColor: brassColor }
               ]}>
                 {isPremium && (
-                  <Crown size={18} color={colors.textInverse} strokeWidth={2.5} />
+                  <Crown size={18} color={bg} strokeWidth={2.5} />
                 )}
                 <Text style={[
                   styles.planBadgeText,
-                  { color: colors.textPrimary },
-                  isPremium && { color: colors.textInverse }
+                  { color: inkColor },
+                  isPremium && { color: bg }
                 ]}>
                   {!isPremium ? t('profile.planFree') : t('profile.planPro')}
                 </Text>
@@ -390,7 +397,7 @@ export default function ProfileTab() {
                 return (
                 <>
                   {/* Usage Limits for FREE plan */}
-                  <View style={[styles.usageContainer, { backgroundColor: colors.background }]}>
+                  <View style={[styles.usageContainer, { backgroundColor: bg }]}>
                     {(() => {
                       const maxC = usage.clients.max || 1;
                       const maxO = usage.orders.max || 1;
@@ -399,65 +406,65 @@ export default function ProfileTab() {
                       const clientsNearLimit = clientsPercent >= 80;
                       const ordersNearLimit = ordersPercent >= 80;
                       const nextBlockingLimit = clientsPercent > ordersPercent ? 'clients' : 'orders';
-                      
+
                       return (
                         <>
                           <View style={styles.usageRow}>
                             <View style={styles.usageInfo}>
-                              <User size={16} color={colors.textSecondary} />
-                              <Text style={[styles.usageLabel, { color: colors.textSecondary }]}>{t('profile.clients')}</Text>
+                              <User size={16} color={ink3} />
+                              <Text style={[styles.usageLabel, { color: ink3 }]}>{t('profile.clients')}</Text>
                               {clientsNearLimit && nextBlockingLimit === 'clients' && (
-                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.warning }]}>
-                                  <Text style={[styles.limitWarningText, { color: colors.textInverse }]}>{t('subscription.limitNear')}</Text>
+                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.ember }]}>
+                                  <Text style={[styles.limitWarningText, { color: bg }]}>{t('subscription.limitNear')}</Text>
                                 </View>
                               )}
                             </View>
                             <View style={styles.usageProgressContainer}>
                               <View style={[
                                 styles.usageProgressBarContainer,
-                                { backgroundColor: colors.borderLight },
-                                clientsNearLimit && { backgroundColor: `${colors.warning}20` }
+                                { backgroundColor: ruleColor },
+                                clientsNearLimit && { backgroundColor: colors.ember + '20' }
                               ]}>
                                 <View
                                   style={[
                                     styles.usageProgressBar,
-                                    { backgroundColor: colors.primary },
-                                    clientsNearLimit && { backgroundColor: colors.warning },
+                                    { backgroundColor: brassColor },
+                                    clientsNearLimit && { backgroundColor: colors.ember },
                                     { width: `${clientsPercent}%` },
                                   ]}
                                 />
                               </View>
-                              <Text style={[styles.usageCountSecondary, { color: colors.textTertiary }]}>
+                              <Text style={[styles.usageCountSecondary, { color: ink4 }]}>
                                 {usage.clients.current} / {usage.clients.max}
                               </Text>
                             </View>
                           </View>
                           <View style={styles.usageRow}>
                             <View style={styles.usageInfo}>
-                              <ShoppingBag size={16} color={colors.textSecondary} />
-                              <Text style={[styles.usageLabel, { color: colors.textSecondary }]}>{t('profile.orders')}</Text>
+                              <ShoppingBag size={16} color={ink3} />
+                              <Text style={[styles.usageLabel, { color: ink3 }]}>{t('profile.orders')}</Text>
                               {ordersNearLimit && nextBlockingLimit === 'orders' && (
-                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.warning }]}>
-                                  <Text style={[styles.limitWarningText, { color: colors.textInverse }]}>{t('subscription.limitNear')}</Text>
+                                <View style={[styles.limitWarningBadge, { backgroundColor: colors.ember }]}>
+                                  <Text style={[styles.limitWarningText, { color: bg }]}>{t('subscription.limitNear')}</Text>
                                 </View>
                               )}
                             </View>
                             <View style={styles.usageProgressContainer}>
                               <View style={[
                                 styles.usageProgressBarContainer,
-                                { backgroundColor: colors.borderLight },
-                                ordersNearLimit && { backgroundColor: `${colors.warning}20` }
+                                { backgroundColor: ruleColor },
+                                ordersNearLimit && { backgroundColor: colors.ember + '20' }
                               ]}>
                                 <View
                                   style={[
                                     styles.usageProgressBar,
-                                    { backgroundColor: colors.primary },
-                                    ordersNearLimit && { backgroundColor: colors.warning },
+                                    { backgroundColor: brassColor },
+                                    ordersNearLimit && { backgroundColor: colors.ember },
                                     { width: `${ordersPercent}%` },
                                   ]}
                                 />
                               </View>
-                              <Text style={[styles.usageCountSecondary, { color: colors.textTertiary }]}>
+                              <Text style={[styles.usageCountSecondary, { color: ink4 }]}>
                                 {usage.orders.current} / {usage.orders.max}
                               </Text>
                             </View>
@@ -468,20 +475,20 @@ export default function ProfileTab() {
                   </View>
 
                   {/* Upgrade Info */}
-                  <Text style={[styles.subscriptionHint, { color: colors.textSecondary }]}>
+                  <Text style={[styles.subscriptionHint, { color: ink3 }]}>
                     {limitMsgs.freePlanLimitShort}
                   </Text>
 
                   {/* Upgrade Button */}
-                  <TouchableOpacity 
-                    style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+                  <TouchableOpacity
+                    style={[styles.upgradeButton, { backgroundColor: brassColor }]}
                     onPress={handleUpgradeClick}
                     activeOpacity={0.8}
                   >
-                    <Crown size={16} color={colors.textInverse} strokeWidth={2.5} />
-                    <Text style={[styles.upgradeButtonText, { color: colors.textInverse }]}>{t('profile.upgradeToPro')}</Text>
+                    <Crown size={16} color={bg} strokeWidth={2.5} />
+                    <Text style={[styles.upgradeButtonText, { color: bg }]}>{t('profile.upgradeToPro')}</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.upgradeValueStatement, { color: colors.textSecondary }]}>
+                  <Text style={[styles.upgradeValueStatement, { color: ink3 }]}>
                     Acces nelimitat pentru a-ți crește afacerea
                   </Text>
 
@@ -491,36 +498,36 @@ export default function ProfileTab() {
                     onPress={() => router.push('/subscription')}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.viewDetailsText, { color: colors.textSecondary }]}>{t('profile.viewSubscriptionDetails')}</Text>
-                    <ChevronRight size={16} color={colors.textSecondary} />
+                    <Text style={[styles.viewDetailsText, { color: ink3 }]}>{t('profile.viewSubscriptionDetails')}</Text>
+                    <ChevronRight size={16} color={ink3} />
                   </TouchableOpacity>
                 </>
                 );
               })() : (
                 <>
                   {/* Manage Subscription Button */}
-                  <TouchableOpacity 
-                    style={[styles.manageButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  <TouchableOpacity
+                    style={[styles.manageButton, { backgroundColor: cardBg, borderColor: ruleColor }]}
                     onPress={() => router.push('/subscription')}
                     activeOpacity={0.7}
                   >
-                    <Settings size={18} color={colors.textSecondary} />
-                    <Text style={[styles.manageButtonText, { color: colors.textSecondary }]}>{t('profile.manageSubscription')}</Text>
+                    <Settings size={18} color={ink3} />
+                    <Text style={[styles.manageButtonText, { color: ink3 }]}>{t('profile.manageSubscription')}</Text>
                   </TouchableOpacity>
                 </>
               )}
             </>
           ) : (
             <View style={styles.subscriptionError}>
-              <Text style={[styles.subscriptionErrorText, { color: colors.error }]}>
+              <Text style={[styles.subscriptionErrorText, { color: colors.ember }]}>
                 {t('profile.subscriptionLoadError')}
               </Text>
-              <TouchableOpacity 
-                style={[styles.retryButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: bg, borderColor: ruleColor }]}
                 onPress={() => refreshSubscription(true)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.retryButtonText, { color: colors.textPrimary }]}>{t('common.retry')}</Text>
+                <Text style={[styles.retryButtonText, { color: inkColor }]}>{t('common.retry')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -529,128 +536,122 @@ export default function ProfileTab() {
         )}
 
         {/* Settings Menu */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.settings')}</Text>
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
+          <Text style={[styles.sectionTitle, { color: inkColor }]}>{t('profile.settings')}</Text>
 
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/settings/general')}
           >
             <View style={styles.menuItemLeft}>
-              <Settings size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('settings.generalSettings')}</Text>
+              <Settings size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('settings.generalSettings')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/garments')}
           >
             <View style={styles.menuItemLeft}>
-              <LayoutTemplate size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('profile.garmentsTemplates')}</Text>
+              <LayoutTemplate size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('profile.garmentsTemplates')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
-            onPress={() => {
-              if (isPremium) {
-                router.push('/pdf-customize');
-              } else {
-                setShowPaywall(true);
-              }
-            }}
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
+            onPress={() => router.push('/tutorial')}
           >
             <View style={styles.menuItemLeft}>
-              <FileText size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('pdf.customizePdf')}</Text>
+              <GraduationCap size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('tutorial.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/account/legal')}
           >
             <View style={styles.menuItemLeft}>
-              <Shield size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('legal.menuItem')}</Text>
+              <Shield size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('legal.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
 
         </View>
 
         {/* Account */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.title')}</Text>
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
+          <Text style={[styles.sectionTitle, { color: inkColor }]}>{t('account.title')}</Text>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/account/change-password')}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <Lock size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('account.changePassword.menuItem')}</Text>
+              <Lock size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('account.changePassword.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/account/feedback')}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <Mail size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('feedback.menuItem')}</Text>
+              <Mail size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('feedback.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/account/newsletter')}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <Mail size={20} color={colors.primary} />
-              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t('newsletter.menuItem')}</Text>
+              <Mail size={20} color={brassColor} />
+              <Text style={[styles.menuItemText, { color: inkColor }]}>{t('newsletter.menuItem')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.textSecondary} />
+            <ChevronRight size={20} color={ink3} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={() => router.push('/account/delete')}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <Trash2 size={20} color={colors.error} />
-              <Text style={[styles.menuItemText, { color: colors.error }]}>{t('account.deleteAccount')}</Text>
+              <Trash2 size={20} color={colors.ember} />
+              <Text style={[styles.menuItemText, { color: colors.ember }]}>{t('account.deleteAccount')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.error} />
+            <ChevronRight size={20} color={colors.ember} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.borderLight }]}
+            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
             onPress={handleLogout}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
-              <LogOut size={20} color={colors.error} />
-              <Text style={[styles.menuItemText, { color: colors.error }]}>{t('profile.logout')}</Text>
+              <LogOut size={20} color={colors.ember} />
+              <Text style={[styles.menuItemText, { color: colors.ember }]}>{t('profile.logout')}</Text>
             </View>
-            <ChevronRight size={20} color={colors.error} />
+            <ChevronRight size={20} color={colors.ember} />
           </TouchableOpacity>
         </View>
 
         {/* App Information */}
-        <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('profile.aboutApp')}</Text>
+        <View style={[styles.section, { backgroundColor: cardBg }]}>
+          <Text style={[styles.sectionTitle, { color: inkColor }]}>{t('profile.aboutApp')}</Text>
           <View style={styles.appInfo}>
-            <Text style={[styles.appName, { color: colors.primaryLegacy }]}>{t('profile.appName')}</Text>
-            <Text style={[styles.appVersion, { color: colors.textSecondary }]}>{t('profile.version')}</Text>
-            <Text style={[styles.appDescription, { color: colors.textSecondary }]}>
+            <Text style={[styles.appName, { color: brassColor }]}>{t('profile.appName')}</Text>
+            <Text style={[styles.appVersion, { color: ink3 }]}>{t('profile.version')}</Text>
+            <Text style={[styles.appDescription, { color: ink3 }]}>
               {t('profile.appDescription')}
             </Text>
           </View>
@@ -675,15 +676,15 @@ export default function ProfileTab() {
         onRequestClose={handleCancelEdit}
       >
         <View style={styles.editModalOverlay}>
-            <View style={[styles.editModalCard, { backgroundColor: colors.surface }]}>
-            <View style={[styles.editModalHeader, { borderBottomColor: colors.borderLight }]}>
-              <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>{t('profile.edit')}</Text>
+            <View style={[styles.editModalCard, { backgroundColor: cardBg }]}>
+            <View style={[styles.editModalHeader, { borderBottomColor: ruleColor }]}>
+              <Text style={[styles.editModalTitle, { color: inkColor }]}>{t('profile.edit')}</Text>
               <TouchableOpacity
                 onPress={handleCancelEdit}
                 style={styles.editModalCloseBtn}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <X size={24} color={colors.textSecondary} strokeWidth={2} />
+                <X size={24} color={ink3} strokeWidth={2} />
               </TouchableOpacity>
             </View>
             <KeyboardAwareScrollView
@@ -692,10 +693,10 @@ export default function ProfileTab() {
               keyboardShouldPersistTaps="handled"
             >
               {/* Logo in modal */}
-              <Text style={[styles.editModalSectionLabel, { color: colors.textSecondary }]}>{t('profile.companyLogo')}</Text>
+              <Text style={[styles.editModalSectionLabel, { color: ink3 }]}>{t('profile.companyLogo')}</Text>
               <View style={styles.editModalLogoRow}>
                 <TouchableOpacity
-                  style={[styles.logoCard, { backgroundColor: colors.surface }]}
+                  style={[styles.logoCard, { backgroundColor: cardBg }]}
                   onPress={handleEditModalImagePicker}
                   activeOpacity={0.8}
                 >
@@ -713,27 +714,27 @@ export default function ProfileTab() {
                           style={styles.logoGradientOverlay}
                         />
                       </View>
-                      <View style={[styles.logoEditBadge, { backgroundColor: `${colors.primaryLegacy}F0` }]}>
-                        <Camera size={18} color={colors.textInverse} />
-                        <Text style={[styles.logoEditBadgeText, { color: colors.textInverse }]}>{t('profile.change')}</Text>
+                      <View style={[styles.logoEditBadge, { backgroundColor: brassColor + 'F0' }]}>
+                        <Camera size={18} color={bg} />
+                        <Text style={[styles.logoEditBadgeText, { color: bg }]}>{t('profile.change')}</Text>
                       </View>
                     </>
                   ) : (
-                    <View style={[styles.logoPlaceholderModern, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}>
-                      <Text style={[styles.logoPlaceholderTitle, { color: colors.warningText }]}>{t('profile.addLogo')}</Text>
-                      <Text style={[styles.logoPlaceholderSubtitle, { color: colors.warningTextDark }]}>{t('profile.tapToSelect')}</Text>
+                    <View style={[styles.logoPlaceholderModern, { backgroundColor: colors.brassPale + '22', borderColor: brassColor }]}>
+                      <Text style={[styles.logoPlaceholderTitle, { color: brassColor }]}>{t('profile.addLogo')}</Text>
+                      <Text style={[styles.logoPlaceholderSubtitle, { color: ink3 }]}>{t('profile.tapToSelect')}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.editModalSectionLabel, { color: colors.textSecondary }]}>{t('profile.companyInfo')}</Text>
+              <Text style={[styles.editModalSectionLabel, { color: ink3 }]}>{t('profile.companyInfo')}</Text>
               <Input
                 label={t('profile.companyName')}
                 value={editDraft.name}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, name: text }))}
                 placeholder={t('profile.companyNamePlaceholder')}
-                leftIcon={<Building size={18} color={colors.primary} />}
+                leftIcon={<Building size={18} color={brassColor} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -741,7 +742,7 @@ export default function ProfileTab() {
                 value={editDraft.owner}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, owner: text }))}
                 placeholder={t('profile.ownerPlaceholder')}
-                leftIcon={<User size={18} color={colors.primary} />}
+                leftIcon={<User size={18} color={brassColor} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -750,7 +751,7 @@ export default function ProfileTab() {
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, phone: text }))}
                 placeholder={t('profile.phonePlaceholder')}
                 keyboardType="phone-pad"
-                leftIcon={<Phone size={18} color={colors.primary} />}
+                leftIcon={<Phone size={18} color={brassColor} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -759,7 +760,7 @@ export default function ProfileTab() {
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, email: text }))}
                 placeholder={t('profile.emailPlaceholder')}
                 keyboardType="email-address"
-                leftIcon={<Mail size={18} color={colors.primary} />}
+                leftIcon={<Mail size={18} color={brassColor} />}
                 containerStyle={styles.inputGroup}
               />
               <Input
@@ -767,25 +768,25 @@ export default function ProfileTab() {
                 value={editDraft.address}
                 onChangeText={(text) => setEditDraft((prev) => ({ ...prev, address: text }))}
                 placeholder={t('profile.addressPlaceholder')}
-                leftIcon={<MapPin size={18} color={colors.primary} />}
+                leftIcon={<MapPin size={18} color={brassColor} />}
                 containerStyle={{ ...styles.inputGroup, ...styles.inputGroupLast }}
               />
             </KeyboardAwareScrollView>
-            <View style={[styles.editModalActions, { borderTopColor: colors.borderLight }]}>
+            <View style={[styles.editModalActions, { borderTopColor: ruleColor }]}>
               <TouchableOpacity
-                style={[styles.editModalCancelButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                style={[styles.editModalCancelButton, { borderColor: ruleColor, backgroundColor: bg }]}
                 onPress={handleCancelEdit}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.editModalCancelText, { color: colors.textSecondary }]}>{t('common.cancel')}</Text>
+                <Text style={[styles.editModalCancelText, { color: ink3 }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.editModalSaveButton, { backgroundColor: colors.primary }]}
+                style={[styles.editModalSaveButton, { backgroundColor: brassColor }]}
                 onPress={handleSave}
                 activeOpacity={0.8}
               >
-                <Save size={18} color={colors.textInverse} strokeWidth={2.5} />
-                <Text style={[styles.editModalSaveText, { color: colors.textInverse }]}>{t('common.save')}</Text>
+                <Save size={18} color={bg} strokeWidth={2.5} />
+                <Text style={[styles.editModalSaveText, { color: bg }]}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -805,33 +806,33 @@ export default function ProfileTab() {
           onPress={() => setShowDiagnosticsModal(false)}
         >
           <TouchableOpacity
-            style={[styles.diagnosticsCard, { backgroundColor: colors.surface }]}
+            style={[styles.diagnosticsCard, { backgroundColor: cardBg }]}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={[styles.diagnosticsTitle, { color: colors.textPrimary }]}>{t('profile.diagnosticsTitle')}</Text>
+            <Text style={[styles.diagnosticsTitle, { color: inkColor }]}>{t('profile.diagnosticsTitle')}</Text>
             {(() => {
               const d = getDiagnostics();
               const fmt = (ts: number) => new Date(ts).toISOString();
               return (
                 <View style={styles.diagnosticsBody}>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsSubscriptionFetch')}</Text>
-                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]} numberOfLines={2}>
+                    <Text style={[styles.diagnosticsLabel, { color: ink3 }]}>{t('profile.diagnosticsSubscriptionFetch')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: inkColor }]} numberOfLines={2}>
                       {d.lastSubscriptionFetch
                         ? `${d.lastSubscriptionFetch.result}${d.lastSubscriptionFetch.message ? `: ${d.lastSubscriptionFetch.message}` : ''} · ${fmt(d.lastSubscriptionFetch.timestamp)}`
                         : '—'}
                     </Text>
                   </View>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsAuthRefresh')}</Text>
-                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]}>
+                    <Text style={[styles.diagnosticsLabel, { color: ink3 }]}>{t('profile.diagnosticsAuthRefresh')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: inkColor }]}>
                       {d.lastAuthRefresh ? `${d.lastAuthRefresh.result} · ${fmt(d.lastAuthRefresh.timestamp)}` : '—'}
                     </Text>
                   </View>
                   <View style={styles.diagnosticsRow}>
-                    <Text style={[styles.diagnosticsLabel, { color: colors.textSecondary }]}>{t('profile.diagnosticsDraftRestore')}</Text>
-                    <Text style={[styles.diagnosticsValue, { color: colors.textPrimary }]}>
+                    <Text style={[styles.diagnosticsLabel, { color: ink3 }]}>{t('profile.diagnosticsDraftRestore')}</Text>
+                    <Text style={[styles.diagnosticsValue, { color: inkColor }]}>
                       {d.lastDraftRestore ? fmt(d.lastDraftRestore.timestamp) : '—'}
                     </Text>
                   </View>
@@ -842,7 +843,7 @@ export default function ProfileTab() {
               style={styles.diagnosticsClose}
               onPress={() => setShowDiagnosticsModal(false)}
             >
-              <Text style={[styles.diagnosticsCloseText, { color: colors.primary }]}>{t('common.close')}</Text>
+              <Text style={[styles.diagnosticsCloseText, { color: brassColor }]}>{t('common.close')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -853,25 +854,35 @@ export default function ProfileTab() {
 
 const styles = StyleSheet.create({
   title: {
-    ...Typography.h2,
+    fontFamily: FontFamily.serif,
+    fontSize: 24,
+    lineHeight: 32,
   },
   editActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   cancelButton: {
-    ...ButtonStyles.dangerIcon,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1.5,
   },
   saveButton: {
-    ...ButtonStyles.primaryIcon,
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   editBanner: {
     marginHorizontal: 20,
     marginBottom: 16,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: AtelierRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderLeftWidth: 4,
@@ -880,22 +891,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     marginLeft: 12,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   editingBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: AtelierRadius.md,
   },
   editingBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
   },
   sectionEditing: {
     borderWidth: 2,
@@ -904,16 +915,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    ...Shadows.sm,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.lg,
+    ...AtelierShadow.card,
   },
   sectionTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
-    marginBottom: Spacing.md,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.md,
   },
   sectionTitleNoMargin: {
     marginBottom: 0,
@@ -922,19 +934,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   editCompanyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.sm,
     gap: 4,
   },
   editCompanyButtonText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
   },
   logoWrapper: {
     alignItems: 'center',
@@ -947,7 +959,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...(Platform.OS === 'ios' && {
-      shadowColor: '#000000',
+      shadowColor: '#1B1611',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.12,
       shadowRadius: 16,
@@ -961,7 +973,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...(Platform.OS === 'ios' && {
-      shadowColor: '#000000',
+      shadowColor: '#1B1611',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
       shadowRadius: 12,
@@ -983,12 +995,12 @@ const styles = StyleSheet.create({
   logoImageModern: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   logoImageModernReadOnly: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   logoGradientOverlay: {
     position: 'absolute',
@@ -1019,10 +1031,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: AtelierRadius.md,
     gap: 6,
     ...(Platform.OS === 'ios' && {
-      shadowColor: '#000000',
+      shadowColor: '#1B1611',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 4,
@@ -1031,7 +1043,7 @@ const styles = StyleSheet.create({
   },
   logoEditBadgeText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansBold,
     letterSpacing: 0.3,
   },
   logoPlaceholderModern: {
@@ -1046,11 +1058,12 @@ const styles = StyleSheet.create({
   logoPlaceholderIconContainer: {
     width: 64,
     height: 64,
-    borderRadius: 16,
+    borderRadius: AtelierRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
     ...(Platform.OS === 'ios' && {
+      shadowColor: '#1B1611',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 8,
@@ -1059,13 +1072,13 @@ const styles = StyleSheet.create({
   },
   logoPlaceholderTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansBold,
     marginBottom: 4,
     textAlign: 'center',
   },
   logoPlaceholderSubtitle: {
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
     textAlign: 'center',
   },
   logoPlaceholderReadOnlyModern: {
@@ -1073,43 +1086,44 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     borderWidth: 2,
     borderStyle: 'dashed',
   },
   logoPlaceholderIconContainerReadOnly: {
     width: 64,
     height: 64,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.md,
-    ...Shadows.md,
+    marginBottom: AtelierSpacing.md,
+    ...AtelierShadow.elevated,
   },
   logoPlaceholderTitleReadOnly: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 15,
-    marginBottom: Spacing.xs,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xs,
     textAlign: 'center',
   },
   logoPlaceholderSubtitleReadOnly: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
     fontSize: 12,
-    textAlign: 'center',
     lineHeight: 18,
-    paddingHorizontal: Spacing.sm,
+    textAlign: 'center',
+    paddingHorizontal: AtelierSpacing.sm,
   },
   inputGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   inputGroupLast: {
-    marginBottom: Spacing.xl,
+    marginBottom: AtelierSpacing.xl,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: Spacing.md,
-    paddingBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   infoRowLast: {
@@ -1120,7 +1134,7 @@ const styles = StyleSheet.create({
   infoIcon: {
     width: 20,
     height: 20,
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
     marginTop: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1129,14 +1143,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
     fontSize: 11,
-    marginBottom: Spacing.xs,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   infoValue: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 17,
     lineHeight: 24,
   },
@@ -1153,7 +1168,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
     marginLeft: 12,
   },
   appInfo: {
@@ -1161,15 +1176,19 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   appName: {
+    fontFamily: FontFamily.serif,
     fontSize: 20,
-    fontWeight: '700',
+    lineHeight: 28,
     marginBottom: 4,
   },
   appVersion: {
-    fontSize: 14,
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
     marginBottom: 12,
+    letterSpacing: 0.5,
   },
   appDescription: {
+    fontFamily: FontFamily.sans,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -1183,6 +1202,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
+    fontFamily: FontFamily.sans,
     fontSize: 16,
     marginTop: 12,
   },
@@ -1190,179 +1210,194 @@ const styles = StyleSheet.create({
   },
   deleteAccountText: {
   },
-  // Subscription styles
   subscriptionLoading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.lg,
-    gap: Spacing.md,
+    paddingVertical: AtelierSpacing.lg,
+    gap: AtelierSpacing.md,
   },
   subscriptionLoadingText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
+    lineHeight: 18,
   },
   subscriptionError: {
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    paddingVertical: AtelierSpacing.lg,
   },
   subscriptionErrorText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   retryButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingVertical: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1.5,
   },
   retryButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 14,
+    lineHeight: 20,
   },
   planBadgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
     borderWidth: 2,
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   planBadgeContainerPro: {
   },
   planBadgeText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
+    lineHeight: 22,
   },
   planBadgeTextPro: {
   },
   usageContainer: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    gap: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.md,
+    gap: AtelierSpacing.md,
   },
   usageRow: {
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   usageInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
+    gap: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.xs,
   },
   usageLabel: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 20,
   },
   limitWarningBadge: {
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: AtelierSpacing.xs,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-    marginLeft: Spacing.xs,
+    borderRadius: AtelierRadius.sm,
+    marginLeft: AtelierSpacing.xs,
   },
   limitWarningText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   usageProgressContainer: {
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   usageProgressBarContainer: {
     height: 8,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     overflow: 'hidden',
   },
   usageProgressBarContainerWarning: {
   },
   usageProgressBar: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
   },
   usageProgressBarWarning: {
   },
   usageCountSecondary: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
     fontSize: 11,
+    lineHeight: 16,
     textAlign: 'right',
   },
   subscriptionHint: {
-    ...Typography.caption,
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
     lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: AtelierSpacing.lg,
   },
   upgradeButton: {
-    ...ButtonStyles.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
   },
   upgradeButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 15,
+    lineHeight: 22,
   },
   upgradeValueStatement: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
     fontSize: 12,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
     lineHeight: 16,
+    textAlign: 'center',
+    marginTop: AtelierSpacing.sm,
   },
   proConfirmation: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.lg,
     borderLeftWidth: 4,
   },
   proConfirmationText: {
-    ...Typography.body,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
   },
   manageButton: {
-    ...ButtonStyles.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1.5,
   },
   manageButtonText: {
-    ...Typography.body,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   viewDetailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    marginTop: Spacing.sm,
-    gap: Spacing.xs,
+    paddingVertical: AtelierSpacing.md,
+    marginTop: AtelierSpacing.sm,
+    gap: AtelierSpacing.xs,
   },
   viewDetailsText: {
-    ...Typography.caption,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 12,
+    lineHeight: 18,
   },
   languageRow: {
     flexDirection: 'column',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   languageOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    gap: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
     borderWidth: 2,
     minHeight: 56,
   },
@@ -1385,11 +1420,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   languageOptionText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 15,
+    lineHeight: 22,
     flex: 1,
   },
-  // Diagnostics modal (production support)
   diagnosticsOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -1398,14 +1433,15 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   diagnosticsCard: {
-    borderRadius: 12,
+    borderRadius: AtelierRadius.md,
     padding: 20,
     width: '100%',
     maxWidth: 360,
   },
   diagnosticsTitle: {
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 18,
-    fontWeight: '700',
+    lineHeight: 26,
     marginBottom: 16,
   },
   diagnosticsBody: {
@@ -1415,13 +1451,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   diagnosticsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   diagnosticsValue: {
+    fontFamily: FontFamily.sans,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1431,10 +1468,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   diagnosticsCloseText: {
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
-    fontWeight: '600',
   },
-  // Edit Profile Modal
   editModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1450,64 +1486,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   editModalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 18,
+    lineHeight: 26,
   },
   editModalCloseBtn: {
     padding: 4,
   },
   editModalScroll: {
     maxHeight: 420,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
   },
   editModalSectionLabel: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 14,
-    marginBottom: Spacing.sm,
+    lineHeight: 20,
+    marginBottom: AtelierSpacing.sm,
   },
   editModalLogoRow: {
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   editModalActions: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    gap: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
     borderTopWidth: 1,
   },
   editModalCancelButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editModalCancelText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
+    lineHeight: 22,
   },
   editModalSaveButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
     paddingVertical: 14,
-    borderRadius: BorderRadius.md,
-    ...Shadows.primary,
+    borderRadius: AtelierRadius.md,
+    ...(Platform.OS === 'ios' && {
+      shadowColor: '#9C7A3E',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
   },
   editModalSaveText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
+    lineHeight: 22,
   },
 });

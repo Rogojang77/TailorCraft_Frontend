@@ -29,7 +29,7 @@ import type {
 } from '@/types/catalog';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { uploadImage } from '@/lib/api';
 
 export interface GarmentCatalogItemEditorModalProps {
@@ -96,8 +96,6 @@ export function GarmentCatalogItemEditorModal({
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.8,
       });
 
@@ -180,7 +178,7 @@ export function GarmentCatalogItemEditorModal({
         <Animated.View
           entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
           exiting={modalExiting}
-          style={[styles.card, { backgroundColor: colors.surface }]}
+          style={[styles.card, { backgroundColor: colors.card }]}
         >
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -239,20 +237,20 @@ export function GarmentCatalogItemEditorModal({
                   <View style={styles.imagePreviewContainer}>
                     <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
                     <TouchableOpacity
-                      style={[styles.removeImageBtn, { backgroundColor: colors.error }]}
+                      style={[styles.removeImageBtn, { backgroundColor: colors.ember ?? colors.error }]}
                       onPress={handleRemoveImage}
                     >
-                      <Trash2 size={16} color={colors.textInverse} />
+                      <Trash2 size={16} color={colors.paper ?? '#EFE9DC'} />
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <TouchableOpacity
-                    style={[styles.imagePlaceholder, { borderColor: colors.border }]}
+                    style={[styles.imagePlaceholder, { borderColor: colors.rule ?? colors.border }]}
                     onPress={handlePickImage}
                     disabled={uploading}
                   >
-                    <Camera size={24} color={colors.textTertiary} />
-                    <Text style={[styles.imagePlaceholderText, { color: colors.textTertiary }]}>
+                    <Camera size={24} color={colors.ink4 ?? colors.textTertiary} />
+                    <Text style={[styles.imagePlaceholderText, { color: colors.ink4 ?? colors.textTertiary }]}>
                       {uploading ? t('common.uploading') : t('catalog.addImage')}
                     </Text>
                   </TouchableOpacity>
@@ -265,44 +263,52 @@ export function GarmentCatalogItemEditorModal({
                 {t('catalog.itemColor')}
               </Text>
               <TouchableOpacity
-                style={[styles.colorPickerTrigger, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.colorPickerTrigger, { backgroundColor: colors.card, borderColor: colors.rule ?? colors.border }]}
                 onPress={() => setColorPickerVisible(true)}
                 activeOpacity={0.7}
               >
                 <View
                   style={[
                     styles.colorSwatchTrigger,
-                    { borderColor: colors.border },
+                    { borderColor: colors.rule ?? colors.border },
                     color && parseHex(color)
                       ? { backgroundColor: color }
-                      : { backgroundColor: colors.borderLight },
+                      : { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border },
                   ]}
                 >
-                  {!color && <Palette size={20} color={colors.textTertiary} />}
+                  {!color && <Palette size={20} color={colors.ink4 ?? colors.textTertiary} />}
                 </View>
                 <Text
                   style={[
                     styles.colorValueText,
                     { color: colors.textPrimary },
-                    !color && { color: colors.textTertiary },
+                    !color && { color: colors.ink4 ?? colors.textTertiary },
                   ]}
                 >
                   {color || t('catalog.selectColor')}
                 </Text>
               </TouchableOpacity>
             </View>
-
+          </KeyboardAwareScrollView>
+          <View style={[styles.footer, { borderTopColor: colors.rule ?? colors.border }]}>
+            <Button
+              variant="secondary"
+              onPress={onClose}
+              disabled={submitting || uploading}
+              style={styles.footerCancelBtn}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               variant="primary"
-              fullWidth
               onPress={handleSubmit}
               disabled={submitting || uploading}
               loading={submitting}
-              style={styles.saveBtn}
+              style={styles.footerSaveBtn}
             >
               {mode === 'add' ? t('common.add') : t('common.save')}
             </Button>
-          </KeyboardAwareScrollView>
+          </View>
         </Animated.View>
 
         <ColorPickerModal
@@ -327,39 +333,45 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: 440,
     maxHeight: '90%',
-    borderRadius: BorderRadius.lg,
-    ...Typography.body,
+    borderRadius: AtelierRadius.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   scroll: {
     maxHeight: 500,
   },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    padding: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.lg,
   },
   field: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   inputInField: {
     marginBottom: 0,
@@ -370,15 +382,17 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: 100,
     height: 100,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 2,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
   },
   imagePlaceholderText: {
-    ...Typography.caption,
-    marginTop: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.xs,
   },
   imagePreviewContainer: {
     position: 'relative',
@@ -386,7 +400,8 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: 100,
     height: 100,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
+    resizeMode: 'contain',
   },
   removeImageBtn: {
     position: 'absolute',
@@ -397,30 +412,41 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.sm,
+    ...AtelierShadow.card,
   },
   colorPickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    gap: AtelierSpacing.md,
   },
   colorSwatchTrigger: {
     width: 36,
     height: 36,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   colorValueText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     flex: 1,
   },
-  saveBtn: {
-    marginTop: Spacing.sm,
+  footer: {
+    flexDirection: 'row',
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
+    borderTopWidth: 1,
+  },
+  footerCancelBtn: {
+    flex: 1,
+  },
+  footerSaveBtn: {
+    flex: 1,
   },
 });

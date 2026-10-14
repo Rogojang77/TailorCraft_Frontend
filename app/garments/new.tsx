@@ -11,7 +11,7 @@ import { invalidateGarmentTypesCache, getGarmentTypeIdFromPostResponse } from '@
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PaywallModal } from '@/components/subscription';
-import { Spacing, Typography, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierShadow } from '@/constants/atelierDesign';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 
 export default function NewGarmentScreen() {
@@ -127,7 +127,7 @@ export default function NewGarmentScreen() {
             </View>
         </KeyboardAwareScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg), backgroundColor: colors.background, borderTopColor: colors.borderLight }]}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, AtelierSpacing.lg), backgroundColor: colors.background, borderTopColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
             {!canCreateTemplate && (
               <Text style={[styles.limitMessage, { color: colors.textSecondary }]}>{limitMsgs.templateLimitReached}</Text>
             )}
@@ -164,30 +164,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     paddingBottom: 20,
   },
   field: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   helperText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
     fontSize: 12,
-    marginTop: Spacing.xs,
     lineHeight: 16,
+    marginTop: AtelierSpacing.xs,
   },
   footer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   submit: {
     width: '100%',
   },
   limitMessage: {
-    ...Typography.caption,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.sm,
     textAlign: 'center',
   },
 });

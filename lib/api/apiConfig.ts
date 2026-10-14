@@ -1,20 +1,22 @@
 /**
  * Single source of truth for API base URL.
  *
- * Set EXPO_PUBLIC_API_URL in .env or in your EAS build profile (e.g. preview/production).
- * Dot notation is required so Expo inlines the value at build time.
- * Fallback used when env is missing (e.g. some EAS local builds don't inject profile env).
+ * Resolution order:
+ * 1. `process.env.EXPO_PUBLIC_API_URL` — Metro may inline this at bundle time (from .env / EAS).
+ * 2. `Constants.expoConfig.extra.apiUrl` — set in app.config.js at build/start time (reliable when
+ *    Metro does not inline EXPO_PUBLIC_*).
+ *
+ * app.config.js sets extra.apiUrl from EXPO_PUBLIC_API_URL, EAS_BUILD_PROFILE, or staging default.
  */
-const DEFAULT_API_BASE_URL = 'https://tailorcraft.rogojan.com';
+import Constants from 'expo-constants';
 
-/**
- * EXPO_PUBLIC_* must be read with dot notation so Expo/Metro can inline them at build time.
- * Bracket notation (process.env['EXPO_PUBLIC_X']) is NOT replaced and stays undefined in production builds.
- */
-const envApiUrl =
-  typeof process !== 'undefined' && process.env
-    ? (process.env as Record<string, string | undefined>).EXPO_PUBLIC_API_URL
-    : undefined;
+const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+function getExtraApiUrl(): string | undefined {
+  const raw = Constants.expoConfig?.extra as { apiUrl?: unknown } | undefined;
+  const u = raw?.apiUrl;
+  return typeof u === 'string' && u.trim() ? u.trim() : undefined;
+}
 
 function normalizeUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
@@ -22,12 +24,13 @@ function normalizeUrl(url: string): string {
 
 /**
  * Resolved API base URL. Use this for all API requests.
- * Uses EXPO_PUBLIC_API_URL when set; otherwise falls back to DEFAULT_API_BASE_URL so
- * production/preview builds work even if env wasn't inlined (e.g. local EAS build).
  */
 export function getApiBaseUrl(): string {
-  const url = envApiUrl && typeof envApiUrl === 'string' ? normalizeUrl(envApiUrl) : '';
-  return url || DEFAULT_API_BASE_URL;
+  const fromInline =
+    envApiUrl && typeof envApiUrl === 'string' ? normalizeUrl(envApiUrl) : '';
+  const extra = getExtraApiUrl();
+  const fromExtra = extra ? normalizeUrl(extra) : '';
+  return fromInline || fromExtra || '';
 }
 
 /** Cached base URL so all callers share the same value. */

@@ -22,6 +22,26 @@ export const UNIT_REGISTRY: Record<string, UnitDefinition> = {
     labelKey: 'units.inch',
     conversionFactorToBase: 2.54,
   },
+  m: {
+    id: 'm',
+    symbol: 'm',
+    conversionFactorToBase: 100,
+  },
+  mm: {
+    id: 'mm',
+    symbol: 'mm',
+    conversionFactorToBase: 0.1,
+  },
+  ft: {
+    id: 'ft',
+    symbol: 'ft',
+    conversionFactorToBase: 30.48,
+  },
+  yd: {
+    id: 'yd',
+    symbol: 'yd',
+    conversionFactorToBase: 91.44,
+  },
 };
 
 /**

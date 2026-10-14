@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
-  Animated,
   Platform,
 } from 'react-native';
 import { Plus, X, ImagePlus, ShoppingBag } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Spacing, BorderRadius, Shadows, Typography } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { useI18n } from '@/lib/i18n';
 
 interface FABAction {
@@ -36,45 +35,44 @@ export function FloatingActionButton({
   const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
 
-  const fabBottomOffset = Spacing.md;
-  const fabCloseOffset = insets.bottom + Spacing.md + 56 + Spacing.sm;
+  const fabBottomOffset = AtelierSpacing.md;
+  const fabCloseOffset = insets.bottom + AtelierSpacing.md + 56 + AtelierSpacing.sm;
+  const paperColor = colors.paper ?? '#EFE9DC';
+
+  const ctaShadow = Platform.select({
+    android: {},
+    default: {
+      shadowColor: colors.ctaGold,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  });
 
   const actions: FABAction[] = [
     {
       id: 'create-order',
       label: t('home.fab.createOrder'),
-      icon: <ShoppingBag size={20} color={colors.textInverse} />,
-      onPress: () => {
-        setIsOpen(false);
-        onCreateOrder();
-      },
+      icon: <ShoppingBag size={20} color={paperColor} />,
+      onPress: () => { setIsOpen(false); onCreateOrder(); },
     },
     {
       id: 'add-gallery-item',
       label: t('home.fab.addGalleryItem'),
-      icon: <ImagePlus size={20} color={colors.textInverse} />,
-      onPress: () => {
-        setIsOpen(false);
-        onAddGalleryItem();
-      },
+      icon: <ImagePlus size={20} color={paperColor} />,
+      onPress: () => { setIsOpen(false); onAddGalleryItem(); },
     },
   ];
 
   return (
     <>
       <TouchableOpacity
-        style={[
-          styles.fab,
-          {
-            backgroundColor: colors.ctaGold,
-            bottom: fabBottomOffset,
-            ...Shadows.ctaPill,
-          },
-        ]}
+        style={[styles.fab, { backgroundColor: colors.ctaGold, bottom: fabBottomOffset, ...ctaShadow }]}
         onPress={() => setIsOpen(true)}
         activeOpacity={0.85}
       >
-        <Plus size={28} color={colors.textInverse} strokeWidth={2.5} />
+        <Plus size={28} color={paperColor} strokeWidth={2.5} />
       </TouchableOpacity>
 
       <Modal
@@ -84,16 +82,16 @@ export function FloatingActionButton({
         onRequestClose={() => setIsOpen(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setIsOpen(false)}>
-          <View style={[styles.menuContainer, { bottom: fabCloseOffset + 56 + Spacing.sm }]}>
+          <View style={[styles.menuContainer, { bottom: fabCloseOffset + 56 + AtelierSpacing.sm }]}>
             {actions.map((action) => (
               <TouchableOpacity
                 key={action.id}
-                style={[styles.menuItem, { backgroundColor: colors.primary }]}
+                style={[styles.menuItem, { backgroundColor: colors.brass ?? colors.primary }, AtelierShadow.card]}
                 onPress={action.onPress}
                 activeOpacity={0.85}
               >
                 {action.icon}
-                <Text style={[styles.menuLabel, { color: colors.textInverse }]}>
+                <Text style={[styles.menuLabel, { color: paperColor }]}>
                   {action.label}
                 </Text>
               </TouchableOpacity>
@@ -101,18 +99,11 @@ export function FloatingActionButton({
           </View>
 
           <TouchableOpacity
-            style={[
-              styles.fab,
-              styles.fabClose,
-              {
-                backgroundColor: colors.textSecondary,
-                bottom: fabCloseOffset,
-              },
-            ]}
+            style={[styles.fab, styles.fabClose, { backgroundColor: colors.ink3, bottom: fabCloseOffset }]}
             onPress={() => setIsOpen(false)}
             activeOpacity={0.85}
           >
-            <X size={28} color={colors.textInverse} strokeWidth={2.5} />
+            <X size={28} color={paperColor} strokeWidth={2.5} />
           </TouchableOpacity>
         </Pressable>
       </Modal>
@@ -123,10 +114,10 @@ export function FloatingActionButton({
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: Spacing.md,
+    right: AtelierSpacing.md,
     width: 56,
     height: 56,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
@@ -134,7 +125,7 @@ const styles = StyleSheet.create({
   fabClose: Platform.select({
     android: {},
     default: {
-      shadowColor: '#000',
+      shadowColor: '#1B1611',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 8,
@@ -143,24 +134,25 @@ const styles = StyleSheet.create({
   }),
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(27,22,17,0.5)',
   },
   menuContainer: {
     position: 'absolute',
-    right: Spacing.md,
+    right: AtelierSpacing.md,
     alignItems: 'flex-end',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
-    gap: Spacing.sm,
-    ...Shadows.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.full,
+    gap: AtelierSpacing.sm,
   },
   menuLabel: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

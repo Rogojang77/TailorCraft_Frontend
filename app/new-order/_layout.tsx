@@ -11,7 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 function GuardScreen() {
   const { colors } = useTheme();
   return (
-    <View style={[styles.gate, { backgroundColor: colors.background }]}>
+    <View style={[styles.gate, { backgroundColor: colors.paper ?? colors.background }]}>
       <ListSkeletonLoader variant="card" count={4} />
     </View>
   );
@@ -56,7 +56,7 @@ function NewOrderGuard({ children }: { children: React.ReactNode }) {
     <>
       {children}
       {showGate && (
-        <View style={[StyleSheet.absoluteFillObject, styles.gateOverlay, { backgroundColor: colors.background }]}>
+        <View style={[StyleSheet.absoluteFillObject, styles.gateOverlay, { backgroundColor: colors.paper ?? colors.background }]}>
           <GuardScreen />
         </View>
       )}

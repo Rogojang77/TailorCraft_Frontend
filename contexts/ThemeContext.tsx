@@ -57,6 +57,23 @@ export interface ThemeColors {
   ctaGold: string;
   ctaGoldDisabled: string;
   transparent: string;
+
+  // Atelier palette
+  paper: string;
+  paperDeep: string;
+  card: string;
+  cardSoft: string;
+  ink2: string;
+  ink3: string;
+  ink4: string;
+  rule: string;
+  ruleSoft: string;
+  brass: string;
+  brassDeep: string;
+  brassPale: string;
+  ember: string;
+  pine: string;
+  ocean: string;
 }
 
 /**
@@ -124,6 +141,23 @@ export const LightColors: ThemeColors = {
   ctaGoldDisabled: '#E5D3A1',
 
   transparent: 'transparent',
+
+  // Atelier palette
+  paper: '#EFE9DC',
+  paperDeep: '#E6DECD',
+  card: '#F7F2E6',
+  cardSoft: '#FBF7EC',
+  ink2: '#3F362A',
+  ink3: '#7B7060',
+  ink4: '#A89E8C',
+  rule: '#D6CBB3',
+  ruleSoft: '#E3D9C2',
+  brass: '#9C7A3E',
+  brassDeep: '#6E5326',
+  brassPale: '#D9C18B',
+  ember: '#A23E2E',
+  pine: '#3D5C48',
+  ocean: '#3C5772',
 };
 
 /**
@@ -191,6 +225,23 @@ export const DarkColors: ThemeColors = {
   ctaGoldDisabled: '#5C5233',
 
   transparent: 'transparent',
+
+  // Atelier palette (dark variants)
+  paper: '#1E1A14',
+  paperDeep: '#181410',
+  card: '#252018',
+  cardSoft: '#2A2419',
+  ink2: '#C9C0AD',
+  ink3: '#8A8070',
+  ink4: '#5A5245',
+  rule: '#3A322A',
+  ruleSoft: '#302820',
+  brass: '#C49640',
+  brassDeep: '#8A6830',
+  brassPale: '#A88A5A',
+  ember: '#C04E3E',
+  pine: '#508070',
+  ocean: '#4E7090',
 };
 export type ColorScheme = 'light' | 'dark';
 

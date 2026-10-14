@@ -3,9 +3,9 @@
  * Uses theme-aware colors from ThemeContext.
  */
 import React, { memo } from 'react';
-import { Text, StyleSheet, TextStyle } from 'react-native';
+import { Text, TextStyle } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography } from '@/constants/design';
+import { FontFamily } from '@/constants/atelierDesign';
 
 export interface ErrorTextProps {
   children: string;
@@ -22,11 +22,13 @@ const ErrorTextComponent = ({
   numberOfLines,
 }: ErrorTextProps) => {
   const { colors } = useTheme();
-  const typography = getTypography(colors);
-  const color = variant === 'dark' ? colors.errorTextDark : colors.error;
-  
+  const color = variant === 'dark' ? (colors.brassDeep ?? colors.ember ?? colors.error) : (colors.ember ?? colors.error);
+
   return (
-    <Text style={[typography.caption, { color }, style]} numberOfLines={numberOfLines ?? 2}>
+    <Text
+      style={[{ fontFamily: FontFamily.mono, fontSize: 11, lineHeight: 16, color }, style]}
+      numberOfLines={numberOfLines ?? 2}
+    >
       {children}
     </Text>
   );

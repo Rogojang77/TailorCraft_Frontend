@@ -20,7 +20,7 @@ import { Trash2, X } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, Spacing, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MAX_WIDTH = Math.min(SCREEN_WIDTH - 32, 400);
@@ -50,12 +50,11 @@ export function DeleteConfirmModal({
 }: DeleteConfirmModalProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
   const resolvedTitle = title ?? t('common.delete');
   const resolvedMessage = message ?? t('modals.delete.cannotUndo');
   const resolvedConfirmLabel = confirmLabel ?? t('common.delete');
   const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
-  
+
   useEffect(() => {
     if (visible && Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -72,6 +71,8 @@ export function DeleteConfirmModal({
   const reduceMotion = useReducedMotion();
   if (!visible) return null;
 
+  const emberColor = colors.ember ?? colors.error;
+
   return (
     <Modal
       visible={visible}
@@ -82,9 +83,12 @@ export function DeleteConfirmModal({
     >
       <View style={styles.root}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={[styles.overlay, { 
-            backgroundColor: Platform.OS === 'web' ? colors.overlayModal : 'transparent' 
-          }]}>
+          <View
+            style={[
+              styles.overlay,
+              { backgroundColor: Platform.OS === 'web' ? 'rgba(27,22,17,0.5)' : 'transparent' },
+            ]}
+          >
             {Platform.OS !== 'web' && (
               <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
             )}
@@ -93,13 +97,13 @@ export function DeleteConfirmModal({
 
         <View style={styles.centered} pointerEvents="box-none">
           <Animated.View
-            style={[styles.card, { backgroundColor: colors.surface }]}
+            style={[styles.card, { backgroundColor: colors.card }, AtelierShadow.elevated]}
             entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
             exiting={modalExiting}
           >
             <View style={styles.cardInner}>
-              <View style={[styles.iconRing, { backgroundColor: colors.dangerBg }]}>
-                <Trash2 size={28} color={colors.danger} strokeWidth={2.5} />
+              <View style={[styles.iconRing, { backgroundColor: emberColor + '1F' }]}>
+                <Trash2 size={28} color={emberColor} strokeWidth={2.5} />
               </View>
               <Button
                 variant="ghost"
@@ -107,20 +111,15 @@ export function DeleteConfirmModal({
                 onPress={onClose}
                 accessibilityLabel={resolvedCancelLabel}
               >
-                <X size={22} color={colors.textSecondary} />
+                <X size={22} color={colors.ink3} />
               </Button>
-              <Text style={[typography.h3, styles.title]}>{resolvedTitle}</Text>
-              <Text style={[typography.body, { color: colors.textSecondary }, styles.message]}>{resolvedMessage}</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>{resolvedTitle}</Text>
+              <Text style={[styles.message, { color: colors.ink3 }]}>{resolvedMessage}</Text>
               {errorMessage ? (
-                <Text style={[typography.caption, { color: colors.error }, styles.errorMessage]}>{errorMessage}</Text>
+                <Text style={[styles.errorMessage, { color: emberColor }]}>{errorMessage}</Text>
               ) : null}
               <View style={styles.actions}>
-                <Button
-                  variant="secondary"
-                  onPress={onClose}
-                  disabled={loading}
-                  style={styles.cancelBtn}
-                >
+                <Button variant="secondary" onPress={onClose} disabled={loading} style={styles.cancelBtn}>
                   {resolvedCancelLabel}
                 </Button>
                 <Button
@@ -128,7 +127,7 @@ export function DeleteConfirmModal({
                   onPress={handleConfirm}
                   disabled={loading}
                   loading={loading}
-                  leftIcon={<Trash2 size={18} color={colors.textInverse} strokeWidth={2.5} />}
+                  leftIcon={<Trash2 size={18} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} />}
                   style={styles.deleteBtn}
                 >
                   {resolvedConfirmLabel}
@@ -143,28 +142,23 @@ export function DeleteConfirmModal({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  root: { flex: 1 },
+  overlay: { ...StyleSheet.absoluteFillObject },
   centered: {
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     maxHeight: '90%',
-    borderRadius: BorderRadius.lg,
-    ...Shadows.xl,
+    borderRadius: AtelierRadius.lg,
   },
   cardInner: {
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
     alignItems: 'center',
   },
   iconRing: {
@@ -177,8 +171,8 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
+    top: AtelierSpacing.md,
+    right: AtelierSpacing.md,
     width: 44,
     height: 44,
     minWidth: 44,
@@ -187,28 +181,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.sm,
     textAlign: 'center',
   },
   message: {
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   errorMessage: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    marginBottom: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.sm,
   },
   actions: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
     width: '100%',
-    marginTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
   },
-  cancelBtn: {
-    flex: 1,
-  },
-  deleteBtn: {
-    flex: 1,
-  },
+  cancelBtn: { flex: 1 },
+  deleteBtn: { flex: 1 },
 });

@@ -17,7 +17,7 @@ import { useI18n } from '@/lib/i18n';
 import { getErrorMessage } from '@/lib/api';
 import { ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 import { TERMS_URL, PRIVACY_POLICY_URL, LEGAL_LAST_UPDATED } from '@/constants/legal';
 
@@ -376,7 +376,7 @@ export default function SignupScreen() {
             </View>
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, AtelierSpacing.md), backgroundColor: colors.paper ?? colors.background, borderTopColor: colors.rule ?? colors.border }]}>
             {step === 'personal' ? (
               <Button
                 variant="primary"
@@ -411,8 +411,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.md,
   },
   backButton: {
     width: 44,
@@ -423,13 +423,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xxl,
-    paddingVertical: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.xxl,
+    paddingVertical: AtelierSpacing.lg,
   },
   progressStep: {
     width: 12,
@@ -439,7 +441,7 @@ const styles = StyleSheet.create({
   progressLine: {
     flex: 1,
     height: 2,
-    marginHorizontal: Spacing.sm,
+    marginHorizontal: AtelierSpacing.sm,
   },
   flex1: {
     flex: 1,
@@ -451,40 +453,44 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   footer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
   },
   content: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
   },
   stepContent: {
     width: '100%',
   },
   errorContainer: {
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    ...StatusStyles.error,
-    borderRadius: BorderRadius.sm,
+    marginBottom: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
   },
   errorText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
     lineHeight: 21,
   },
   stepButton: {
     marginTop: 0,
   },
   consentSection: {
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-    paddingTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.sm,
+    paddingTop: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
   consentTitle: {
-    ...Typography.label,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
 });

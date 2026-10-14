@@ -12,10 +12,12 @@ import {
   ActivityIndicator,
   StyleProp,
 } from 'react-native';
-import { useTheme, ThemeColors } from '@/contexts/ThemeContext';
-import { getTypography, getButtonStyles, Spacing, BorderRadius, getShadows, DENSITY } from '@/constants/design';
+import { useTheme } from '@/contexts/ThemeContext';
+import { FontFamily, AtelierRadius } from '@/constants/atelierDesign';
 
-const _compact = DENSITY === 'compact';
+const _iconSize = 36;
+const _primaryHeight = 36;
+const _primaryPadding = 8;
 
 export type ButtonVariant =
   | 'primary'
@@ -73,68 +75,65 @@ export function Button({
   style,
 }: ButtonProps) {
   const { colors } = useTheme();
-  const buttonStyles = getButtonStyles(colors);
-  const typography = getTypography(colors);
-  
+
   const isIconOnly = iconVariants.includes(variant);
   const isDisabled = disabled || loading;
   const hasText = typeof children === 'string';
 
+  const iconBase: ViewStyle = {
+    width: _iconSize, height: _iconSize, minWidth: _iconSize, minHeight: _iconSize,
+    borderRadius: AtelierRadius.full, justifyContent: 'center', alignItems: 'center',
+  };
+
   const getIconVariantStyle = (v: ButtonVariant): ViewStyle => {
     switch (v) {
-      case 'back':
-        return buttonStyles.back;
-      case 'primaryIcon':
-        return buttonStyles.primaryIcon;
-      case 'secondaryIcon':
-        return buttonStyles.secondaryIcon;
-      case 'dangerIcon':
-        return buttonStyles.dangerIcon;
-      default:
-        return buttonStyles.primaryIcon;
+      case 'back': return iconBase;
+      case 'primaryIcon': return { ...iconBase, backgroundColor: colors.brass ?? colors.primary };
+      case 'secondaryIcon': return { ...iconBase, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.rule ?? colors.border };
+      case 'dangerIcon': return { ...iconBase, backgroundColor: (colors.ember ?? colors.error) + '1F' };
+      default: return { ...iconBase, backgroundColor: colors.brass ?? colors.primary };
     }
   };
 
+  const textBase: ViewStyle = {
+    minHeight: _primaryHeight, paddingVertical: _primaryPadding,
+    borderRadius: AtelierRadius.md, alignItems: 'center', justifyContent: 'center',
+  };
+
   const getTextVariantStyle = (v: ButtonVariant, s: ButtonSize): ViewStyle => {
-    const base: ViewStyle =
-      v === 'primary'
-        ? buttonStyles.primary
-        : v === 'secondary'
-          ? buttonStyles.secondary
-          : v === 'ghost'
-            ? buttonStyles.ghost
-            : v === 'danger'
-              ? { ...buttonStyles.primary, backgroundColor: colors.danger }
-              : buttonStyles.primary;
+    let variantStyle: ViewStyle;
+    switch (v) {
+      case 'secondary': variantStyle = { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.rule ?? colors.border }; break;
+      case 'ghost': variantStyle = {}; break;
+      case 'danger': variantStyle = { backgroundColor: colors.ember ?? colors.error }; break;
+      default: variantStyle = { backgroundColor: colors.brass ?? colors.primary }; break;
+    }
     const sizeStyle: ViewStyle | undefined = s === 'sm' ? styles.sizeSm : s === 'lg' ? styles.sizeLg : undefined;
-    return StyleSheet.flatten([base, sizeStyle]) as ViewStyle;
+    return StyleSheet.flatten([textBase, variantStyle, sizeStyle]) as ViewStyle;
   };
 
   const getTextStyle = (v: ButtonVariant, iconOnly: boolean, s?: ButtonSize): TextStyle => {
     if (iconOnly) return {};
-    const color =
-      v === 'secondary' || v === 'ghost' ? colors.textPrimary : colors.textInverse;
-    const typeStyle = s === 'sm' ? typography.captionBold : typography.bodyBold;
-    return {
-      ...typeStyle,
-      color: v === 'danger' ? colors.textInverse : color,
-    };
+    const paperColor = colors.paper ?? '#EFE9DC';
+    const inkColor = colors.textPrimary;
+    const color = v === 'secondary' || v === 'ghost' ? inkColor : paperColor;
+    const typeStyle: TextStyle = s === 'sm'
+      ? { fontFamily: FontFamily.mono, fontSize: 13, lineHeight: 16 }
+      : { fontFamily: FontFamily.sansMedium, fontSize: 15, lineHeight: 22 };
+    return { ...typeStyle, color: v === 'danger' ? paperColor : color };
   };
 
   const iconVariantColor = (v: ButtonVariant): string => {
     switch (v) {
-      case 'dangerIcon':
-        return colors.danger;
+      case 'dangerIcon': return colors.ember ?? colors.error;
       case 'secondaryIcon':
-      case 'back':
-        return colors.textPrimary;
-      default:
-        return colors.textInverse;
+      case 'back': return colors.textPrimary;
+      default: return colors.paper ?? '#EFE9DC';
     }
   };
 
   const textVariantColor = (v: ButtonVariant): string => {
-    return v === 'secondary' || v === 'ghost' ? colors.textPrimary : colors.textInverse;
+    return v === 'secondary' || v === 'ghost' ? (colors.textPrimary) : (colors.paper ?? '#EFE9DC');
   };
 
   const textColor = textVariantColor(variant);
@@ -144,7 +143,7 @@ export function Button({
     return [
       base,
       fullWidth && !isIconOnly && styles.fullWidth,
-      isDisabled && buttonStyles.disabled,
+      isDisabled && styles.disabled,
       pressed && !isDisabled && styles.pressed,
       !isIconOnly && (leftIcon || rightIcon) && styles.rowContent,
       style,
@@ -197,15 +196,18 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
+  disabled: {
+    opacity: 0.5,
+  },
   sizeSm: {
-    minHeight: _compact ? 32 : 40,
-    paddingVertical: _compact ? 6 : 10,
-    paddingHorizontal: _compact ? 10 : 14,
+    minHeight: 32,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   sizeLg: {
-    minHeight: _compact ? 44 : 56,
-    paddingVertical: _compact ? 12 : 16,
-    paddingHorizontal: _compact ? 14 : 18,
+    minHeight: 48,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
   },
   rowContent: {
     flexDirection: 'row',

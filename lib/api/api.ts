@@ -4,15 +4,17 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { File } from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { API_BASE_URL, getApiBaseUrlCached } from './apiConfig';
 
 /** Request timeout in ms (connectivity errors surface as fetch rejection). */
 const REQUEST_TIMEOUT_MS = 30_000;
+const TARGET_UPLOAD_SIZE_BYTES = 900 * 1024; // Keep under strict reverse-proxy limits.
 
 /** API error codes returned by the backend (e.g. in JSON body). */
 export const ApiErrorCode = {
   SUBSCRIPTION_LIMIT_REACHED: 'SUBSCRIPTION_LIMIT_REACHED',
-  CUSTOM_PDF_PRO_ONLY: 'CUSTOM_PDF_PRO_ONLY',
 } as const;
 
 export type ApiErrorCodeType = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];
@@ -95,6 +97,8 @@ export const api = {
   },
   /** Account (authenticated user). DELETE /me, GET /me/deletion-status, PATCH /me/password */
   me: `${API_BASE_URL}/api/me`,
+  /** PUT body: { locale }. Persist user locale on backend. */
+  meLocale: `${API_BASE_URL}/api/me/locale`,
   meDeletionStatus: `${API_BASE_URL}/api/me/deletion-status`,
   mePassword: `${API_BASE_URL}/api/me/password`,
   customers: (id?: string) =>
@@ -102,6 +106,24 @@ export const api = {
   customerOrders: (id: string) => `${API_BASE_URL}/api/customers/${id}/orders`,
   orders: (id?: string) =>
     id ? `${API_BASE_URL}/api/orders/${id}` : `${API_BASE_URL}/api/orders`,
+  financial: {
+    expenses: (id?: string) =>
+      id ? `${API_BASE_URL}/api/expenses/${id}` : `${API_BASE_URL}/api/expenses`,
+    suppliers: (id?: string) =>
+      id ? `${API_BASE_URL}/api/suppliers/${id}` : `${API_BASE_URL}/api/suppliers`,
+    periodSummary: `${API_BASE_URL}/api/financial/period-summary`,
+  },
+  orderSketches: (orderId: string) => `${API_BASE_URL}/api/orders/${orderId}/sketches`,
+  calendar: {
+    events: `${API_BASE_URL}/api/calendar/events`,
+  },
+  /** POST register Expo push token; DELETE body { expoPushToken } to deactivate */
+  notifications: {
+    devices: `${API_BASE_URL}/api/notifications/devices`,
+    inbox: `${API_BASE_URL}/api/notifications/inbox`,
+    inboxReadAll: `${API_BASE_URL}/api/notifications/inbox/read-all`,
+    inboxMarkRead: (id: string) => `${API_BASE_URL}/api/notifications/inbox/${id}/read`,
+  },
   /** POST body: { catalogSelections }. Returns { resolvedCatalogItems } for Styles & Materials display. */
   ordersResolveCatalogItems: `${API_BASE_URL}/api/orders/resolve-catalog-items`,
   gallery: (id?: string) =>
@@ -112,6 +134,8 @@ export const api = {
       : `${API_BASE_URL}/api/gallery/categories`,
   settings: {
     company: `${API_BASE_URL}/api/settings/company`,
+    /** GET currencies and phone prefixes for settings dropdowns. Public, no auth. */
+    options: `${API_BASE_URL}/api/settings/options`,
   },
   subscription: {
     status: `${API_BASE_URL}/api/subscription/status`,
@@ -127,11 +151,7 @@ export const api = {
     confirm: `${API_BASE_URL}/api/subscriptions/confirm`,
   },
   pdf: {
-    template: `${API_BASE_URL}/api/pdf/template`,
-    generateCustom: `${API_BASE_URL}/api/pdf/generate-custom`,
-    templates: `${API_BASE_URL}/api/pdf/templates`,
-    templateById: (id: string) => `${API_BASE_URL}/api/pdf/templates/${id}`,
-    fields: `${API_BASE_URL}/api/pdf/fields`,
+    generateClassic: `${API_BASE_URL}/api/pdf/generate-classic`,
   },
   upload: `${API_BASE_URL}/api/upload`,
   /** POST body: { message }. Sends feedback to tailorcraft@rogojan.com via Resend. */
@@ -486,23 +506,81 @@ export function getLocalizedApiMessage(
   return getErrorMessage(error, fallback);
 }
 
+async function getFileSize(uri: string): Promise<number | null> {
+  try {
+    const file = new File(uri);
+    if (!file.exists) return null;
+    const size = file.size;
+    if (typeof size !== 'number' || !Number.isFinite(size)) return null;
+    return size;
+  } catch {
+    return null;
+  }
+}
+
+async function optimizeImageForUpload(fileUri: string): Promise<string> {
+  const initialSize = await getFileSize(fileUri);
+  if (initialSize != null && initialSize <= TARGET_UPLOAD_SIZE_BYTES) {
+    return fileUri;
+  }
+
+  const passes: Array<{ width: number; compress: number }> = [
+    { width: 1600, compress: 0.75 },
+    { width: 1280, compress: 0.68 },
+    { width: 1080, compress: 0.62 },
+    { width: 900, compress: 0.55 },
+    { width: 768, compress: 0.5 },
+  ];
+
+  let currentUri = fileUri;
+  let bestUri = fileUri;
+  let bestSize = initialSize ?? Number.POSITIVE_INFINITY;
+  let hasMeasuredSize = initialSize != null;
+
+  for (const pass of passes) {
+    const result = await ImageManipulator.manipulateAsync(
+      currentUri,
+      [{ resize: { width: pass.width } }],
+      {
+        compress: pass.compress,
+        format: ImageManipulator.SaveFormat.JPEG,
+      }
+    );
+
+    currentUri = result.uri;
+    const size = await getFileSize(currentUri);
+    if (size != null) {
+      hasMeasuredSize = true;
+    }
+    if (size != null && size < bestSize) {
+      bestSize = size;
+      bestUri = currentUri;
+    }
+    if (size != null && size <= TARGET_UPLOAD_SIZE_BYTES) {
+      return currentUri;
+    }
+    // If file size can't be measured on this device/runtime, still keep the latest compressed version.
+    if (size == null) {
+      bestUri = currentUri;
+    }
+  }
+
+  if (!hasMeasuredSize) {
+    return currentUri;
+  }
+  return bestUri;
+}
+
 /**
  * Upload an image file to the backend.
  * @param fileUri - Local file URI from expo-image-picker
  * @returns The URL of the uploaded image
  */
 export async function uploadImage(fileUri: string): Promise<string> {
+  const uploadUrl = api.upload;
+  let hadAuthToken = false;
   try {
-    // Create FormData for React Native
-    const formData = new FormData();
-    const filename = fileUri.split('/').pop() || 'image.jpg';
-
-    // In React Native, FormData accepts file objects with uri, type, and name
-    formData.append('file', {
-      uri: fileUri,
-      type: 'image/jpeg', // Default type, backend will validate
-      name: filename,
-    } as any);
+    const optimizedUri = await optimizeImageForUpload(fileUri);
 
     // Get auth token
     let authToken: string | null = null;
@@ -511,29 +589,106 @@ export async function uploadImage(fileUri: string): Promise<string> {
     } catch (error) {
       console.error('Error getting token from SecureStore:', error);
     }
+    hadAuthToken = Boolean(authToken);
 
-    // Upload to backend
-    // Note: Don't set Content-Type header - let FormData set it with boundary
-    const uploadResponse = await fetch(api.upload, {
-      method: 'POST',
-      headers: {
-        ...(authToken && { Authorization: `Bearer ${authToken}` }),
-      },
-      body: formData,
-    });
-
-    if (!uploadResponse.ok) {
-      const errorData = await uploadResponse.json().catch(() => ({}));
-      throw new Error(
-        formatApiError(errorData, uploadResponse.status, uploadResponse.statusText, api.upload)
-      );
+    if (typeof __DEV__ !== 'undefined' && __DEV__ && uploadUrl !== 'https://tailorcraft.rogojan.com/api/upload') {
+      console.warn('[upload] Unexpected upload URL:', uploadUrl);
     }
 
-    const data = await uploadResponse.json();
+    const attemptUris: string[] = [optimizedUri];
+    const fallbackPasses: Array<{ width: number; compress: number }> = [
+      { width: 640, compress: 0.35 },
+      { width: 512, compress: 0.3 },
+    ];
+
+    let responseData: unknown = null;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= fallbackPasses.length; attempt++) {
+      const currentUri = attemptUris[attempt]!;
+
+      const formData = new FormData();
+      const filename = currentUri.split('/').pop() || `upload-${Date.now()}.jpg`;
+      formData.append('file', {
+        uri: currentUri,
+        type: 'image/jpeg',
+        name: filename,
+      } as any);
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        },
+        body: formData,
+      });
+
+      if (uploadResponse.ok) {
+        responseData = await uploadResponse.json();
+        lastError = null;
+        break;
+      }
+
+      const responseText = await uploadResponse.text().catch(() => '');
+      let responseJson: ApiErrorPayload | null = null;
+      if (responseText) {
+        try {
+          responseJson = JSON.parse(responseText) as ApiErrorPayload;
+        } catch {
+          responseJson = null;
+        }
+      }
+
+      const currentSize = await getFileSize(currentUri);
+      console.error('[upload] Failed response', {
+        url: uploadUrl,
+        status: uploadResponse.status,
+        statusText: uploadResponse.statusText,
+        responseBody: responseJson ?? responseText,
+        attempt,
+        currentSize,
+      });
+
+      if (uploadResponse.status === 413 && attempt < fallbackPasses.length) {
+        const pass = fallbackPasses[attempt]!;
+        const fallback = await ImageManipulator.manipulateAsync(
+          currentUri,
+          [{ resize: { width: pass.width } }],
+          {
+            compress: pass.compress,
+            format: ImageManipulator.SaveFormat.JPEG,
+          }
+        );
+        attemptUris.push(fallback.uri);
+        continue;
+      }
+
+      if (uploadResponse.status === 413) {
+        lastError = new Error('Image too large. Please choose a smaller photo.');
+      } else if (uploadResponse.status === 401 || uploadResponse.status === 403) {
+        lastError = new Error('Session expired. Please login again.');
+      } else {
+        const errorData = responseJson ?? {};
+        lastError = new Error(
+          formatApiError(errorData, uploadResponse.status, uploadResponse.statusText, uploadUrl)
+        );
+      }
+      break;
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    const data = responseData as { url: string };
     // Return full URL
     return `${API_BASE_URL}${data.url}`;
   } catch (error) {
-    console.error('Image upload error:', error);
+    console.error('[upload] Network/client error object:', {
+      url: uploadUrl,
+      hasToken: hadAuthToken,
+      error,
+    });
     throw error instanceof Error ? error : new Error('Failed to upload image');
   }
 }

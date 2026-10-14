@@ -15,12 +15,20 @@
       "autoIncrement": true,
       "android": { "buildType": "apk" },
       "ios": { "simulator": false },
-      "env": { "EXPO_PUBLIC_API_URL": "https://tailorcraft.rogojan.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://tailorcraft-staging.rogojan.com" }
+    },
+    "staging": {
+      "distribution": "internal",
+      "autoIncrement": true,
+      "android": { "buildType": "apk" },
+      "ios": { "simulator": false },
+      "env": { "EXPO_PUBLIC_API_URL": "https://tailorcraft-staging.rogojan.com" }
     },
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
-      "ios": {}
+      "ios": {},
+      "env": { "EXPO_PUBLIC_API_URL": "https://tailorcraft.rogojan.com" }
     }
   }
 }

@@ -12,7 +12,7 @@ import {
 import { useSubscription, usePremium } from '@/contexts/SubscriptionContext';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, Spacing, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { CheckCircle, RefreshCw, ExternalLink } from 'lucide-react-native';
 import { showManageSubscriptionsIOS } from '@/lib/services/iapService';
 
@@ -23,7 +23,6 @@ import { showManageSubscriptionsIOS } from '@/lib/services/iapService';
 export function SubscriptionManagement({ onCancel }: { onCancel?: () => void }) {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
   const { restorePurchases, refreshSubscription, isIAPSupported } = useSubscription();
   const { isPremium: isPro, refreshEntitlements } = usePremium();
   const [isRestoring, setIsRestoring] = useState(false);
@@ -79,25 +78,25 @@ export function SubscriptionManagement({ onCancel }: { onCancel?: () => void }) 
   return (
     <View style={styles.container}>
       <View style={styles.section}>
-        <Text style={[typography.h3, { fontSize: 18, color: colors.textPrimary }, styles.sectionTitle]}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           {t('subscriptionManagement.subscriptionStatus')}
         </Text>
         <View style={styles.statusBlock}>
           <View style={styles.statusRow}>
-            <Text style={[typography.h3, { fontSize: 20 }]}>
+            <Text style={[styles.planName, { color: colors.textPrimary }]}>
               {isPro ? t('subscriptionManagement.planPro') : t('subscriptionManagement.planFree')}
             </Text>
             {isPro && (
               <View style={[styles.activeBadge, { backgroundColor: colors.successBg }]}>
-                <CheckCircle size={14} color={colors.success} />
-                <Text style={[typography.small, { color: colors.successText, fontWeight: '600' }]}>
+                <CheckCircle size={14} color={colors.pine ?? colors.success} />
+                <Text style={[styles.activeBadgeText, { color: colors.successText, fontWeight: '600' }]}>
                   {t('subscriptionManagement.active')}
                 </Text>
               </View>
             )}
           </View>
           {isPro && (
-            <Text style={[typography.caption, { color: colors.textSecondary }, styles.proHint]}>
+            <Text style={[styles.proHint, { color: colors.ink3 }]}>
               {t('subscriptionManagement.proHint')}
             </Text>
           )}
@@ -109,19 +108,19 @@ export function SubscriptionManagement({ onCancel }: { onCancel?: () => void }) 
           {!isPro && (
             <TouchableOpacity
               style={[
-                styles.button, 
-                { backgroundColor: colors.surface, borderColor: colors.primary },
+                styles.button,
+                { backgroundColor: colors.card, borderColor: colors.brass ?? colors.primary },
                 isRestoring && styles.buttonDisabled
               ]}
               onPress={handleRestore}
               disabled={isRestoring}
             >
               {isRestoring ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.brass ?? colors.primary} />
               ) : (
                 <>
-                  <RefreshCw size={18} color={colors.primary} strokeWidth={2} />
-                  <Text style={[typography.bodyBold, { color: colors.primary, fontSize: 16 }]}>
+                  <RefreshCw size={18} color={colors.brass ?? colors.primary} strokeWidth={2} />
+                  <Text style={[styles.buttonText, { color: colors.brass ?? colors.primary }]}>
                     {t('subscriptionManagement.restorePurchases')}
                   </Text>
                 </>
@@ -130,12 +129,12 @@ export function SubscriptionManagement({ onCancel }: { onCancel?: () => void }) 
           )}
 
           {isPro && (
-            <TouchableOpacity 
-              style={[styles.buttonSecondary, { backgroundColor: colors.background, borderColor: colors.border }]} 
+            <TouchableOpacity
+              style={[styles.buttonSecondary, { backgroundColor: colors.paper ?? colors.background, borderColor: colors.rule ?? colors.border }]}
               onPress={handleManageSubscription}
             >
-              <ExternalLink size={18} color={colors.primary} strokeWidth={2} />
-              <Text style={[typography.body, { color: colors.primary, fontSize: 15 }]}>
+              <ExternalLink size={18} color={colors.brass ?? colors.primary} strokeWidth={2} />
+              <Text style={[styles.buttonSecondaryText, { color: colors.brass ?? colors.primary }]}>
                 {t('subscriptionManagement.manageInStore')}
               </Text>
             </TouchableOpacity>
@@ -148,56 +147,82 @@ export function SubscriptionManagement({ onCancel }: { onCancel?: () => void }) 
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: Spacing.sm,
+    paddingVertical: AtelierSpacing.sm,
   },
   section: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   sectionTitle: {
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.md,
   },
   statusBlock: {
-    paddingVertical: Spacing.sm,
+    paddingVertical: AtelierSpacing.sm,
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
+  },
+  planName: {
+    fontFamily: FontFamily.serif,
+    fontSize: 20,
+    lineHeight: 26,
   },
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
+    gap: AtelierSpacing.xs,
+    paddingHorizontal: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.full,
+  },
+  activeBadgeText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   proHint: {
-    marginTop: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.xs,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
     borderWidth: 2,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
+    borderRadius: AtelierRadius.md,
+    marginBottom: AtelierSpacing.sm,
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  buttonText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 16,
+    lineHeight: 22,
   },
   buttonSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
     borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
+  },
+  buttonSecondaryText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

@@ -15,7 +15,7 @@ import {
   safeDisplayOrder,
 } from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { NumericMeasurementInput } from './NumericMeasurementInput';
 
 export interface MeasurementFormProps {
@@ -85,7 +85,7 @@ export function MeasurementForm({
     const editable = !isReadOnly && !resolved.isCalculated;
 
     if (!editable) {
-      return <Text style={[styles.readOnlyValue, { color: colors.textSecondary }]}>{displayStr}</Text>;
+      return <Text style={[styles.readOnlyValue, { color: colors.ink3 }]}>{displayStr}</Text>;
     }
 
     const handleChange = (v: MeasurementValue) => {
@@ -115,13 +115,13 @@ export function MeasurementForm({
                   key={opt}
                   style={[
                     styles.optionButton,
-                    { backgroundColor: colors.borderLight, borderColor: colors.border },
-                    sel === opt && { backgroundColor: colors.primary, borderColor: colors.primary }
+                    { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border },
+                    sel === opt && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary }
                   ]}
                   onPress={() => handleChange(opt)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.optionText, { color: colors.textSecondary }, sel === opt && { color: colors.textInverse }]}>
+                  <Text style={[styles.optionText, { color: colors.ink3 }, sel === opt && { color: colors.paper ?? '#EFE9DC' }]}>
                     {opt}
                   </Text>
                 </TouchableOpacity>
@@ -162,7 +162,7 @@ export function MeasurementForm({
             value={resolved.displayValue}
             onChangeText={(text) => handleChange(text)}
             placeholder={placeholder}
-            numberOfLines={def.multiline ? 4 : 1}
+            autoGrow
             containerStyle={styles.inputInField}
           />
         );
@@ -274,7 +274,7 @@ export function MeasurementDisplay({
       : resolved.displayLabel;
     return (
       <View style={rowStyle} key={def.key}>
-        <Text style={[styles.displayLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.displayLabel, { color: colors.ink3 }]}>{label}</Text>
         <Text style={[styles.displayValue, { color: colors.textPrimary }]}>{resolved.displayValue}</Text>
       </View>
     );
@@ -310,53 +310,61 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   displayRowCompact: {
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   displayLabel: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   displayValue: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   container: {
-    gap: Spacing.lg,
+    gap: AtelierSpacing.lg,
   },
   containerCompact: {
-    gap: Spacing.formFieldGap,
+    gap: AtelierSpacing.sm,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: Spacing.md,
-    marginBottom: Spacing.xs,
+    gap: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.xs,
   },
   rowCompact: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: Spacing.md,
-    marginBottom: Spacing.xs,
+    gap: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.xs,
   },
   fieldWrapper: {
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   fieldWrapperCompact: {
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   inputInField: {
     marginBottom: 0,
   },
   halfInput: {
     flex: 1,
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   halfInputCompact: {
     flex: 1,
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
   selectContainer: {
     minHeight: 44,
@@ -364,26 +372,28 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   optionButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingVertical: AtelierSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
+    borderRadius: AtelierRadius.md,
+    borderWidth: 1.5,
     height: 48,
   },
-  selectedOption: {
-  },
+  selectedOption: {},
   optionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
-  selectedOptionText: {
-  },
+  selectedOptionText: {},
   readOnlyValue: {
-    ...Typography.body,
-    paddingVertical: Spacing.sm,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    paddingVertical: AtelierSpacing.sm,
   },
 });

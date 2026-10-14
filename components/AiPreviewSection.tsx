@@ -23,7 +23,9 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Button } from '@/components/ui/Button';
 import { PaywallModal } from '@/components/subscription';
 import { Section } from '@/components/ui/Section';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { recordFeatureUsage } from '@/lib/diagnostics';
 import type {
   GeneratePreviewResponse,
   GetPreviewResponse,
@@ -53,20 +55,20 @@ async function getCachedImage(orderId: string): Promise<{ uri: string; createdAt
     await ensureCacheDir();
     const cacheFile = `${CACHE_DIR}order-${orderId}.json`;
     const fileInfo = await FileSystem.getInfoAsync(cacheFile);
-    
+
     if (!fileInfo.exists) return null;
-    
+
     const cacheData = await FileSystem.readAsStringAsync(cacheFile);
     const { imageUri, timestamp, createdAt } = JSON.parse(cacheData);
-    
+
     if (Date.now() - timestamp > CACHE_EXPIRY_MS) {
       await FileSystem.deleteAsync(cacheFile, { idempotent: true });
       return null;
     }
-    
+
     const imageInfo = await FileSystem.getInfoAsync(imageUri);
     if (!imageInfo.exists) return null;
-    
+
     return { uri: imageUri, createdAt };
   } catch {
     return null;
@@ -173,6 +175,9 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
   }, [orderId]);
 
   useEffect(() => {
+    if (FEATURE_FLAGS.aiParametricAvatarEnabled) {
+      recordFeatureUsage('ai.parametricAvatar');
+    }
     fetchExistingPreview();
   }, [fetchExistingPreview]);
 
@@ -320,11 +325,11 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
   if (fetching) {
     return (
       <Section title={t('aiPreview.sectionTitle')} style={styles.section}>
-        <View style={[styles.container, { backgroundColor: colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: colors.card }]}>
           <View style={styles.loadingContainer}>
-            <View style={[styles.skeletonImage, { backgroundColor: colors.border }]} />
+            <View style={[styles.skeletonImage, { backgroundColor: colors.rule ?? colors.border }]} />
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={colors.brass ?? colors.primary} />
             </View>
           </View>
         </View>
@@ -334,7 +339,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
 
   return (
     <Section title={t('aiPreview.sectionTitle')} style={styles.section}>
-      <View style={[styles.container, { backgroundColor: colors.surface }]}>
+      <View style={[styles.container, { backgroundColor: colors.card }]}>
         {imageUri ? (
           <View style={styles.previewContainer}>
             <TouchableOpacity
@@ -346,19 +351,19 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                 key={previewCreatedAt ?? imageUri}
                 source={{ uri: imageUri }}
                 style={styles.previewImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
               <View style={styles.zoomOverlay}>
-                <ZoomIn size={20} color={colors.textInverse} />
+                <ZoomIn size={20} color={colors.paper ?? '#EFE9DC'} />
               </View>
             </TouchableOpacity>
-            
+
             {previewCreatedAt && (
-              <Text style={[styles.createdAtText, { color: colors.textSecondary }]}>
+              <Text style={[styles.createdAtText, { color: colors.ink3 }]}>
                 {t('aiPreview.generatedOn', { date: formatPreviewDate(previewCreatedAt) })}
               </Text>
             )}
-            
+
             <View style={styles.previewActions}>
               <Button
                 variant="secondary"
@@ -367,9 +372,9 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                 disabled={loading || !canGenerate}
                 leftIcon={
                   loading ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
+                    <ActivityIndicator size="small" color={colors.brass ?? colors.primary} />
                   ) : (
-                    <RefreshCw size={16} color={canGenerate ? colors.primary : colors.textTertiary} />
+                    <RefreshCw size={16} color={canGenerate ? colors.brass ?? colors.primary : colors.ink4 ?? colors.textTertiary} />
                   )
                 }
                 style={styles.regenerateButton}
@@ -378,26 +383,32 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
               </Button>
             </View>
 
+            {FEATURE_FLAGS.aiParametricAvatarEnabled && (
+              <Text style={[styles.avatarHint, { color: colors.ink3 }]}>
+                AI folosește profil parametric (talie, bust, șold) când măsurile sunt disponibile.
+              </Text>
+            )}
+
             {(prompt != null && prompt !== '') && (
-              <View style={[styles.promptBlock, { backgroundColor: colors.borderLight }]}>
+              <View style={[styles.promptBlock, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}>
                 <TouchableOpacity
                   style={styles.promptHeader}
                   onPress={() => setPromptExpanded((e) => !e)}
                   activeOpacity={0.7}
                 >
-                  <FileText size={18} color={colors.textSecondary} />
+                  <FileText size={18} color={colors.ink3} />
                   <Text style={[styles.promptHeaderText, { color: colors.textPrimary }]}>
                     {t('aiPreview.promptLabel')}
                   </Text>
                   {promptExpanded ? (
-                    <ChevronUp size={20} color={colors.textSecondary} />
+                    <ChevronUp size={20} color={colors.ink3} />
                   ) : (
-                    <ChevronDown size={20} color={colors.textSecondary} />
+                    <ChevronDown size={20} color={colors.ink3} />
                   )}
                 </TouchableOpacity>
                 {promptExpanded && (
                   <View style={styles.promptContent}>
-                    <Text style={[styles.promptText, { color: colors.textSecondary }]} numberOfLines={10}>
+                    <Text style={[styles.promptText, { color: colors.ink3 }]} numberOfLines={10}>
                       {prompt}
                     </Text>
                     <View style={styles.promptActions}>
@@ -405,7 +416,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                         variant="secondary"
                         size="sm"
                         onPress={openEditPrompt}
-                        leftIcon={<Edit3 size={14} color={colors.primary} />}
+                        leftIcon={<Edit3 size={14} color={colors.brass ?? colors.primary} />}
                         style={styles.promptActionButton}
                       >
                         {t('aiPreview.editPrompt')}
@@ -415,7 +426,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                         size="sm"
                         onPress={handleRegenerateWithPrompt}
                         disabled={loading || !canGenerate}
-                        leftIcon={<RefreshCw size={14} color={canGenerate ? colors.primary : colors.textTertiary} />}
+                        leftIcon={<RefreshCw size={14} color={canGenerate ? colors.brass ?? colors.primary : colors.ink4 ?? colors.textTertiary} />}
                         style={styles.promptActionButton}
                       >
                         {t('aiPreview.regenerateWithPrompt')}
@@ -430,20 +441,20 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
           <View style={styles.emptyContainer}>
             {loading ? (
               <View style={styles.loadingContainer}>
-                <View style={[styles.skeletonImage, { backgroundColor: colors.border }]} />
+                <View style={[styles.skeletonImage, { backgroundColor: colors.rule ?? colors.border }]} />
                 <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.loadingText, { color: colors.primary }]}>{t('aiPreview.generating')}</Text>
-                  <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>{t('aiPreview.generatingSubtext')}</Text>
+                  <ActivityIndicator size="large" color={colors.brass ?? colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.brass ?? colors.primary }]}>{t('aiPreview.generating')}</Text>
+                  <Text style={[styles.loadingSubtext, { color: colors.ink3 }]}>{t('aiPreview.generatingSubtext')}</Text>
                 </View>
               </View>
             ) : (
               <>
-                <View style={[styles.emptyIcon, { backgroundColor: colors.primaryLight }]}>
-                  <Sparkles size={32} color={colors.primary} />
+                <View style={[styles.emptyIcon, { backgroundColor: (colors.brassPale ?? colors.brass) + '18' }]}>
+                  <Sparkles size={32} color={colors.brass ?? colors.primary} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{t('aiPreview.emptyTitle')}</Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>{t('aiPreview.emptySubtitle')}</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.ink3 }]}>{t('aiPreview.emptySubtitle')}</Text>
 
                 <Button
                   variant="primary"
@@ -453,21 +464,21 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                   leftIcon={
                     <Sparkles
                       size={18}
-                      color={colors.textInverse}
+                      color={colors.paper ?? '#EFE9DC'}
                     />
                   }
                   style={styles.generateButton}
                 >
                   {t('aiPreview.generateButton')}
                 </Button>
-                
+
                 {isDraft && (
-                  <View style={[styles.disclaimerContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <View style={[styles.disclaimerContainer, { backgroundColor: colors.paper ?? colors.background, borderColor: colors.rule ?? colors.border }]}>
                     <View style={styles.disclaimerHeader}>
-                      <FileText size={18} color={colors.textSecondary} />
-                      <Text style={[styles.disclaimerTitle, { color: colors.textSecondary }]}>{t('aiPreview.draftHint')}</Text>
+                      <FileText size={18} color={colors.ink3} />
+                      <Text style={[styles.disclaimerTitle, { color: colors.ink3 }]}>{t('aiPreview.draftHint')}</Text>
                     </View>
-                    <Text style={[styles.disclaimerText, { color: colors.textSecondary }]}>{t('aiPreview.draftDisclaimer')}</Text>
+                    <Text style={[styles.disclaimerText, { color: colors.ink3 }]}>{t('aiPreview.draftDisclaimer')}</Text>
                   </View>
                 )}
               </>
@@ -490,10 +501,10 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
         >
           <View style={styles.editModalRoot}>
             <TouchableWithoutFeedback onPress={() => !savingPrompt && setEditPromptVisible(false)}>
-              <View style={[styles.editModalOverlay, { backgroundColor: colors.overlayModal }]} />
+              <View style={[styles.editModalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
             </TouchableWithoutFeedback>
             <View style={styles.editModalCentered} pointerEvents="box-none">
-              <View style={[styles.editModalCard, { maxWidth: EDIT_MODAL_MAX_WIDTH, backgroundColor: colors.surface }]}>
+              <View style={[styles.editModalCard, { maxWidth: EDIT_MODAL_MAX_WIDTH, backgroundColor: colors.card }]}>
                 <View style={styles.editModalHeader}>
                   <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>
                     {t('aiPreview.editPrompt')}
@@ -504,23 +515,23 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                     disabled={savingPrompt}
                     activeOpacity={0.7}
                   >
-                    <X size={22} color={colors.textSecondary} strokeWidth={2.5} />
+                    <X size={22} color={colors.ink3} strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.editModalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                   <TextInput
-                    style={[styles.editPromptInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                    style={[styles.editPromptInput, { color: colors.textPrimary, borderColor: colors.rule ?? colors.border, fontFamily: FontFamily.sans, fontSize: 15, lineHeight: 22 }]}
                     value={editPromptValue}
                     onChangeText={setEditPromptValue}
                     placeholder={t('aiPreview.promptPlaceholder')}
-                    placeholderTextColor={colors.textTertiary}
+                    placeholderTextColor={colors.ink4 ?? colors.textTertiary}
                     multiline
                     numberOfLines={6}
                     textAlignVertical="top"
                     editable={!savingPrompt}
                   />
                 </ScrollView>
-                <View style={[styles.editModalActions, { borderTopColor: colors.border }]}>
+                <View style={[styles.editModalActions, { borderTopColor: colors.rule ?? colors.border }]}>
                   <Button
                     variant="secondary"
                     onPress={() => !savingPrompt && setEditPromptVisible(false)}
@@ -533,7 +544,7 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                     variant="primary"
                     onPress={savePrompt}
                     disabled={savingPrompt || !editPromptValue.trim()}
-                    leftIcon={savingPrompt ? <ActivityIndicator size="small" color={colors.textInverse} /> : undefined}
+                    leftIcon={savingPrompt ? <ActivityIndicator size="small" color={colors.paper ?? '#EFE9DC'} /> : undefined}
                     style={styles.editModalSaveBtn}
                   >
                     {savingPrompt ? t('common.saving') : t('common.save')}
@@ -546,10 +557,10 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
 
         <ZoomableImageViewer
           visible={fullscreenVisible}
-          images={imageUri ? [{ 
-            uri: imageUri, 
+          images={imageUri ? [{
+            uri: imageUri,
             title: t('aiPreview.sectionTitle'),
-            description: previewCreatedAt ? formatPreviewDate(previewCreatedAt) : undefined 
+            description: previewCreatedAt ? formatPreviewDate(previewCreatedAt) : undefined
           }] : []}
           initialIndex={0}
           onClose={() => setFullscreenVisible(false)}
@@ -568,13 +579,13 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   container: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginHorizontal: Spacing.md,
-    ...Shadows.md,
+    borderRadius: AtelierRadius.xl,
+    padding: AtelierSpacing.lg,
+    marginHorizontal: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   previewContainer: {
     alignItems: 'center',
@@ -582,7 +593,7 @@ const styles = StyleSheet.create({
   imageWrapper: {
     width: '100%',
     aspectRatio: 3 / 4,
-    borderRadius: BorderRadius.xl,
+    borderRadius: AtelierRadius.xl,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -592,78 +603,94 @@ const styles = StyleSheet.create({
   },
   zoomOverlay: {
     position: 'absolute',
-    bottom: Spacing.md,
-    right: Spacing.md,
+    bottom: AtelierSpacing.md,
+    right: AtelierSpacing.md,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: BorderRadius.full,
-    padding: Spacing.sm,
+    borderRadius: AtelierRadius.full,
+    padding: AtelierSpacing.sm,
   },
   createdAtText: {
-    ...Typography.caption,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.md,
     textAlign: 'center',
   },
   previewActions: {
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
     width: '100%',
     alignItems: 'center',
+  },
+  avatarHint: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.sm,
+    textAlign: 'center',
+    paddingHorizontal: AtelierSpacing.md,
   },
   regenerateButton: {
     minWidth: 160,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: Spacing.xl,
+    paddingVertical: AtelierSpacing.xl,
   },
   emptyIcon: {
     width: 72,
     height: 72,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   emptyTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   emptySubtitle: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginBottom: Spacing.xl,
-    paddingHorizontal: Spacing.md,
-    lineHeight: 20,
+    marginBottom: AtelierSpacing.xl,
+    paddingHorizontal: AtelierSpacing.md,
   },
   generateButton: {
     minWidth: 220,
   },
   disclaimerContainer: {
     width: '100%',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.lg,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginTop: AtelierSpacing.lg,
     borderWidth: 1,
   },
   disclaimerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   disclaimerTitle: {
-    ...Typography.bodyBold,
-    marginLeft: Spacing.sm,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginLeft: AtelierSpacing.sm,
   },
   premiumDisclaimerTitle: {
   },
   disclaimerText: {
-    ...Typography.small,
-    lineHeight: 18,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   loadingContainer: {
     width: '100%',
     aspectRatio: 3 / 4,
-    borderRadius: BorderRadius.xl,
+    borderRadius: AtelierRadius.xl,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -678,52 +705,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    ...Typography.bodyBold,
-    marginTop: Spacing.lg,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: AtelierSpacing.lg,
   },
   loadingSubtext: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    marginTop: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
   },
   errorContainer: {
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    marginTop: AtelierSpacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
   },
   errorText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
   },
   promptBlock: {
-    marginTop: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
+    marginTop: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.sm,
     width: '100%',
   },
   promptHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.sm,
+    gap: AtelierSpacing.sm,
+    padding: AtelierSpacing.sm,
   },
   promptHeaderText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
     flex: 1,
   },
   promptContent: {
-    padding: Spacing.sm,
+    padding: AtelierSpacing.sm,
     paddingTop: 0,
   },
   promptText: {
-    ...Typography.small,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.md,
   },
   promptActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   promptActionButton: {
     minWidth: 120,
@@ -739,25 +776,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   editModalCard: {
     width: '100%',
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Shadows.xl,
+    borderRadius: AtelierRadius.lg,
+    ...AtelierShadow.elevated,
     overflow: 'hidden',
   },
   editModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   editModalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     flex: 1,
     maxWidth: '80%',
   },
@@ -769,20 +808,19 @@ const styles = StyleSheet.create({
   },
   editModalScroll: {
     maxHeight: 280,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
   },
   editPromptInput: {
-    ...Typography.body,
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
     minHeight: 140,
   },
   editModalActions: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    padding: Spacing.lg,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
   editModalCancelBtn: {

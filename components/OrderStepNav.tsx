@@ -9,7 +9,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, getShadows, Spacing, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 interface OrderStepNavProps {
   showPrev: boolean;
@@ -34,21 +34,26 @@ export function OrderStepNav({
 }: OrderStepNavProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
-  const shadows = getShadows(colors);
   const displayPrevLabel = prevLabel ?? t('stepNav.back');
   const displayNextLabel = nextLabel ?? t('stepNav.next');
-  
+  const brassColor = colors.brass ?? colors.primary;
+  const paperColor = colors.paper ?? '#EFE9DC';
+
   return (
-    <View style={[styles.container, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+    <View
+      style={[
+        styles.container,
+        { borderTopColor: colors.rule ?? colors.border, backgroundColor: colors.paper ?? colors.background },
+      ]}
+    >
       {showPrev ? (
         <TouchableOpacity
-          style={[styles.prevButton, { borderColor: colors.primary, backgroundColor: colors.surface }]}
+          style={[styles.prevButton, { borderColor: brassColor, backgroundColor: colors.card }]}
           onPress={onPrev}
           activeOpacity={0.7}
         >
-          <ChevronLeft size={22} color={colors.primary} strokeWidth={2.5} />
-          <Text style={[typography.bodyBold, { color: colors.primary }]}>{displayPrevLabel}</Text>
+          <ChevronLeft size={22} color={brassColor} strokeWidth={2.5} />
+          <Text style={[styles.btnLabel, { color: brassColor }]}>{displayPrevLabel}</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.spacer} />
@@ -56,21 +61,20 @@ export function OrderStepNav({
       {showNext ? (
         <TouchableOpacity
           style={[
-            styles.nextButton, 
-            { borderColor: colors.primary, backgroundColor: colors.primary },
-            shadows.primary,
-            nextDisabled && styles.nextButtonDisabled
+            styles.nextButton,
+            { backgroundColor: brassColor },
+            nextDisabled && styles.nextButtonDisabled,
           ]}
           onPress={onNext}
           disabled={nextDisabled || nextLoading}
           activeOpacity={0.7}
         >
           {nextLoading ? (
-            <ActivityIndicator size="small" color={colors.textInverse} />
+            <ActivityIndicator size="small" color={paperColor} />
           ) : (
             <>
-              <Text style={[typography.bodyBold, { color: colors.textInverse }]}>{displayNextLabel}</Text>
-              <ChevronRight size={22} color={colors.textInverse} strokeWidth={2.5} />
+              <Text style={[styles.btnLabel, { color: paperColor }]}>{displayNextLabel}</Text>
+              <ChevronRight size={22} color={paperColor} strokeWidth={2.5} />
             </>
           )}
         </TouchableOpacity>
@@ -86,33 +90,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.lg,
     borderTopWidth: 1,
-    ...Shadows.sm,
   },
   prevButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
+    gap: AtelierSpacing.xs,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
+    borderWidth: 1.5,
   },
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
+    gap: AtelierSpacing.xs,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.md,
   },
-  nextButtonDisabled: {
-    opacity: 0.5,
+  nextButtonDisabled: { opacity: 0.5 },
+  btnLabel: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  spacer: {
-    flex: 1,
-  },
+  spacer: { flex: 1 },
 });

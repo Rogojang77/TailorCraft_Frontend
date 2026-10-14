@@ -22,6 +22,7 @@ export interface DiagnosticsSnapshot {
   lastSubscriptionFetch: SubscriptionFetchRecord | null;
   lastAuthRefresh: AuthRefreshRecord | null;
   lastDraftRestore: DraftRestoreRecord | null;
+  featureUsage: Record<string, number>;
 }
 
 const state: {
@@ -32,6 +33,7 @@ const state: {
   lastSubscriptionFetch: null,
   lastAuthRefresh: null,
   lastDraftRestore: null,
+  featureUsage: {},
 };
 
 export function getDiagnostics(): DiagnosticsSnapshot {
@@ -39,6 +41,7 @@ export function getDiagnostics(): DiagnosticsSnapshot {
     lastSubscriptionFetch: state.lastSubscriptionFetch,
     lastAuthRefresh: state.lastAuthRefresh,
     lastDraftRestore: state.lastDraftRestore,
+    featureUsage: { ...state.featureUsage },
   };
 }
 
@@ -52,4 +55,8 @@ export function recordAuthRefresh(result: 'success' | 'error'): void {
 
 export function recordDraftRestore(): void {
   state.lastDraftRestore = { timestamp: Date.now() };
+}
+
+export function recordFeatureUsage(featureKey: string): void {
+  state.featureUsage[featureKey] = (state.featureUsage[featureKey] ?? 0) + 1;
 }

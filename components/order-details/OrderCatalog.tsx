@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { resolveUploadUrl } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { OrderDetailsData } from '@/types/orderDetails';
 import type { GarmentTypeRecord } from '@/types/templates';
 import type { GarmentCatalogItem } from '@/types/catalog';
@@ -38,6 +38,16 @@ export function OrderCatalog({
 }: OrderCatalogProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [maxCatalogCardHeight, setMaxCatalogCardHeight] = useState(0);
+  const [catalogGridWidth, setCatalogGridWidth] = useState(0);
+
+  const catalogItemWidth = useMemo(() => {
+    const availableWidth = catalogGridWidth > 0 ? catalogGridWidth : screenWidth - AtelierSpacing.md * 4;
+    const columns = screenWidth > screenHeight ? 3 : 2;
+    const totalGapWidth = AtelierSpacing.sm * Math.max(0, columns - 1);
+    return (availableWidth - totalGapWidth) / columns;
+  }, [catalogGridWidth, screenHeight, screenWidth]);
 
   const catalogSelections = orderData.catalogSelections;
   if (!catalogSelections || Object.keys(catalogSelections).length === 0) return null;
@@ -63,7 +73,7 @@ export function OrderCatalog({
         const isExpanded = catalogSectionsExpanded[garmentId] !== false;
 
         return (
-          <View key={`catalog-${garmentId}`} style={[styles.section, { backgroundColor: colors.surface }]}>
+          <View key={`catalog-${garmentId}`} style={[styles.section, { backgroundColor: colors.card }]}>
             <TouchableOpacity
               style={[styles.sectionHeader, { justifyContent: 'space-between' }]}
               onPress={() => onToggleSection(garmentId)}
@@ -73,13 +83,21 @@ export function OrderCatalog({
             >
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{title}</Text>
               {isExpanded ? (
-                <ChevronUp size={20} color={colors.textSecondary} style={styles.catalogSectionChevron} />
+                <ChevronUp size={20} color={colors.ink3} style={styles.catalogSectionChevron} />
               ) : (
-                <ChevronDown size={20} color={colors.textSecondary} style={styles.catalogSectionChevron} />
+                <ChevronDown size={20} color={colors.ink3} style={styles.catalogSectionChevron} />
               )}
             </TouchableOpacity>
             {isExpanded && (
-              <View style={styles.catalogSelectionsGrid}>
+              <View
+                style={styles.catalogSelectionsGrid}
+                onLayout={(event) => {
+                  const nextWidth = event.nativeEvent.layout.width;
+                  if (nextWidth > 0 && Math.abs(nextWidth - catalogGridWidth) > 0.5) {
+                    setCatalogGridWidth(nextWidth);
+                  }
+                }}
+              >
                 {Object.entries(selections).map(([categoryCode, itemIdOrIds]) => {
                   const itemId = Array.isArray(itemIdOrIds) ? itemIdOrIds[0] : itemIdOrIds;
                   if (!itemId) return null;
@@ -88,14 +106,31 @@ export function OrderCatalog({
                     resolvedCatalogCategoryLabels[categoryCode] ??
                     t(`catalog.categories.${categoryCode}`, { defaultValue: categoryCode });
                   const row = (
-                    <View style={[styles.catalogSelectionItem, { backgroundColor: colors.borderLight }]}>
-                      <Text style={[styles.catalogSelectionLabel, { color: colors.textSecondary }]}>{categoryLabel}</Text>
+                    <View
+                      onLayout={(event) => {
+                        const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+                        if (measuredHeight > maxCatalogCardHeight) {
+                          setMaxCatalogCardHeight(measuredHeight);
+                        }
+                      }}
+                      style={[
+                        styles.catalogSelectionItem,
+                        {
+                          backgroundColor: colors.ruleSoft ?? colors.rule,
+                          width: catalogItemWidth,
+                          minWidth: catalogItemWidth,
+                          maxWidth: catalogItemWidth,
+                          minHeight: maxCatalogCardHeight || undefined,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.catalogSelectionLabel, { color: colors.ink3 }]}>{categoryLabel}</Text>
                       <View style={styles.catalogSelectionValueRow}>
                         {item?.imageUrl ? (
                           <Image source={{ uri: resolveUploadUrl(item.imageUrl) ?? '' }} style={styles.catalogSelectionThumb} />
                         ) : null}
                         {item?.color && (
-                          <View style={[styles.catalogColorSwatch, { backgroundColor: item.color, borderColor: colors.border }]} />
+                          <View style={[styles.catalogColorSwatch, { backgroundColor: item.color, borderColor: colors.rule }]} />
                         )}
                         <Text style={[styles.catalogSelectionValue, { color: colors.textPrimary }]}>{item?.name ?? itemId}</Text>
                       </View>
@@ -124,50 +159,55 @@ export function OrderCatalog({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: Spacing.md,
-    marginHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    ...Shadows.md,
+    marginBottom: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.elevated,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   sectionTitle: {
-    ...Typography.bodyBold,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    flex: 1,
   },
   catalogSectionChevron: {
-    marginLeft: Spacing.sm,
+    marginLeft: AtelierSpacing.sm,
   },
   catalogSelectionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   catalogSelectionItem: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
-    flex: 1,
-    minWidth: '45%',
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
+    flexGrow: 0,
+    flexShrink: 0,
   },
   catalogSelectionLabel: {
-    ...Typography.small,
-    fontWeight: '600',
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 10,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: AtelierSpacing.xs,
   },
   catalogSelectionValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   catalogSelectionThumb: {
     width: 32,
     height: 32,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
+    resizeMode: 'contain',
   },
   catalogColorSwatch: {
     width: 14,
@@ -176,7 +216,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   catalogSelectionValue: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 20,
     flex: 1,
   },
 });

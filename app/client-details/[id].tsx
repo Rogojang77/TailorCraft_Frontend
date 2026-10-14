@@ -11,6 +11,8 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
   Image,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,11 +27,12 @@ import { Button } from '@/components/ui/Button';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Section } from '@/components/ui/Section';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
-import { api, apiFetch, getLocalizedApiMessage, uploadImage, API_BASE_URL } from '@/lib/api';
+import { api, apiFetch, getLocalizedApiMessage, getErrorMessage, uploadImage, API_BASE_URL } from '@/lib/api';
 import { orderStatusToLabel, orderItemsFromMeasurements, formatDate, customerFullName } from '@/lib/api';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useI18n } from '@/lib/i18n';
-import { Spacing, Typography, ButtonStyles, HeaderStyles, Shadows, BorderRadius, CardStyles, StatusStyles, CompactLayoutStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type Gender = 'male' | 'female' | null;
@@ -48,6 +51,7 @@ type ClientData = {
   notes: string | null;
   gender: Gender;
   referenceImage: string | null;
+  measurementAppointmentAt: string | null;
 };
 
 type OrderHistoryEntry = {
@@ -66,8 +70,8 @@ type OrderHistoryEntry = {
 export default function ClientDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useI18n();
-  const { colors } = useTheme();
+  const { t, locale } = useI18n();
+  const { colors, isDark } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [clientData, setClientData] = useState<ClientData | null>(null);
@@ -85,7 +89,10 @@ export default function ClientDetailsScreen() {
   const [imageUploading, setImageUploading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
-  
+  const [measurementSaving, setMeasurementSaving] = useState(false);
+  const [showMeasurementIosPicker, setShowMeasurementIosPicker] = useState(false);
+  const [iosMeasurementDraft, setIosMeasurementDraft] = useState<Date>(new Date());
+
   // Track component mount state for cleanup
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -111,6 +118,7 @@ export default function ClientDetailsScreen() {
           notes: string | null;
           gender: Gender;
           referenceImage: string | null;
+          measurementAppointmentAt?: string | null;
           createdAt: string;
           updatedAt?: string;
           _count?: { orders: number };
@@ -139,6 +147,7 @@ export default function ClientDetailsScreen() {
         notes: customer.notes,
         gender: customer.gender === 'male' || customer.gender === 'female' ? customer.gender : null,
         referenceImage: customer.referenceImage,
+        measurementAppointmentAt: customer.measurementAppointmentAt ?? null,
       });
       setOrderHistory(
         orders.map((o) => ({
@@ -166,6 +175,25 @@ export default function ClientDetailsScreen() {
       }
     }
   }, [id]);
+
+  const formatMeasurementAppointment = useCallback(
+    (iso: string) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString(locale === 'ro' ? 'ro-RO' : 'en-US', {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        return iso;
+      }
+    },
+    [locale]
+  );
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -214,6 +242,88 @@ export default function ClientDetailsScreen() {
     setEditReferenceImage(null);
   };
 
+  const persistMeasurementAppointment = async (value: Date | null) => {
+    if (!clientData || !id || measurementSaving) return;
+    setMeasurementSaving(true);
+    try {
+      const updated = await apiFetch<{
+        measurementAppointmentAt?: string | null;
+      }>(api.customers(id), {
+        method: 'PUT',
+        body: JSON.stringify({
+          measurementAppointmentAt: value ? value.toISOString() : null,
+        }),
+      });
+      setClientData((prev) =>
+        prev
+          ? {
+              ...prev,
+              measurementAppointmentAt: updated.measurementAppointmentAt ?? null,
+            }
+          : prev
+      );
+    } catch (e) {
+      Alert.alert(t('common.error'), getLocalizedApiMessage(e, t, t('clientDetails.saveError')));
+    } finally {
+      setMeasurementSaving(false);
+    }
+  };
+
+  const toggleMeasurementIosPicker = () => {
+    if (measurementSaving) return;
+    if (showMeasurementIosPicker) {
+      setShowMeasurementIosPicker(false);
+      return;
+    }
+    const base = clientData?.measurementAppointmentAt
+      ? new Date(clientData.measurementAppointmentAt)
+      : new Date();
+    setIosMeasurementDraft(base);
+    setShowMeasurementIosPicker(true);
+  };
+
+  const openMeasurementAppointmentPickerAndroid = () => {
+    if (!clientData || measurementSaving) return;
+    const base = clientData.measurementAppointmentAt
+      ? new Date(clientData.measurementAppointmentAt)
+      : new Date();
+    DateTimePickerAndroid.open({
+      value: base,
+      mode: 'date',
+      onChange: (event, date) => {
+        if (event.type !== 'set' || !date) return;
+        DateTimePickerAndroid.open({
+          value: date,
+          mode: 'time',
+          is24Hour: true,
+          onChange: (timeEvent, timeValue) => {
+            if (timeEvent.type !== 'set' || !timeValue) return;
+            const next = new Date(date);
+            next.setHours(timeValue.getHours(), timeValue.getMinutes(), 0, 0);
+            void persistMeasurementAppointment(next);
+          },
+        });
+      },
+    });
+  };
+
+  const onPressMeasurementRow = () => {
+    if (Platform.OS === 'android') {
+      openMeasurementAppointmentPickerAndroid();
+    } else {
+      toggleMeasurementIosPicker();
+    }
+  };
+
+  const handleMeasurementIosDone = () => {
+    void persistMeasurementAppointment(iosMeasurementDraft);
+    setShowMeasurementIosPicker(false);
+  };
+
+  const handleMeasurementIosChange = (_event: { type: string }, selected?: Date) => {
+    if (selected) setIosMeasurementDraft(selected);
+  };
+
   const handlePickReferenceImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -223,8 +333,6 @@ export default function ClientDetailsScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
       quality: 0.8,
     });
 
@@ -234,7 +342,7 @@ export default function ClientDetailsScreen() {
         const imageUrl = await uploadImage(result.assets[0].uri);
         setEditReferenceImage(imageUrl);
       } catch (e) {
-        Alert.alert(t('common.error'), t('clients.edit.imageUploadError'));
+        Alert.alert(t('common.error'), getErrorMessage(e, t('clients.edit.imageUploadError')));
       } finally {
         setImageUploading(false);
       }
@@ -291,6 +399,7 @@ export default function ClientDetailsScreen() {
         notes: string | null;
         gender: Gender;
         referenceImage: string | null;
+        measurementAppointmentAt?: string | null;
         createdAt: string;
         _count?: { orders: number };
       }>(api.customers(id), {
@@ -309,6 +418,7 @@ export default function ClientDetailsScreen() {
         notes: updated.notes,
         gender: updated.gender,
         referenceImage: updated.referenceImage,
+        measurementAppointmentAt: updated.measurementAppointmentAt ?? clientData.measurementAppointmentAt,
       });
 
       // Update order history client name
@@ -391,14 +501,14 @@ export default function ClientDetailsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Client details card (tappable to edit, like order-details payment card) */}
         <TouchableOpacity
-          style={[styles.section, { backgroundColor: colors.surface }]}
+          style={[styles.section, { backgroundColor: colors.card }]}
           onPress={handleEdit}
           activeOpacity={0.9}
         >
           <View style={styles.clientHeaderRow}>
             <View style={styles.clientHeader}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.avatarText, { color: colors.textInverse }]}>
+            <View style={[styles.avatar, { backgroundColor: colors.brassPale ?? colors.brass ?? colors.primary }]}>
+                <Text style={[styles.avatarText, { color: colors.brassDeep ?? colors.brass ?? '#9C7A3E' }]}>
                   {clientData.name.split(' ').map((n) => n[0]).join('').toUpperCase()}
                 </Text>
               </View>
@@ -408,41 +518,98 @@ export default function ClientDetailsScreen() {
             </View>
             <View style={styles.actionButtons}>
               <Button variant="dangerIcon" onPress={handleDeleteRequest} accessibilityLabel={t('common.delete')}>
-                <Trash2 size={18} color={colors.error} strokeWidth={2.5} />
+                <Trash2 size={18} color={colors.ember ?? colors.error} strokeWidth={2.5} />
               </Button>
             </View>
           </View>
 
           <View style={styles.contactInfo}>
             <View style={styles.contactRow}>
-              <Phone size={16} color={colors.textSecondary} />
-              <Text style={[styles.contactText, { color: colors.textSecondary }]}>{clientData.phone}</Text>
+              <Phone size={16} color={colors.ink3} />
+              <Text style={[styles.contactText, { color: colors.ink3 }]}>{clientData.phone}</Text>
             </View>
             {clientData.email ? (
               <View style={styles.contactRow}>
-                <Mail size={16} color={colors.textSecondary} />
-                <Text style={[styles.contactText, { color: colors.textSecondary }]}>{clientData.email}</Text>
+                <Mail size={16} color={colors.ink3} />
+                <Text style={[styles.contactText, { color: colors.ink3 }]}>{clientData.email}</Text>
               </View>
             ) : null}
             <View style={styles.contactRow}>
-              <Calendar size={16} color={colors.textSecondary} />
-              <Text style={[styles.contactText, { color: colors.textSecondary }]}>{t('clientDetails.clientSince')}: {clientData.registrationDate}</Text>
+              <Calendar size={16} color={colors.ink3} />
+              <Text style={[styles.contactText, { color: colors.ink3 }]}>{t('clientDetails.clientSince')}: {clientData.registrationDate}</Text>
             </View>
           </View>
 
           {clientData.notes ? (
-            <View style={[styles.notes, { backgroundColor: colors.warningBg, borderLeftColor: colors.primary }]}>
-              <Text style={[styles.notesTitle, { color: colors.warningText }]}>{t('clientDetails.notesTitle')}</Text>
-              <Text style={[styles.notesText, { color: colors.warningText }]}>{clientData.notes}</Text>
+            <View style={[styles.notes, { backgroundColor: (colors.brassPale ?? colors.brass) + '15', borderLeftColor: colors.brass ?? colors.primary }]}>
+              <Text style={[styles.notesTitle, { color: colors.brassDeep ?? colors.brass }]}>{t('clientDetails.notesTitle')}</Text>
+              <Text style={[styles.notesText, { color: colors.textPrimary }]}>{clientData.notes}</Text>
             </View>
           ) : null}
         </TouchableOpacity>
 
+        <View style={[styles.section, styles.measurementSection, { backgroundColor: colors.card }]}>
+          <View style={styles.measurementSectionHeader}>
+            <Text style={[styles.measurementSectionTitle, { color: colors.textPrimary }]}>
+              {t('clientDetails.measurementAppointmentLabel')}
+            </Text>
+            {measurementSaving ? <ActivityIndicator size="small" color={colors.brass ?? colors.primary} /> : null}
+          </View>
+          <Text style={[styles.measurementHint, { color: colors.ink4 ?? colors.textTertiary }]}>
+            {t('clientDetails.measurementAppointmentHint')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.measurementDateSelector, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}
+            onPress={onPressMeasurementRow}
+            activeOpacity={0.7}
+            disabled={measurementSaving}
+          >
+            <View style={styles.measurementDateSelectorContent}>
+              <Calendar size={20} color={colors.ink3} />
+              <Text style={[styles.measurementDateValue, { color: colors.textPrimary }]}>
+                {clientData.measurementAppointmentAt
+                  ? formatMeasurementAppointment(clientData.measurementAppointmentAt)
+                  : t('clientDetails.measurementAppointmentNotSet')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          {clientData.measurementAppointmentAt ? (
+            <TouchableOpacity
+              onPress={() => void persistMeasurementAppointment(null)}
+              disabled={measurementSaving}
+              style={styles.measurementClearBtn}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.measurementClearText, { color: colors.ember ?? colors.error }]}>
+                {t('clientDetails.measurementAppointmentClear')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {Platform.OS === 'ios' && showMeasurementIosPicker ? (
+            <View style={styles.measurementPickerInline}>
+              <View style={styles.measurementPickerDoneRow}>
+                <TouchableOpacity onPress={handleMeasurementIosDone} activeOpacity={0.7} disabled={measurementSaving}>
+                  <Text style={[styles.measurementPickerDoneText, { color: colors.brass ?? colors.primary }]}>
+                    {t('common.done')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={iosMeasurementDraft}
+                mode="datetime"
+                display="spinner"
+                onChange={handleMeasurementIosChange}
+                textColor={colors.textPrimary}
+                themeVariant={isDark ? 'dark' : 'light'}
+              />
+            </View>
+          ) : null}
+        </View>
+
         <Section
           title={t('orders.tabs.orderHistory')}
-          style={CompactLayoutStyles.compactSection}
           headerRight={
-            <Button variant="primary" size="sm" onPress={handleNewOrder} leftIcon={<Plus size={16} color={colors.textInverse} />} style={styles.newOrderButton}>
+            <Button variant="primary" size="sm" onPress={handleNewOrder} leftIcon={<Plus size={16} color={colors.paper ?? '#EFE9DC'} />} style={styles.newOrderButton}>
               {t('newOrder.title')}
             </Button>
           }
@@ -457,12 +624,11 @@ export default function ClientDetailsScreen() {
                 onPress={() => handleOrderPress(item.id)}
               />
             )}
-            ListEmptyComponent={<Text style={[styles.emptyOrders, { color: colors.textSecondary }]}>{t('orders.emptyOrders')}</Text>}
+            ListEmptyComponent={<Text style={[styles.emptyOrders, { color: colors.ink3 }]}>{t('orders.emptyOrders')}</Text>}
             contentContainerStyle={styles.ordersList}
-            // Performance optimizations
             initialNumToRender={10}
             maxToRenderPerBatch={8}
-            removeClippedSubviews={false} // Small list, no need to clip
+            removeClippedSubviews={false}
           />
         </Section>
 
@@ -478,10 +644,10 @@ export default function ClientDetailsScreen() {
       >
         <View style={styles.modalRoot}>
           <TouchableWithoutFeedback onPress={handleCloseEditModal}>
-            <View style={[styles.modalOverlay, { backgroundColor: colors.overlayModal }]} />
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
           </TouchableWithoutFeedback>
           <View style={styles.modalCentered} pointerEvents="box-none">
-            <View style={[styles.editModalCard, { backgroundColor: colors.surface }]}>
+            <View style={[styles.editModalCard, { backgroundColor: colors.card }]}>
               <View style={styles.editModalHeader}>
                 <Text style={[styles.editModalTitle, { color: colors.textPrimary }]}>{t('clientDetails.editTitle')}</Text>
                 <TouchableOpacity
@@ -490,7 +656,7 @@ export default function ClientDetailsScreen() {
                   disabled={saveLoading}
                   activeOpacity={0.7}
                 >
-                  <X size={22} color={colors.textSecondary} strokeWidth={2.5} />
+                  <X size={22} color={colors.ink3} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
               <KeyboardAwareScrollView
@@ -503,7 +669,7 @@ export default function ClientDetailsScreen() {
                   value={editLastName}
                   onChangeText={setEditLastName}
                   placeholder={t('clientDetails.lastNamePlaceholder')}
-                  leftIcon={<User size={20} color={colors.textSecondary} />}
+                  leftIcon={<User size={20} color={colors.ink3} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -511,7 +677,7 @@ export default function ClientDetailsScreen() {
                   value={editFirstName}
                   onChangeText={setEditFirstName}
                   placeholder={t('clientDetails.firstNamePlaceholder')}
-                  leftIcon={<User size={20} color={colors.textSecondary} />}
+                  leftIcon={<User size={20} color={colors.ink3} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -520,7 +686,7 @@ export default function ClientDetailsScreen() {
                   onChangeText={setEditPhone}
                   placeholder={t('clientDetails.phonePlaceholder')}
                   keyboardType="phone-pad"
-                  leftIcon={<Phone size={20} color={colors.textSecondary} />}
+                  leftIcon={<Phone size={20} color={colors.ink3} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -531,7 +697,7 @@ export default function ClientDetailsScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   optional
-                  leftIcon={<Mail size={20} color={colors.textTertiary} />}
+                  leftIcon={<Mail size={20} color={colors.ink4 ?? colors.textTertiary} />}
                   containerStyle={styles.editModalInput}
                 />
                 <Input
@@ -539,7 +705,7 @@ export default function ClientDetailsScreen() {
                   value={editNotes}
                   onChangeText={setEditNotes}
                   placeholder={t('clientDetails.notesPlaceholder')}
-                  placeholderTextColor={colors.textTertiary}
+                  placeholderTextColor={colors.ink4 ?? colors.textTertiary}
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
@@ -555,8 +721,8 @@ export default function ClientDetailsScreen() {
                         key={gender}
                         style={[
                           styles.genderOption,
-                          { borderColor: colors.border, backgroundColor: colors.surface },
-                          editGender === gender && { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+                          { borderColor: colors.rule ?? colors.border, backgroundColor: colors.card },
+                          editGender === gender && { borderColor: colors.brass ?? colors.primary, backgroundColor: (colors.brassPale ?? colors.brass) + '18' },
                         ]}
                         onPress={() => setEditGender(gender)}
                         activeOpacity={0.7}
@@ -564,8 +730,8 @@ export default function ClientDetailsScreen() {
                         <Text
                           style={[
                             styles.genderOptionText,
-                            { color: colors.textSecondary },
-                            editGender === gender && { color: colors.primary },
+                            { color: colors.ink3 },
+                            editGender === gender && { color: colors.brass ?? colors.primary },
                           ]}
                         >
                           {t(`clients.edit.gender.${gender}`)}
@@ -578,9 +744,9 @@ export default function ClientDetailsScreen() {
                 {/* Reference Image */}
                 <View style={styles.editModalInput}>
                   <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>{t('clients.edit.referenceImageLabel')}</Text>
-                  <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>{t('clients.edit.referenceImageHint')}</Text>
+                  <Text style={[styles.fieldHint, { color: colors.ink4 ?? colors.textTertiary }]}>{t('clients.edit.referenceImageHint')}</Text>
                   {editReferenceImage ? (
-                    <View style={[styles.referenceImageContainer, { backgroundColor: colors.background }]}>
+                    <View style={[styles.referenceImageContainer, { backgroundColor: colors.paper ?? colors.background }]}>
                       <TouchableOpacity
                         onPress={() => setImageViewerVisible(true)}
                         activeOpacity={0.9}
@@ -593,7 +759,7 @@ export default function ClientDetailsScreen() {
                               : `${API_BASE_URL}${editReferenceImage}`,
                           }}
                           style={styles.referenceImage}
-                          resizeMode="cover"
+                          resizeMode="contain"
                         />
                         <View style={styles.zoomOverlay}>
                           <ZoomIn size={18} color="#FFFFFF" />
@@ -605,39 +771,39 @@ export default function ClientDetailsScreen() {
                           onPress={handlePickReferenceImage}
                           disabled={imageUploading}
                         >
-                          <Camera size={16} color={colors.primary} />
-                          <Text style={[styles.changeImageText, { color: colors.primary }]}>{t('clients.edit.changeImage')}</Text>
+                          <Camera size={16} color={colors.brass ?? colors.primary} />
+                          <Text style={[styles.changeImageText, { color: colors.brass ?? colors.primary }]}>{t('clients.edit.changeImage')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.removeImageBtn}
                           onPress={handleRemoveReferenceImage}
                           disabled={imageUploading}
                         >
-                          <X size={16} color={colors.error} />
-                          <Text style={[styles.removeImageText, { color: colors.error }]}>{t('clients.edit.removeImage')}</Text>
+                          <X size={16} color={colors.ember ?? colors.error} />
+                          <Text style={[styles.removeImageText, { color: colors.ember ?? colors.error }]}>{t('clients.edit.removeImage')}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   ) : (
                     <TouchableOpacity
-                      style={[styles.imagePicker, { borderColor: colors.border, backgroundColor: colors.background }]}
+                      style={[styles.imagePicker, { borderColor: colors.rule ?? colors.border, backgroundColor: colors.paper ?? colors.background }]}
                       onPress={handlePickReferenceImage}
                       disabled={imageUploading}
                       activeOpacity={0.7}
                     >
                       {imageUploading ? (
-                        <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.uploading')}</Text>
+                        <Text style={[styles.imagePickerText, { color: colors.ink4 ?? colors.textTertiary }]}>{t('clients.edit.uploading')}</Text>
                       ) : (
                         <>
-                          <ImageIcon size={32} color={colors.textTertiary} />
-                          <Text style={[styles.imagePickerText, { color: colors.textTertiary }]}>{t('clients.edit.addReferenceImage')}</Text>
+                          <ImageIcon size={32} color={colors.ink4 ?? colors.textTertiary} />
+                          <Text style={[styles.imagePickerText, { color: colors.ink4 ?? colors.textTertiary }]}>{t('clients.edit.addReferenceImage')}</Text>
                         </>
                       )}
                     </TouchableOpacity>
                   )}
                 </View>
               </KeyboardAwareScrollView>
-              <View style={[styles.editModalActions, { borderTopColor: colors.border }]}>
+              <View style={[styles.editModalActions, { borderTopColor: colors.rule ?? colors.border }]}>
                 <Button
                   variant="secondary"
                   onPress={handleCloseEditModal}
@@ -651,7 +817,7 @@ export default function ClientDetailsScreen() {
                   onPress={handleSave}
                   disabled={saveLoading || imageUploading}
                   loading={saveLoading}
-                  leftIcon={saveLoading ? undefined : <Save size={18} color={colors.textInverse} strokeWidth={2.5} />}
+                  leftIcon={saveLoading ? undefined : <Save size={18} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} />}
                   style={styles.editModalSaveBtn}
                 >
                   {t('common.save')}
@@ -690,20 +856,40 @@ export default function ClientDetailsScreen() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    paddingVertical: Spacing.md,
+    paddingVertical: AtelierSpacing.md,
   },
   section: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    ...Shadows.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.card,
+  },
+  measurementSection: {
+    marginBottom: AtelierSpacing.md,
+  },
+  measurementSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: AtelierSpacing.xs,
+  },
+  measurementSectionTitle: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  measurementHint: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.sm,
   },
   clientHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   clientHeader: {
     flexDirection: 'row',
@@ -713,7 +899,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   avatar: {
     width: 64,
@@ -721,51 +907,59 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
   },
   avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontFamily: FontFamily.serifItalic,
+    fontSize: 22,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.serif,
     fontSize: 22,
-    fontWeight: '700',
+    lineHeight: 28,
   },
   contactInfo: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    gap: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.md,
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   contactText: {
-    ...Typography.caption,
-    marginLeft: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: AtelierSpacing.sm,
   },
   notes: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     borderLeftWidth: 4,
   },
   notesTitle: {
-    ...Typography.captionBold,
-    fontWeight: '700',
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 10,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
   notesText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
     lineHeight: 20,
   },
   notesInput: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
     borderWidth: 1,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     minHeight: 100,
     textAlignVertical: 'top',
   },
@@ -773,27 +967,31 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   ordersList: {
-    gap: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    gap: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   bottomSpacer: {
-    height: Spacing.lg,
+    height: AtelierSpacing.lg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   loadingText: {
-    ...Typography.body,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: AtelierSpacing.md,
   },
   emptyOrders: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: AtelierSpacing.sm,
   },
   // Edit modal
   modalRoot: {
@@ -806,26 +1004,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   editModalCard: {
     width: '100%',
     maxWidth: EDIT_MODAL_MAX_WIDTH,
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Shadows.xl,
+    borderRadius: AtelierRadius.lg,
+    ...AtelierShadow.elevated,
     overflow: 'hidden',
   },
   editModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   editModalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   editModalCloseBtn: {
     width: 44,
@@ -835,15 +1035,15 @@ const styles = StyleSheet.create({
   },
   editModalScroll: {
     maxHeight: 450,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
   },
   editModalInput: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   editModalActions: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    padding: Spacing.lg,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
   editModalCancelBtn: {
@@ -853,49 +1053,101 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
   fieldHint: {
-    ...Typography.small,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.sm,
+  },
+  measurementDateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+  },
+  measurementDateSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AtelierSpacing.md,
+    flex: 1,
+  },
+  measurementDateValue: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    flex: 1,
+  },
+  measurementClearBtn: {
+    marginTop: AtelierSpacing.sm,
+    alignSelf: 'flex-start',
+  },
+  measurementClearText: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  measurementPickerInline: {
+    marginTop: AtelierSpacing.sm,
+  },
+  measurementPickerDoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingVertical: AtelierSpacing.sm,
+  },
+  measurementPickerDoneText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
   genderSelector: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   genderOption: {
     flex: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
     alignItems: 'center',
   },
   genderOptionSelected: {
   },
   genderOptionText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
   },
   genderOptionTextSelected: {
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
   },
   imagePicker: {
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 120,
   },
   imagePickerText: {
-    ...Typography.caption,
-    marginTop: Spacing.sm,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.sm,
     textAlign: 'center',
   },
   referenceImageContainer: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
     overflow: 'hidden',
   },
   referenceImageTouchable: {
@@ -904,37 +1156,41 @@ const styles = StyleSheet.create({
   referenceImage: {
     width: '100%',
     height: 160,
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
   },
   zoomOverlay: {
     position: 'absolute',
-    bottom: Spacing.sm,
-    right: Spacing.sm,
+    bottom: AtelierSpacing.sm,
+    right: AtelierSpacing.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: BorderRadius.full,
-    padding: Spacing.xs,
+    borderRadius: AtelierRadius.full,
+    padding: AtelierSpacing.xs,
   },
   referenceImageActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: Spacing.sm,
+    paddingTop: AtelierSpacing.sm,
   },
   changeImageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    padding: Spacing.sm,
+    gap: AtelierSpacing.xs,
+    padding: AtelierSpacing.sm,
   },
   changeImageText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   removeImageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    padding: Spacing.sm,
+    gap: AtelierSpacing.xs,
+    padding: AtelierSpacing.sm,
   },
   removeImageText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

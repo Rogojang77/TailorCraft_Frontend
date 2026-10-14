@@ -23,10 +23,8 @@ import { toNumericMeasurementValue } from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
-import { BorderRadius, DENSITY, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { useKeyboardAccessoryOptional } from '@/contexts/KeyboardAccessoryContext';
-
-const _compact = DENSITY === 'compact';
 const INITIAL_REPEAT_DELAY_MS = 400;
 const REPEAT_INTERVAL_MS = 80;
 
@@ -192,16 +190,16 @@ export function NumericMeasurementInput({
           overflow: 'visible',
           minWidth: 400,
           width: '100%',
-          backgroundColor: colors.surface,
+          backgroundColor: colors.paper ?? colors.background,
         },
         {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: colors.paper ?? colors.background,
+          borderTopColor: colors.rule ?? colors.border,
         },
       ]}
     >
       <TouchableOpacity
-        style={[styles.accessoryBtn, { backgroundColor: colors.borderLight }]}
+        style={[styles.accessoryBtn, { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}
         onPress={handleDone}
         activeOpacity={0.7}
         accessible
@@ -209,7 +207,7 @@ export function NumericMeasurementInput({
         accessibilityLabel="Done"
         accessibilityHint="Dismiss keyboard"
       >
-        <Text style={[styles.accessoryBtnText, { color: colors.primary }]}>{t('common.done')}</Text>
+        <Text style={[styles.accessoryBtnText, { color: colors.brass ?? colors.primary }]}>{t('common.done')}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[
@@ -245,7 +243,7 @@ export function NumericMeasurementInput({
         style={[
           styles.accessoryBtn,
           { backgroundColor: colors.borderLight },
-          pressedButton === 'down' && { backgroundColor: colors.primaryLight },
+          pressedButton === 'down' && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' },
           !editable && { opacity: 0.5 },
         ]}
         onPressIn={handlePressInDown}
@@ -256,13 +254,13 @@ export function NumericMeasurementInput({
         accessibilityLabel="Decrease value"
         accessibilityHint="Decreases the measurement value"
       >
-        <Text style={[styles.accessoryBtnText, { color: colors.textSecondary }]}>▼</Text>
+        <Text style={[styles.accessoryBtnText, { color: colors.ink3 }]}>▼</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[
           styles.accessoryBtn,
           { backgroundColor: colors.borderLight },
-          pressedButton === 'up' && { backgroundColor: colors.primaryLight },
+          pressedButton === 'up' && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' },
           !editable && { opacity: 0.5 },
         ]}
         onPressIn={handlePressInUp}
@@ -273,7 +271,7 @@ export function NumericMeasurementInput({
         accessibilityLabel="Increase value"
         accessibilityHint="Increases the measurement value"
       >
-        <Text style={[styles.accessoryBtnText, { color: colors.textSecondary }]}>▲</Text>
+        <Text style={[styles.accessoryBtnText, { color: colors.ink3 }]}>▲</Text>
       </TouchableOpacity>
     </View>
   );
@@ -291,13 +289,13 @@ export function NumericMeasurementInput({
     focused,
     accessoryId,
     pressedButton,
-    colors.surface,
-    colors.border,
-    colors.borderLight,
-    colors.primary,
-    colors.primaryLight,
+    colors.paper,
+    colors.rule,
+    colors.ruleSoft,
+    colors.brass,
+    colors.brassPale,
     colors.textPrimary,
-    colors.textSecondary,
+    colors.ink3,
     editable,
     t,
     handleDone,
@@ -346,10 +344,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
     borderTopWidth: 1,
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
     width: '100%',
   },
   accessoryBtn: {
@@ -358,10 +356,11 @@ const styles = StyleSheet.create({
     width: '18%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
   },
   accessoryBtnText: {
-    fontSize: _compact ? 16 : 18,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    lineHeight: 22,
   },
 });

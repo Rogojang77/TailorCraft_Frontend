@@ -18,11 +18,11 @@ import {
   Info,
   Settings,
   Image,
+  Plus,
 } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { api, apiFetch } from '@/lib/api';
 import { fetchCompanySettings, fetchGarmentTypesList } from '@/lib/api';
-import { Spacing, Typography, Shadows, BorderRadius, StatusStyles } from '@/constants/design';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,9 +30,17 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { PaywallModal, SubscriptionLoadErrorBanner } from '@/components/subscription';
 import { ErrorText } from '@/components/ui/ErrorText';
-import { MetricCard } from '@/components/MetricCard';
 import { OrderHistoryItem } from '@/components/OrderHistoryItem';
 import { FloatingActionButton } from '@/components/FloatingActionButton';
+import {
+  FontFamily,
+  AtelierSpacing,
+  AtelierRadius,
+  AtelierShadow,
+  AtelierType,
+  AtelierStatus,
+} from '@/constants/atelierDesign';
+import { TCRule } from '@/components/atelier/TCRule';
 
 interface OrderResponse {
   id: string;
@@ -50,6 +58,38 @@ interface OrderResponse {
   orderGarmentSnapshots?: Array<{
     garmentTypeName: string;
   }>;
+}
+
+const STATUS_MAP: Record<string, keyof typeof AtelierStatus> = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'progress',
+  COMPLETED: 'completed',
+  DELIVERED: 'delivered',
+  CANCELLED: 'cancelled',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+};
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function dayLabel(): string {
+  const now = new Date();
+  return now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function greetingPrefix(hour: number, firstName: string, t: (k: string, v?: Record<string, unknown>) => string) {
+  if (hour < 12) return t('home.greetingMorning', { name: firstName });
+  if (hour < 18) return t('home.greetingAfternoon', { name: firstName });
+  return t('home.greetingEvening', { name: firstName });
 }
 
 export default function HomeTab() {
@@ -80,9 +120,7 @@ export default function HomeTab() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
 
     if (isRefresh) setRefreshing(true);
@@ -122,23 +160,15 @@ export default function HomeTab() {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       if (!isAuthenticated) return;
-      if (isMountedRef.current) {
-        fetchData();
-      }
-      return () => {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-      };
+      if (isMountedRef.current) fetchData();
+      return () => { if (abortControllerRef.current) abortControllerRef.current.abort(); };
     }, [isAuthenticated, fetchData])
   );
 
@@ -146,12 +176,10 @@ export default function HomeTab() {
 
   const canCreateTemplate = checkCanCreateTemplate();
   const handleAddGarment = useCallback(() => {
-    if (canCreateTemplate) {
-      router.push('/garments/new');
-    } else {
-      setShowPaywall(true);
-    }
+    if (canCreateTemplate) router.push('/garments/new');
+    else setShowPaywall(true);
   }, [canCreateTemplate, router]);
+
   const handleUpgrade = useCallback(async (plan: 'monthly' | 'yearly') => {
     setIsUpgrading(true);
     try {
@@ -168,12 +196,7 @@ export default function HomeTab() {
   const isCompanySetupComplete = useMemo(() => {
     if (!companySettings) return false;
     const { name, owner, phone, email } = companySettings;
-    return (
-      name.trim() !== '' &&
-      owner.trim() !== '' &&
-      phone.trim() !== '' &&
-      email.trim() !== ''
-    );
+    return name.trim() !== '' && owner.trim() !== '' && phone.trim() !== '' && email.trim() !== '';
   }, [companySettings]);
 
   const missingCompanyFieldKeys = useMemo(() => {
@@ -187,11 +210,10 @@ export default function HomeTab() {
     return missing.length >= 1 && missing.length <= 2 ? missing : [];
   }, [companySettings]);
 
-  const activeOrders = useMemo(() => {
-    return orders.filter(
-      (o) => o.status === 'PENDING' || o.status === 'IN_PROGRESS'
-    );
-  }, [orders]);
+  const activeOrders = useMemo(() =>
+    orders.filter((o) => o.status === 'PENDING' || o.status === 'IN_PROGRESS'),
+    [orders]
+  );
 
   const ordersDueThisWeek = useMemo(() => {
     const now = new Date();
@@ -203,113 +225,105 @@ export default function HomeTab() {
     });
   }, [activeOrders]);
 
-  const pendingPaymentsTotal = useMemo(() => {
-    return orders.reduce((sum, o) => {
+  const pendingPaymentsTotal = useMemo(() =>
+    orders.reduce((sum, o) => {
       const pending = (o.totalAmount ?? 0) - (o.paidAmount ?? 0);
       return sum + (pending > 0 ? pending : 0);
-    }, 0);
-  }, [orders]);
+    }, 0),
+    [orders]
+  );
 
-  const recentOrders = useMemo(() => {
-    return [...orders]
+  const recentOrders = useMemo(() =>
+    [...orders]
       .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-      .slice(0, 3);
-  }, [orders]);
-
-  const handleAddGalleryItem = () => {
-    router.push('/(tabs)/gallery?openAdd=1');
-  };
+      .slice(0, 5),
+    [orders]
+  );
 
   const handleCreateOrder = () => {
-    if (clientCount === 0) {
-      router.push('/clients/new');
-    } else {
-      router.push('/new-order');
-    }
+    if (clientCount === 0) router.push('/clients/new');
+    else router.push('/new-order');
   };
 
-  const handleOrderPress = (orderId: string) => {
-    router.push(`/order-details/${orderId}`);
-  };
+  const handleOrderPress = (orderId: string) => router.push(`/order-details/${orderId}`);
+  const handleAddGalleryItem = () => router.push('/(tabs)/gallery?openAdd=1');
+
+  // ─── Theme shorthands ────────────────────────────────────────────────────────
+  const bg = colors.paper;
+  const inkColor = colors.textPrimary;
+  const ink2 = colors.ink2 ?? colors.textPrimary;
+  const ink3 = colors.ink3 ?? colors.textSecondary;
+  const ink4 = colors.ink4 ?? colors.textTertiary;
+  const brassColor = colors.brass;
+  const ruleColor = colors.rule ?? colors.border;
+  const cardBg = colors.card;
 
   if (loading && !refreshing) {
     return (
-      <ScreenContainer noPadding centered>
+      <ScreenContainer noPadding centered style={{ backgroundColor: bg }}>
         <ListSkeletonLoader variant="card" count={6} />
       </ScreenContainer>
     );
   }
 
+  const firstName = companySettings?.owner?.split(' ')[0] ?? '';
+  const hour = new Date().getHours();
+
   return (
-    <ScreenContainer noPadding>
+    <ScreenContainer noPadding style={{ backgroundColor: bg }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brassColor} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {companySettings?.owner ? (
-              <View style={styles.greetingRow}>
-                <Text style={[styles.greeting, { color: colors.textPrimary }]}>
-                  {(() => {
-                    const hour = new Date().getHours();
-                    const firstName = companySettings.owner.split(' ')[0];
-                    if (hour < 12) return t('home.greetingMorning', { name: firstName });
-                    if (hour < 18) return t('home.greetingAfternoon', { name: firstName });
-                    return t('home.greetingEvening', { name: firstName });
-                  })()}
-                </Text>
-              </View>
+        {/* ─── Page header ─────────────────────────────────────────────── */}
+        <View style={styles.pageHeader}>
+          <View style={styles.pageHeaderLeft}>
+            <Text style={[styles.dayLabel, { color: ink3 }]}>{dayLabel()}</Text>
+            {firstName ? (
+              <Text style={[styles.greeting, { color: inkColor }]}>
+                {greetingPrefix(hour, firstName, t)}
+              </Text>
             ) : (
-              <View style={styles.greetingRow} />
+              <Text style={[styles.greeting, { color: inkColor }]}>
+                {companySettings?.name ?? 'TailorCraft'}
+              </Text>
             )}
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[styles.headerIconButton, { backgroundColor: colors.surface }]}
-              onPress={() => router.push('/(tabs)/profile')}
-              activeOpacity={0.7}
-            >
-              <Settings size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.settingsBtn, { backgroundColor: colors.cardSoft, borderColor: ruleColor }]}
+            onPress={() => router.push('/(tabs)/profile')}
+            activeOpacity={0.7}
+          >
+            <Settings size={18} color={ink3} />
+          </TouchableOpacity>
         </View>
 
-        {/* Subscription status unavailable */}
+        {/* ─── Banners ─────────────────────────────────────────────────── */}
         {subscriptionState === 'unknown' ? (
-          <View style={styles.topBannerWrap}>
+          <View style={styles.bannerWrap}>
             <SubscriptionLoadErrorBanner />
           </View>
         ) : null}
 
-        {/* Company setup: incomplete → info banner */}
         {!isCompanySetupComplete ? (
-          <View style={styles.companyBanner}>
-            <Info size={20} color={colors.info} style={styles.companyBannerIcon} />
-            <View style={styles.companyBannerContent}>
-              <Text style={[styles.companyBannerTitle, { color: colors.infoText }]}>
+          <View style={[styles.infoBanner, { borderColor: colors.ocean, backgroundColor: `${colors.ocean}10` }]}>
+            <Info size={16} color={colors.ocean} />
+            <View style={styles.infoBannerBody}>
+              <Text style={[styles.infoBannerTitle, { color: ink2 }]}>
                 {t('home.company.incompleteTitle')}
               </Text>
-              <Text style={[styles.companyBannerSubtitle, { color: colors.info }]}>
-                {t('home.company.incompleteSubtitle')}
-              </Text>
               {missingCompanyFieldKeys.length > 0 ? (
-                <Text style={[styles.companyBannerHint, { color: colors.info }]}>
+                <Text style={[styles.infoBannerSub, { color: ink3 }]}>
                   {t('home.company.missingFields', {
-                    fields: missingCompanyFieldKeys.map((key) => t(key)).join(t('home.company.missingFieldsSeparator')),
+                    fields: missingCompanyFieldKeys.map((k) => t(k)).join(t('home.company.missingFieldsSeparator')),
                   })}
                 </Text>
               ) : null}
-              <TouchableOpacity
-                style={[styles.companyBannerButton, { backgroundColor: colors.info }]}
-                onPress={() => router.push('/(tabs)/profile')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.companyBannerButtonText, { color: colors.textInverse }]}>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.7}>
+                <Text style={[styles.infoBannerLink, { color: colors.ocean }]}>
                   {t('home.company.completeNow')}
                 </Text>
               </TouchableOpacity>
@@ -318,129 +332,186 @@ export default function HomeTab() {
         ) : null}
 
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={styles.bannerWrap}>
             <ErrorText>{error}</ErrorText>
           </View>
         ) : null}
 
-        {/* No garments empty state */}
+        {/* ─── No garments empty state ─────────────────────────────────── */}
         {garments.length === 0 ? (
-          <View style={styles.noGarmentsContainer}>
-            <View style={[styles.noGarmentsCard, { backgroundColor: colors.surface }]}>
-              <View style={[styles.noGarmentsIcon, { backgroundColor: colors.primaryLight }]}>
-                <Shirt size={48} color={colors.primary} strokeWidth={1.5} />
+          <View style={styles.emptyWrap}>
+            <View style={[styles.emptyCard, { backgroundColor: cardBg }, AtelierShadow.card]}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: `${brassColor}18` }]}>
+                <Shirt size={40} color={brassColor} strokeWidth={1.5} />
               </View>
-              <Text style={[styles.noGarmentsTitle, { color: colors.textPrimary }]}>
+              <Text style={[styles.emptyTitle, { color: inkColor }]}>
                 {t('home.noGarments.title')}
               </Text>
-              <Text style={[styles.noGarmentsSubtitle, { color: colors.textSecondary }]}>
+              <Text style={[styles.emptySubtitle, { color: ink3 }]}>
                 {t('home.noGarments.subtitle')}
               </Text>
               <TouchableOpacity
-                style={[styles.addGarmentButton, { backgroundColor: colors.primary }]}
+                style={[styles.emptyBtn, { backgroundColor: brassColor }]}
                 onPress={handleAddGarment}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.addGarmentButtonText, { color: colors.textInverse }]}>
-                  {t('home.noGarments.button')}
-                </Text>
+                <Plus size={16} color="#FFF" />
+                <Text style={styles.emptyBtnText}>{t('home.noGarments.button')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          <View style={styles.dashboardContainer}>
-            {/* Metric Grid: full-width large cards when recent orders hidden, else 2x2 */}
-            <View style={[styles.metricsGrid, !showRecentOrders && styles.metricsGridFullWidth]}>
-              <MetricCard
-                title={t('home.quickOverview.activeOrders')}
-                value={activeOrders.length}
-                subtitle={t('home.quickOverview.dueThisWeek', { count: ordersDueThisWeek.length })}
-                icon={ShoppingBag}
-                iconColor={colors.primary}
-                onPress={() => router.push('/(tabs)/orders')}
-                size={showRecentOrders ? 'default' : 'large'}
-              />
-              <MetricCard
-                title={t('home.quickOverview.totalClients')}
-                value={clientCount}
-                subtitle={t('home.quickOverview.records', { count: clientCount })}
-                icon={Users}
-                iconColor={colors.primary}
-                onPress={() => router.push('/(tabs)/orders')}
-                size={showRecentOrders ? 'default' : 'large'}
-              />
-              <MetricCard
-                title={t('home.quickOverview.gallery')}
-                icon={Image}
-                iconColor={colors.info}
-                onPress={() => router.push('/(tabs)/gallery')}
-                size={showRecentOrders ? 'default' : 'large'}
-              />
-              <MetricCard
-                title={t('home.quickOverview.financial')}
-                icon={TrendingUp}
-                iconColor={colors.warning}
-                onPress={() => router.push('/financial')}
-                size={showRecentOrders ? 'default' : 'large'}
-              />
+          <>
+            {/* ─── Hero stat card ──────────────────────────────────────── */}
+            <View style={[styles.heroCard, { backgroundColor: inkColor }, AtelierShadow.elevated]}>
+              <Text style={[styles.heroEyebrow, { color: brassColor }]}>TODAY'S BENCH</Text>
+              <View style={styles.heroStats}>
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatNum}>{activeOrders.length}</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Active</Text>
+                </View>
+                <View style={[styles.heroStatDivider, { backgroundColor: ink2 }]} />
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatNum}>{ordersDueThisWeek.length}</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Due This Week</Text>
+                </View>
+                <View style={[styles.heroStatDivider, { backgroundColor: ink2 }]} />
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatNum}>{clientCount}</Text>
+                  <Text style={[styles.heroStatLabel, { color: ink4 }]}>Clients</Text>
+                </View>
+              </View>
+              {pendingPaymentsTotal > 0 ? (
+                <View style={[styles.heroPendingRow, { borderTopColor: ink2 }]}>
+                  <Text style={[styles.heroPendingLabel, { color: ink4 }]}>PENDING PAYMENTS</Text>
+                  <Text style={[styles.heroPendingAmount, { color: colors.brassPale ?? brassColor }]}>
+                    {pendingPaymentsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
-            {/* Recent Orders Section (hidden when setting is off) */}
+            {/* ─── Quick actions strip ─────────────────────────────────── */}
+            <View style={styles.quickStrip}>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
+                onPress={() => router.push('/(tabs)/orders')}
+                activeOpacity={0.7}
+              >
+                <ShoppingBag size={18} color={brassColor} />
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
+                onPress={() => router.push('/(tabs)/gallery')}
+                activeOpacity={0.7}
+              >
+                <Image size={18} color={colors.ocean} />
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
+                onPress={() => router.push('/financial')}
+                activeOpacity={0.7}
+              >
+                <TrendingUp size={18} color={colors.pine} />
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Finance</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
+                onPress={() => router.push('/clients')}
+                activeOpacity={0.7}
+              >
+                <Users size={18} color={colors.ember} />
+                <Text style={[styles.quickBtnLabel, { color: ink2 }]}>Clients</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ─── Recent orders ───────────────────────────────────────── */}
             {showRecentOrders ? (
-              <View style={styles.recentSection}>
-                <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                    {t('home.needsAttention.title')}
-                  </Text>
-                  <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
-                    <Text style={[styles.sectionLink, { color: colors.primary }]}>
-                      {t('home.needsAttention.viewAll')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.section}>
+                <TCRule
+                  label={t('home.needsAttention.title')}
+                  count={recentOrders.length}
+                  style={styles.sectionRule}
+                />
 
                 {recentOrders.length === 0 ? (
-                  <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  <View style={[styles.emptyInline, { borderColor: ruleColor }]}>
+                    <Text style={[styles.emptyInlineText, { color: ink4 }]}>
                       {t('home.needsAttention.noOrders')}
                     </Text>
                   </View>
                 ) : (
-                  <View style={styles.recentOrdersList}>
-                    {recentOrders.map((order) => (
-                      <OrderHistoryItem
-                        key={order.id}
-                        order={{
-                          id: order.id,
-                          orderNumber: order.orderNumber,
-                          clientName: order.customer
-                            ? `${order.customer.firstName} ${order.customer.lastName}`
-                            : '—',
-                          total: order.totalAmount,
-                          advance: order.paidAmount,
-                          status: order.status,
-                          orderDate: new Date(order.orderDate).toLocaleDateString(),
-                          rawOrderDate: order.orderDate,
-                          deliveryDate: order.deliveryDate,
-                        }}
-                        onPress={() => handleOrderPress(order.id)}
-                      />
-                    ))}
+                  <View style={[styles.orderList, { backgroundColor: cardBg, borderColor: ruleColor }, AtelierShadow.card]}>
+                    {recentOrders.map((order, idx) => {
+                      const statusKey = STATUS_MAP[order.status] ?? 'pending';
+                      const statusInfo = AtelierStatus[statusKey];
+                      return (
+                        <React.Fragment key={order.id}>
+                          <TouchableOpacity
+                            style={styles.orderRow}
+                            onPress={() => handleOrderPress(order.id)}
+                            activeOpacity={0.7}
+                          >
+                            {/* Status rail */}
+                            <View style={[styles.orderRail, { backgroundColor: statusInfo.fg }]} />
+                            <View style={styles.orderRowBody}>
+                              <View style={styles.orderRowTop}>
+                                <Text style={[styles.orderNum, { color: inkColor }]}>
+                                  #{order.orderNumber}
+                                </Text>
+                                <Text style={[styles.orderStatusLabel, { color: statusInfo.fg }]}>
+                                  {STATUS_LABEL[order.status]}
+                                </Text>
+                              </View>
+                              <Text style={[styles.orderClient, { color: ink3 }]}>
+                                {order.customer
+                                  ? `${order.customer.firstName} ${order.customer.lastName}`
+                                  : '—'}
+                              </Text>
+                              {order.deliveryDate ? (
+                                <Text style={[styles.orderDate, { color: ink4 }]}>
+                                  Due {formatDate(order.deliveryDate)}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={styles.orderRowRight}>
+                              <Text style={[styles.orderAmount, { color: inkColor }]}>
+                                {(order.totalAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                          {idx < recentOrders.length - 1 ? (
+                            <View style={[styles.orderDivider, { backgroundColor: ruleColor }]} />
+                          ) : null}
+                        </React.Fragment>
+                      );
+                    })}
+                    <TouchableOpacity
+                      style={[styles.viewAllRow, { borderTopColor: ruleColor }]}
+                      onPress={() => router.push('/(tabs)/orders')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.viewAllText, { color: brassColor }]}>
+                        {t('home.needsAttention.viewAll')}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
             ) : null}
-          </View>
+          </>
         )}
       </ScrollView>
 
-      {/* Floating Action Button */}
       {garments.length > 0 ? (
         <FloatingActionButton
           onCreateOrder={handleCreateOrder}
           onAddGalleryItem={handleAddGalleryItem}
         />
       ) : null}
+
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
@@ -452,178 +523,277 @@ export default function HomeTab() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
+  scrollContent: {},
+
+  // Header
+  pageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    alignItems: 'flex-end',
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
   },
-  headerLeft: {
-    flex: 1,
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  pageHeaderLeft: { flex: 1, gap: 2 },
+  dayLabel: {
+    ...AtelierType.monoSm,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   greeting: {
-    ...Typography.h1,
+    fontFamily: FontFamily.serif,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.3,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
+  settingsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: AtelierRadius.full,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.sm,
+    marginLeft: AtelierSpacing.md,
   },
-  topBannerWrap: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+
+  // Banners
+  bannerWrap: {
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.sm,
   },
-  errorBanner: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    ...StatusStyles.error,
-    borderRadius: BorderRadius.sm,
-  },
-  companyBanner: {
+  infoBanner: {
     flexDirection: 'row',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    ...StatusStyles.info,
-    borderRadius: BorderRadius.lg,
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
+    gap: AtelierSpacing.sm,
     alignItems: 'flex-start',
   },
-  companyBannerIcon: {
-    marginRight: Spacing.md,
-    marginTop: 2,
+  infoBannerBody: { flex: 1, gap: 4 },
+  infoBannerTitle: {
+    ...AtelierType.uiMd,
   },
-  companyBannerContent: {
-    flex: 1,
+  infoBannerSub: {
+    ...AtelierType.uiSm,
   },
-  companyBannerTitle: {
-    ...Typography.bodyBold,
-    marginBottom: Spacing.xs,
+  infoBannerLink: {
+    ...AtelierType.uiSm,
+    textDecorationLine: 'underline',
   },
-  companyBannerSubtitle: {
-    ...Typography.caption,
-    marginBottom: Spacing.xs,
-    lineHeight: 20,
-  },
-  companyBannerHint: {
-    ...Typography.caption,
-    marginBottom: Spacing.md,
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
-  companyBannerButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-  },
-  companyBannerButtonText: {
-    ...Typography.captionBold,
-  },
-  noGarmentsContainer: {
+
+  // Empty state
+  emptyWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xxxl * 2,
+    paddingHorizontal: AtelierSpacing.pagePad,
+    paddingTop: AtelierSpacing.xxl * 2,
   },
-  noGarmentsCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+  emptyCard: {
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.xl,
     alignItems: 'center',
     maxWidth: 340,
     width: '100%',
-    ...Shadows.sm,
+    gap: AtelierSpacing.sm,
   },
-  noGarmentsIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: BorderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
-  noGarmentsTitle: {
-    ...Typography.h2,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
-  },
-  noGarmentsSubtitle: {
-    ...Typography.body,
-    textAlign: 'center',
-    marginBottom: Spacing.xxl,
-    lineHeight: 24,
-  },
-  addGarmentButton: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: AtelierRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: AtelierSpacing.sm,
   },
-  addGarmentButtonText: {
-    ...Typography.bodyBold,
+  emptyTitle: {
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    textAlign: 'center',
   },
-  dashboardContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
+  emptySubtitle: {
+    ...AtelierType.uiSm,
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  metricsGrid: {
+  emptyBtn: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: AtelierSpacing.lg,
+    borderRadius: AtelierRadius.sm,
+    alignItems: 'center',
+    marginTop: AtelierSpacing.sm,
   },
-  metricsGridFullWidth: {
-    flexDirection: 'column',
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
+  emptyBtnText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 14,
+    color: '#FFF',
   },
-  recentSection: {
-    marginTop: Spacing.sm,
+
+  // Hero card
+  heroCard: {
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.lg,
   },
-  sectionHeader: {
+  heroEyebrow: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: AtelierSpacing.md,
+  },
+  heroStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AtelierSpacing.md,
+  },
+  heroStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  heroStatNum: {
+    fontFamily: FontFamily.monoBold,
+    fontSize: 28,
+    lineHeight: 34,
+    color: '#EFE9DC',
+  },
+  heroStatLabel: {
+    ...AtelierType.monoSm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  heroStatDivider: {
+    width: 1,
+    height: 36,
+    opacity: 0.3,
+  },
+  heroPendingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginTop: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
+    borderTopWidth: 1,
   },
-  sectionTitle: {
-    ...Typography.h3,
+  heroPendingLabel: {
+    ...AtelierType.monoLabel,
+    letterSpacing: 1,
   },
-  sectionLink: {
-    ...Typography.captionBold,
+  heroPendingAmount: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 15,
+    lineHeight: 20,
   },
-  emptyState: {
-    borderRadius: BorderRadius.md,
+
+  // Quick actions strip
+  quickStrip: {
+    flexDirection: 'row',
+    marginHorizontal: AtelierSpacing.pagePad,
+    marginBottom: AtelierSpacing.lg,
+    gap: AtelierSpacing.sm,
+  },
+  quickBtn: {
+    flex: 1,
+    paddingVertical: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
-    padding: Spacing.lg,
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickBtnLabel: {
+    ...AtelierType.monoLabel,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+
+  // Orders section
+  section: {
+    paddingHorizontal: AtelierSpacing.pagePad,
+  },
+  sectionRule: {
+    marginBottom: AtelierSpacing.md,
+  },
+  emptyInline: {
+    borderRadius: AtelierRadius.md,
+    borderWidth: 1,
+    padding: AtelierSpacing.lg,
     alignItems: 'center',
   },
-  emptyText: {
-    ...Typography.caption,
+  emptyInlineText: {
+    ...AtelierType.uiSm,
   },
-  recentOrdersList: {
+
+  // Order list card
+  orderList: {
+    borderRadius: AtelierRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  orderRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: AtelierSpacing.md,
+    paddingRight: AtelierSpacing.md,
+  },
+  orderRail: {
+    width: 3,
+    borderRadius: 2,
+    marginHorizontal: AtelierSpacing.sm,
+    alignSelf: 'stretch',
+  },
+  orderRowBody: {
+    flex: 1,
+    gap: 2,
+    paddingLeft: 4,
+  },
+  orderRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderNum: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  orderStatusLabel: {
+    ...AtelierType.monoLabel,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  orderClient: {
+    ...AtelierType.uiSm,
+  },
+  orderDate: {
+    ...AtelierType.monoSm,
+    fontSize: 11,
+  },
+  orderRowRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: AtelierSpacing.sm,
+  },
+  orderAmount: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  orderDivider: {
+    height: 1,
+    marginLeft: AtelierSpacing.lg,
+  },
+  viewAllRow: {
+    padding: AtelierSpacing.md,
+    borderTopWidth: 1,
+    alignItems: 'center',
+  },
+  viewAllText: {
+    ...AtelierType.uiSm,
+    textDecorationLine: 'underline',
   },
 });

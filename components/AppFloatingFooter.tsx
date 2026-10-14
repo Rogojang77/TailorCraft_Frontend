@@ -1,5 +1,5 @@
 /**
- * Floating glass-style footer for New Order flow.
+ * Floating footer for New Order flow.
  * Premium CTA layout: subtle Back (left) + dominant primary button (right).
  */
 import React from 'react';
@@ -20,7 +20,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, getShadows, Spacing, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierShadow } from '@/constants/atelierDesign';
 
 const FOOTER_PADDING_H = 20;
 const FOOTER_PADDING_V = 16;
@@ -58,8 +58,6 @@ export function AppFloatingFooter({
   secondaryBordered = false,
 }: AppFloatingFooterProps) {
   const { colors } = useTheme();
-  const typography = getTypography(colors);
-  const shadows = getShadows(colors);
   const backScale = useSharedValue(1);
   const ctaScale = useSharedValue(1);
 
@@ -71,18 +69,31 @@ export function AppFloatingFooter({
     transform: [{ scale: ctaScale.value }],
   }));
 
+  const paperBg = colors.paper ?? colors.background;
+
   const glassBackground =
     Platform.OS === 'web' ? (
-      <View style={[styles.glassFill, { backgroundColor: colors.surface }]} />
+      <View style={[styles.glassFill, { backgroundColor: paperBg }]} />
     ) : (
       <>
         <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={[styles.glassOverlay, { backgroundColor: colors.surface }]} />
+        <View style={[styles.glassOverlay, { backgroundColor: paperBg }]} />
       </>
     );
 
+  const ctaShadow = Platform.select({
+    android: {},
+    default: {
+      shadowColor: colors.ctaGold,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  });
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: paperBg }]} edges={['bottom']}>
       <View style={styles.footer}>
         {glassBackground}
         <View style={styles.row}>
@@ -90,30 +101,29 @@ export function AppFloatingFooter({
             <AnimatedTouchable
               style={[
                 styles.backButton,
-                secondaryBordered && [styles.secondaryButtonBordered, { backgroundColor: colors.surface, borderColor: colors.border }],
+                secondaryBordered && [
+                  styles.secondaryButtonBordered,
+                  { backgroundColor: paperBg, borderColor: colors.rule ?? colors.border },
+                ],
                 backAnimatedStyle,
                 secondaryDisabled && styles.backButtonDisabled,
               ]}
               onPress={onSecondaryPress}
-              onPressIn={() => {
-                if (!secondaryDisabled) backScale.value = withSpring(0.98, springConfig);
-              }}
-              onPressOut={() => {
-                backScale.value = withSpring(1, springConfig);
-              }}
+              onPressIn={() => { if (!secondaryDisabled) backScale.value = withSpring(0.98, springConfig); }}
+              onPressOut={() => { backScale.value = withSpring(1, springConfig); }}
               disabled={secondaryDisabled}
               activeOpacity={1}
               accessibilityRole="button"
               accessibilityLabel={secondaryLabel}
               accessibilityState={{ disabled: secondaryDisabled }}
             >
-              {secondaryIcon ?? <ChevronLeft size={20} color={colors.textSecondary} strokeWidth={2.5} />}
+              {secondaryIcon ?? <ChevronLeft size={20} color={colors.ink3} strokeWidth={2.5} />}
               <Text
                 style={[
-                  secondaryBordered 
-                    ? { fontSize: 16, fontWeight: '600', color: colors.textPrimary } 
-                    : [typography.bodyBold, { fontWeight: '500', color: colors.textSecondary }],
-                  secondaryDisabled && { color: colors.textTertiary },
+                  secondaryBordered
+                    ? { fontFamily: FontFamily.sansSemiBold, fontSize: 15, lineHeight: 22, color: colors.textPrimary }
+                    : { fontFamily: FontFamily.sansMedium, fontSize: 15, lineHeight: 22, color: colors.ink3 },
+                  secondaryDisabled && { color: colors.ink4 ?? colors.textTertiary },
                 ]}
               >
                 {secondaryLabel}
@@ -125,19 +135,15 @@ export function AppFloatingFooter({
             style={[
               styles.ctaButton,
               { backgroundColor: colors.ctaGold },
-              shadows.ctaPill,
+              ctaShadow,
               primaryDisabled && [styles.ctaButtonDisabled, { backgroundColor: colors.ctaGoldDisabled }],
               ctaAnimatedStyle,
             ]}
             onPress={onPrimaryPress}
             onPressIn={() => {
-              if (!primaryDisabled && !primaryLoading) {
-                ctaScale.value = withSpring(0.97, springConfig);
-              }
+              if (!primaryDisabled && !primaryLoading) ctaScale.value = withSpring(0.97, springConfig);
             }}
-            onPressOut={() => {
-              ctaScale.value = withSpring(1, springConfig);
-            }}
+            onPressOut={() => { ctaScale.value = withSpring(1, springConfig); }}
             disabled={primaryDisabled || primaryLoading}
             activeOpacity={1}
             accessibilityRole="button"
@@ -145,12 +151,12 @@ export function AppFloatingFooter({
             accessibilityState={{ disabled: primaryDisabled || primaryLoading }}
           >
             {primaryLoading ? (
-              <ActivityIndicator size="small" color={colors.textInverse} />
+              <ActivityIndicator size="small" color={colors.paper ?? '#EFE9DC'} />
             ) : (
               <Text
                 style={[
                   styles.ctaLabel,
-                  { color: colors.textInverse },
+                  { color: colors.paper ?? '#EFE9DC' },
                   primaryDisabled && styles.ctaLabelDisabled,
                 ]}
               >
@@ -176,36 +182,37 @@ const styles = StyleSheet.create({
     paddingTop: FOOTER_PADDING_V,
     paddingBottom: FOOTER_PADDING_V,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: 'rgba(27,22,17,0.08)',
     overflow: 'hidden',
-    ...Shadows.floatingFooter,
+    ...Platform.select({
+      android: {},
+      default: {
+        shadowColor: '#1B1611',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 10,
+      },
+    }),
   },
-  glassFill: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  glassOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  glassFill: { ...StyleSheet.absoluteFillObject },
+  glassOverlay: { ...StyleSheet.absoluteFillObject },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    gap: Spacing.xxs,
+    gap: 4,
     flex: 1,
   },
-  backPlaceholder: {
-    minWidth: 1,
-  },
-  backButtonDisabled: {
-    opacity: 0.5,
-  },
+  backPlaceholder: { minWidth: 1 },
+  backButtonDisabled: { opacity: 0.5 },
   secondaryButtonBordered: {
     height: CTA_HEIGHT,
     borderRadius: CTA_BORDER_RADIUS,
@@ -214,9 +221,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
     flex: 1,
-    ...Shadows.sm,
   },
   ctaButton: {
     height: CTA_HEIGHT,
@@ -226,15 +232,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  ctaButtonDisabled: {
-    shadowOpacity: 0,
-    elevation: 0,
-  },
+  ctaButtonDisabled: { shadowOpacity: 0, elevation: 0 },
   ctaLabel: {
+    fontFamily: FontFamily.sansSemiBold,
     fontSize: 16,
-    fontWeight: '600',
+    lineHeight: 22,
   },
-  ctaLabelDisabled: {
-    opacity: 0.7,
-  },
+  ctaLabelDisabled: { opacity: 0.7 },
 });

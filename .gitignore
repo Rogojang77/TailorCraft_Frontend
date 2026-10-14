@@ -33,14 +33,3 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
-# iOS
-ios/Pods/
-ios/build/
-
-# Android
-android/app/build/
-android/build/
-android/.gradle/
-ios/
-android/

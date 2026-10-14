@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { InlineSpinner } from '@/components/InlineSpinner';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { getAllOrderStatuses } from '@/lib/api';
 import type { OrderDetailsData } from '@/types/orderDetails';
 
@@ -42,20 +42,20 @@ export function OrderStatusModal({
       presentationStyle="pageSheet"
       onRequestClose={() => !statusUpdating && onClose()}
     >
-      <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+      <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.paper ?? colors.background }]}>
+        <View style={[styles.modalHeader, { borderBottomColor: colors.rule ?? colors.border }]}>
           <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('orderDetails.updateStatusModal')}</Text>
           <TouchableOpacity
             onPress={() => !statusUpdating && onClose()}
             style={styles.closeButton}
             disabled={statusUpdating}
           >
-            <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
+            <Text style={[styles.closeButtonText, { color: colors.ink3 }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
         <KeyboardAwareScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+          <Text style={[styles.modalSubtitle, { color: colors.ink3 }]}>
             {t('orderDetails.orderNumber', { number: orderData?.orderNumber ?? orderData?.id ?? '' })}
           </Text>
 
@@ -67,8 +67,8 @@ export function OrderStatusModal({
                 key={statusOption.code}
                 style={[
                   styles.statusOption,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  isSelected && { backgroundColor: colors.successBg, borderColor: colors.success },
+                  { backgroundColor: colors.card, borderColor: colors.rule ?? colors.border },
+                  isSelected && { backgroundColor: colors.pine + '20', borderColor: colors.pine },
                 ]}
                 onPress={() => !statusUpdating && onStatusSelect(statusOption.code)}
                 disabled={statusUpdating || isSelected}
@@ -80,7 +80,7 @@ export function OrderStatusModal({
                     </Text>
                   </View>
                   {isSelected && (
-                    <Text style={[styles.statusOptionSelectedText, { color: colors.success }]}>
+                    <Text style={[styles.statusOptionSelectedText, { color: colors.pine }]}>
                       {t('orderDetails.currentStatus')}
                     </Text>
                   )}
@@ -92,7 +92,7 @@ export function OrderStatusModal({
           {statusUpdating && (
             <View style={styles.statusUpdatingContainer}>
               <InlineSpinner size="small" />
-              <Text style={[styles.statusUpdatingText, { color: colors.textSecondary }]}>{t('orderDetails.updating')}</Text>
+              <Text style={[styles.statusUpdatingText, { color: colors.ink3 }]}>{t('orderDetails.updating')}</Text>
             </View>
           )}
         </KeyboardAwareScrollView>
@@ -109,12 +109,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingVertical: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 18,
+    lineHeight: 26,
   },
   closeButton: {
     width: 32,
@@ -123,21 +125,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonText: {
+    fontFamily: FontFamily.sans,
     fontSize: 24,
     fontWeight: '300',
   },
   modalContent: {
     flex: 1,
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   modalSubtitle: {
-    ...Typography.caption,
-    marginBottom: Spacing.lg,
+    fontFamily: FontFamily.mono,
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 0.3,
+    marginBottom: AtelierSpacing.lg,
   },
   statusOption: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
     borderWidth: 2,
   },
   statusOptionContent: {
@@ -146,26 +152,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusOptionBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.md,
   },
   statusOptionBadgeText: {
-    ...Typography.caption,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 12,
+    lineHeight: 18,
   },
   statusOptionSelectedText: {
-    ...Typography.small,
-    fontWeight: '600',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   statusUpdatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.lg,
-    gap: Spacing.md,
+    paddingVertical: AtelierSpacing.lg,
+    gap: AtelierSpacing.md,
   },
   statusUpdatingText: {
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 20,
   },
 });

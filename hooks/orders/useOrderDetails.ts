@@ -68,6 +68,19 @@ export function useOrderDetails(orderId: string | undefined): UseOrderDetailsRes
           customer?: { firstName: string; lastName: string; phone: string; email: string | null; gender?: string | null; referenceImage?: string | null };
           updatedAt?: string;
           notes?: string | null;
+          fittings?: Array<{
+            id: string;
+            scheduledAt: string;
+            status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+            notes?: string | null;
+            photos?: string[];
+          }>;
+          sketches?: Array<{
+            id: string;
+            imageUrl: string;
+            title?: string | null;
+            createdAt: string;
+          }>;
           orderGarmentSnapshots?: Array<{
             garmentTypeSnapshot?: { name?: string };
             values?: Record<string, unknown>;
@@ -114,6 +127,8 @@ export function useOrderDetails(orderId: string | undefined): UseOrderDetailsRes
           catalogSelections: order.catalogSelections ?? undefined,
           lastUpdated: order.updatedAt ? formatDate(order.updatedAt) : undefined,
           notes: order.notes ?? undefined,
+          fittings: order.fittings ?? [],
+          sketches: order.sketches ?? [],
         });
         setCompanyData(
           company

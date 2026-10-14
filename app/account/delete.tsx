@@ -27,7 +27,7 @@ import {
 } from '@/lib/services/authService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useDynamicTitle, useCustomBack } from '@/contexts/PageTitleContext';
-import { Spacing, Typography, ButtonStyles, BorderRadius, Shadows, StatusStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 type Step = 'explanation' | 'reauth' | 'confirm' | 'success';
 
@@ -175,7 +175,7 @@ export default function DeleteAccountScreen() {
           <Text style={[styles.successTitle, { color: colors.textPrimary }]}>{t('account.delete.pendingTitle')}</Text>
           <Text style={[styles.successMessage, { color: colors.textSecondary }]}>{t('account.delete.pendingMessage')}</Text>
           <TouchableOpacity
-            style={[ButtonStyles.primary, styles.primaryButton]}
+            style={[styles.primaryButtonBase, styles.primaryButton]}
             onPress={async () => {
               await logout();
               router.replace('/login');
@@ -216,7 +216,7 @@ export default function DeleteAccountScreen() {
             <>
               <View style={[styles.warningBanner, { borderLeftColor: colors.warning }]}>
                 <AlertTriangle size={28} color={colors.warning} strokeWidth={2} />
-                <Text style={[styles.warningBannerText, { color: colors.warningText }]}>{t('account.delete.warningBanner')}</Text>
+                <Text style={[styles.warningBannerText, { color: colors.brassDeep ?? colors.brass }]}>{t('account.delete.warningBanner')}</Text>
               </View>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('account.delete.whatHappensTitle')}</Text>
               <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t('account.delete.whatHappensBody')}</Text>
@@ -278,7 +278,7 @@ export default function DeleteAccountScreen() {
             <>
               <View style={[styles.destructiveBanner, { borderLeftColor: colors.error }]}>
                 <Trash2 size={28} color={colors.error} strokeWidth={2} />
-                <Text style={[styles.destructiveBannerText, { color: colors.errorTextDark }]}>{t('account.delete.finalWarning')}</Text>
+                <Text style={[styles.destructiveBannerText, { color: colors.ember ?? colors.error }]}>{t('account.delete.finalWarning')}</Text>
               </View>
               {errorMessage ? (
                 <View style={styles.errorBox}>
@@ -289,7 +289,7 @@ export default function DeleteAccountScreen() {
           )}
         </KeyboardAwareScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, AtelierSpacing.md), backgroundColor: colors.paper ?? colors.background, borderTopColor: colors.rule ?? colors.border }]}>
           {step === 'explanation' && (
             <Button variant="primary" fullWidth onPress={handleContinueFromExplanation} style={styles.footerButton}>
               {t('account.delete.continueToNextStep')}
@@ -341,13 +341,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   headerTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
     fontSize: 18,
+    lineHeight: 24,
   },
   headerSpacer: {
     width: 44,
@@ -360,132 +361,154 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
     paddingBottom: 20,
   },
   footer: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   footerButton: {
     marginTop: 0,
   },
   footerButtonSecondary: {
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
   },
   loadingCenter: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
   },
   loadingText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    ...StatusStyles.warning,
+    backgroundColor: (undefined as unknown as string),
     borderLeftWidth: 4,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginBottom: AtelierSpacing.md,
   },
   warningBannerText: {
-    ...Typography.bodyBold,
-    marginLeft: Spacing.md,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginLeft: AtelierSpacing.md,
     flex: 1,
   },
   destructiveBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    ...StatusStyles.error,
+    backgroundColor: (undefined as unknown as string),
     borderLeftWidth: 4,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginBottom: AtelierSpacing.md,
   },
   destructiveBannerText: {
-    ...Typography.bodyBold,
-    marginLeft: Spacing.md,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginLeft: AtelierSpacing.md,
     flex: 1,
   },
   sectionTitle: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 16,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
+    lineHeight: 22,
+    marginTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.xs,
   },
   bodyText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
     lineHeight: 22,
-    marginBottom: Spacing.sm,
+    marginBottom: AtelierSpacing.sm,
   },
   inputGroup: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
   },
   errorBox: {
-    ...StatusStyles.error,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
+    marginTop: AtelierSpacing.md,
     borderWidth: 1,
   },
   errorText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
     fontSize: 14,
+    lineHeight: 22,
   },
   destructiveButton: {
     minHeight: 48,
     paddingVertical: 14,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   destructiveButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 16,
+    lineHeight: 22,
   },
   cancelButton: {
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
   },
   cancelButtonText: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     fontWeight: '600',
   },
   successContent: {
     flex: 1,
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   successIconWrap: {
-    marginBottom: Spacing.xl,
+    marginBottom: AtelierSpacing.xl,
   },
   successTitle: {
-    ...Typography.h2,
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
     textAlign: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   successMessage: {
-    ...Typography.body,
-    textAlign: 'center',
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
     lineHeight: 24,
-    marginBottom: Spacing.xl,
+    textAlign: 'center',
+    marginBottom: AtelierSpacing.xl,
+  },
+  primaryButtonBase: {
+    minHeight: 48,
+    paddingVertical: 14,
+    borderRadius: AtelierRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryButton: {
     minWidth: 200,
-    ...Shadows.primary,
+    ...AtelierShadow.elevated,
   },
   primaryButtonText: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
     fontSize: 16,
+    lineHeight: 22,
   },
 });

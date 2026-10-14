@@ -22,7 +22,7 @@ import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloati
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorText } from '@/components/ui/ErrorText';
 import { Button } from '@/components/ui/Button';
-import { Spacing, Typography, HeaderStyles, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import { useTheme } from '@/contexts/ThemeContext';
 
 /** Client-side filter: only garments that are enabled (active) for new orders. */
@@ -34,7 +34,7 @@ export default function NewOrderScreen() {
   const router = useRouter();
   const { t } = useI18n();
   const { colors } = useTheme();
-  const { draftOrder, orderMode, orderIdToEdit, setSelectedGarmentIds, loadOrderData } = useOrderDraft();
+  const { draftOrder, orderMode, orderIdToEdit, setSelectedGarmentIds, updateWantsOrderSketch, loadOrderData } = useOrderDraft();
   const { checkCanCreateOrder, getLimitMessages } = useSubscription();
   const isCreating = orderMode === 'create';
   const canCreateOrder = checkCanCreateOrder();
@@ -137,6 +137,15 @@ export default function NewOrderScreen() {
         orderDate: string;
         measurements: Record<string, Record<string, unknown>> | null;
         customer?: { id: string; firstName: string; lastName: string; phone: string; email: string | null };
+        deliveryDate?: string | null;
+        fittings?: Array<{
+          id?: string;
+          scheduledAt: string;
+          status?: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'MISSED';
+          notes?: string | null;
+          photos?: string[];
+        }>;
+        sketches?: Array<{ id: string; imageUrl: string; title?: string | null }>;
         notes?: string | null;
       }>(api.orders(orderId));
 
@@ -147,6 +156,9 @@ export default function NewOrderScreen() {
           measurements: order.measurements,
           totalAmount: order.totalAmount,
           paidAmount: order.paidAmount,
+          deliveryDate: order.deliveryDate,
+          fittings: order.fittings,
+          sketches: order.sketches,
           notes: order.notes,
         });
       }
@@ -249,15 +261,15 @@ export default function NewOrderScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <View style={styles.contentWrapper}>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Selectează articolele de inclus în comandă (cel puțin unul)
+      <View style={[styles.contentWrapper, { paddingBottom: footerBottomOffset }]}>
+          <Text style={[styles.subtitle, { color: colors.ink3 }]}>
+            {t('newOrder.index.selectGarmentsHint')}
           </Text>
 
           {hasDisabledSelected && (
-            <View style={[styles.warningBanner, { backgroundColor: colors.warning + '20', borderColor: colors.warning }]}>
-              <AlertTriangle size={20} color={colors.warning} />
-              <Text style={[styles.warningText, { color: colors.textSecondary }]}>
+            <View style={[styles.warningBanner, { backgroundColor: (colors.ember ?? colors.warning) + '20', borderColor: colors.ember ?? colors.warning }]}>
+              <AlertTriangle size={20} color={colors.ember ?? colors.warning} />
+              <Text style={[styles.warningText, { color: colors.ink3 }]}>
                 Unul sau mai multe articole selectate nu mai sunt disponibile. Deselectează-le pentru a continua.
               </Text>
             </View>
@@ -267,7 +279,7 @@ export default function NewOrderScreen() {
             <EmptyState
               title={t('newOrder.index.noItemsAvailable')}
               message="Nu există articole disponibile momentan. Adaugă un articol înainte de a crea o comandă."
-              style={[styles.emptyState, { backgroundColor: colors.surface }]}
+              style={[styles.emptyState, { backgroundColor: colors.card }]}
             />
           ) : (
             <View style={styles.list}>
@@ -277,23 +289,23 @@ export default function NewOrderScreen() {
                 return (
                   <TouchableOpacity
                     key={garment.id}
-                    style={[styles.garmentItem, selected && { backgroundColor: colors.primaryLight }]}
+                    style={[styles.garmentItem, { backgroundColor: colors.card }, selected && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' }]}
                     onPress={() => toggleGarment(garment.id, true)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.checkbox, { borderColor: colors.border }, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-                      {selected ? <Check size={20} color={colors.textInverse} strokeWidth={2.5} /> : null}
+                    <View style={[styles.checkbox, { borderColor: colors.rule ?? colors.border }, selected && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary }]}>
+                      {selected ? <Check size={20} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} /> : null}
                     </View>
                     <View style={styles.garmentContent}>
                       <Text style={[styles.garmentTitle, { color: colors.textPrimary }]}>{garment.name}</Text>
                       <View style={styles.garmentMeta}>
                         {measurementCount > 0 && (
-                          <Text style={[styles.measurementCount, { color: colors.textSecondary }]}>
+                          <Text style={[styles.measurementCount, { color: colors.ink3 }]}>
                             {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
                           </Text>
                         )}
                         {garment.description ? (
-                          <Text style={[styles.garmentDescription, { color: colors.textSecondary }]} numberOfLines={1}>
+                          <Text style={[styles.garmentDescription, { color: colors.ink3 }]} numberOfLines={1}>
                             {garment.description}
                           </Text>
                         ) : null}
@@ -306,26 +318,26 @@ export default function NewOrderScreen() {
                 <>
                   {enabledGarments.length > 0 && (
                     <View style={styles.sectionDivider}>
-                      <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-                      <Text style={[styles.dividerText, { color: colors.textTertiary }]}>{t('newOrder.index.disabledItems')}</Text>
-                      <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                      <View style={[styles.dividerLine, { backgroundColor: colors.rule ?? colors.border }]} />
+                      <Text style={[styles.dividerText, { color: colors.ink4 ?? colors.textTertiary }]}>{t('newOrder.index.disabledItems')}</Text>
+                      <View style={[styles.dividerLine, { backgroundColor: colors.rule ?? colors.border }]} />
                     </View>
                   )}
                   {disabledGarments.map((garment) => {
                     const measurementCount = measurementCounts[garment.id] ?? 0;
                     return (
-                      <View key={garment.id} style={[styles.garmentItem, { opacity: 0.6 }]}>
-                        <View style={[styles.checkbox, { borderColor: colors.border, backgroundColor: colors.background, opacity: 0.5 }]} />
+                      <View key={garment.id} style={[styles.garmentItem, { backgroundColor: colors.card, opacity: 0.6 }]}>
+                        <View style={[styles.checkbox, { borderColor: colors.rule ?? colors.border, backgroundColor: colors.paper ?? colors.background, opacity: 0.5 }]} />
                         <View style={styles.garmentContent}>
-                          <Text style={[styles.garmentTitle, { color: colors.textTertiary }]}>{garment.name}</Text>
+                          <Text style={[styles.garmentTitle, { color: colors.ink4 ?? colors.textTertiary }]}>{garment.name}</Text>
                           <View style={styles.garmentMeta}>
                             {measurementCount > 0 && (
-                              <Text style={[styles.measurementCount, { color: colors.textTertiary }]}>
+                              <Text style={[styles.measurementCount, { color: colors.ink4 ?? colors.textTertiary }]}>
                                 {measurementCount} {measurementCount === 1 ? 'măsurătoare' : 'măsurători'}
                               </Text>
                             )}
                             {garment.description ? (
-                              <Text style={[styles.garmentDescription, { color: colors.textTertiary }]} numberOfLines={1}>
+                              <Text style={[styles.garmentDescription, { color: colors.ink4 ?? colors.textTertiary }]} numberOfLines={1}>
                                 {garment.description}
                               </Text>
                             ) : null}
@@ -340,16 +352,38 @@ export default function NewOrderScreen() {
           )}
 
           {isCreating && !canCreateOrder && (
-            <Text style={[styles.limitMessage, { color: colors.textSecondary }]}>{limitMsgs.orderLimitReached}</Text>
+            <Text style={[styles.limitMessage, { color: colors.ink3 }]}>{limitMsgs.orderLimitReached}</Text>
           )}
           {selectedAmongEnabled.length === 0 && enabledGarments.length > 0 && (
-            <View style={[styles.explanationBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <AlertTriangle size={18} color={colors.textSecondary} />
-              <Text style={[styles.explanationText, { color: colors.textSecondary }]}>
-                Selectează cel puțin un articol pentru a continua
+            <View style={[styles.explanationBanner, { backgroundColor: colors.card, borderColor: colors.rule ?? colors.border }]}>
+              <AlertTriangle size={18} color={colors.ink3} />
+              <Text style={[styles.explanationText, { color: colors.ink3 }]}>
+                {t('newOrder.index.selectAtLeastOne')}
               </Text>
             </View>
           )}
+
+          <TouchableOpacity
+            style={[
+              styles.sketchOptInRow,
+              { borderColor: colors.rule ?? colors.border },
+              draftOrder.wantsOrderSketch && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' },
+            ]}
+            onPress={() => updateWantsOrderSketch(!draftOrder.wantsOrderSketch)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, { borderColor: colors.rule ?? colors.border }, draftOrder.wantsOrderSketch && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary }]}>
+              {draftOrder.wantsOrderSketch ? <Check size={20} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} /> : null}
+            </View>
+            <View style={styles.garmentContent}>
+              <Text style={[styles.garmentTitle, { color: colors.textPrimary }]}>
+                {t('newOrder.index.includeSketchLabel')}
+              </Text>
+              <Text style={[styles.garmentDescription, { color: colors.ink3 }]}>
+                {t('newOrder.index.includeSketchHint')}
+              </Text>
+            </View>
+          </TouchableOpacity>
         <AppFloatingFooter
           primaryLabel={t('newOrder.index.continue')}
           onPrimaryPress={handleContinue}
@@ -365,17 +399,17 @@ export default function NewOrderScreen() {
 const styles = StyleSheet.create({
   errorWrapper: {
     flex: 1,
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.lg,
+    gap: AtelierSpacing.lg,
   },
   loadErrorText: {
     textAlign: 'center',
   },
   contentWrapper: {
     flex: 1,
-    paddingTop: Spacing.md,
+    paddingTop: AtelierSpacing.md,
   },
   content: {
     flex: 1,
@@ -384,50 +418,65 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   subtitle: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    lineHeight: 24,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    gap: AtelierSpacing.sm,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
   },
   warningText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
   },
   emptyState: {
-    marginHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    ...Shadows.sm,
+    marginHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    ...AtelierShadow.card,
   },
   list: {
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    gap: AtelierSpacing.md,
+  },
+  sketchOptInRow: {
+    marginHorizontal: AtelierSpacing.md,
+    marginTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
+    borderWidth: 1,
+    borderRadius: AtelierRadius.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   garmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.md,
+    ...AtelierShadow.card,
   },
   checkbox: {
     width: 32,
     height: 32,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 2,
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -435,66 +484,79 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   garmentTitle: {
-    ...Typography.body,
-    fontWeight: '500',
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    flex: 1,
   },
   garmentMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
     flexWrap: 'wrap',
   },
   measurementCount: {
-    ...Typography.caption,
-    fontSize: 12,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   garmentDescription: {
-    ...Typography.caption,
-    flex: 1,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 0,
   },
   sectionDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.lg,
-    marginHorizontal: Spacing.md,
+    marginVertical: AtelierSpacing.lg,
+    marginHorizontal: AtelierSpacing.md,
   },
   dividerLine: {
     flex: 1,
     height: 1,
   },
   dividerText: {
-    ...Typography.caption,
-    marginHorizontal: Spacing.md,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginHorizontal: AtelierSpacing.md,
   },
   explanationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    gap: AtelierSpacing.sm,
+    marginHorizontal: AtelierSpacing.md,
+    marginTop: AtelierSpacing.lg,
+    padding: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
   },
   explanationText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
   },
   limitMessage: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginHorizontal: AtelierSpacing.md,
+    marginTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: AtelierSpacing.md,
   },
   loadingText: {
-    ...Typography.body,
-    marginTop: Spacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: AtelierSpacing.md,
   },
 });

@@ -94,7 +94,7 @@ From FRONTEND-AUDIT-UNUSED.md, files “safe to delete” (not yet deleted):
 | **expo**, **expo-router**, **expo-constants**, **expo-secure-store**, **expo-dev-client** | Core / entry / config / auth storage. |
 | **expo-font**, **@expo/vector-icons** | app.json plugins; font loading. |
 | **expo-file-system**, **expo-print**, **expo-sharing** | pdfGenerator, order-details share. |
-| **expo-image-picker**, **expo-image-manipulator** | profile, signup, pdf-customize, gallery. |
+| **expo-image-picker**, **expo-image-manipulator** | profile, signup, gallery. |
 | **expo-blur** | AppFloatingFooter, PaywallModal, DeleteConfirmModal (and ModalWrapper if kept). |
 | **expo-linear-gradient** | profile, gallery, PaywallModal. |
 | **expo-local-authentication** | lib/biometric.ts, login. |
@@ -107,7 +107,7 @@ From FRONTEND-AUDIT-UNUSED.md, files “safe to delete” (not yet deleted):
 | **lucide-react-native** | Icons across app and tabs. |
 | **react-native-iap** | Subscription purchase and restore. |
 | **react-native-keyboard-controller** | _layout, multiple screens. |
-| **react-native-gesture-handler** | pdf-customize, gallery, garments/[garmentId]. |
+| **react-native-gesture-handler** | gallery, garments/[garmentId]. |
 | **react-native-reanimated** | MeasurementDefinitionEditorModal, AppFloatingFooter, PaywallModal, DeleteConfirmModal, modalAnimation, ListSkeletonLoader (Animated), gallery. |
 | **react-native-safe-area-context** | _layout, many screens. |
 | **react-native-screens** | expo-router / navigation. |

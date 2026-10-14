@@ -14,6 +14,7 @@
     "apply": "Apply",
     "add": "Add",
     "search": "Search",
+    "noResults": "No results",
     "filter": "Filter",
     "all": "All",
     "none": "None",
@@ -33,6 +34,11 @@
   },
   "offline": {
     "message": "No internet connection."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet. Reminders for deliveries and fittings will appear here after they are sent.",
+    "markAllRead": "Mark all as read"
   },
   "home": {
     "greeting": "Hello!",
@@ -120,7 +126,7 @@
       "presetsLabel": "Quick filters",
       "presetActiveOrders": "Active orders",
       "presetUnpaid": "Unpaid",
-      "presetPartiallyPaid": "Partially paid",
+      "presetPartiallyPaid": "Paid partially",
       "orderStatus": "Order status",
       "paymentStatus": "Payment status",
       "orderDate": "Order date",
@@ -157,9 +163,81 @@
       "advanceLabel": "Advance: {{label}}"
     }
   },
+  "calendar": {
+    "filters": {
+      "all": "All",
+      "fitting": "Fitting",
+      "deliveryDate": "Delivery date",
+      "measurement": "Measurements"
+    },
+    "legend": {
+      "fitting": "Fitting",
+      "deliveryDate": "Delivery date",
+      "measurement": "Measurements"
+    },
+    "weekdaysShort": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "eventType": {
+      "fitting": "Fitting",
+      "deliveryDate": "Delivery date",
+      "measurementAppointment": "Measurements"
+    },
+    "fittingTagAtTime": "Scheduled for fitting at {{time}}",
+    "measurementTagAtTime": "Scheduled for measurements at {{time}}",
+    "fittingStatusAction": {
+      "button": "Status",
+      "updating": "Updating...",
+      "updateError": "Could not update fitting status."
+    },
+    "statusPrefix": "Status",
+    "loadingEvents": "Loading events...",
+    "emptySelectedDay": "No events for the selected day.",
+    "moreCount": "+{{count}}",
+    "addFitting": "Add fitting",
+    "addFittingTitle": "Add fitting",
+    "addFittingSubtitle": "Date: {{date}}",
+    "addFittingSelectOrder": "Select order",
+    "addFittingChooseTime": "Time",
+    "addFittingSave": "Save",
+    "addFittingLoadingOrders": "Loading orders…",
+    "addFittingNoOrders": "No orders available to add a fitting."
+  },
   "financial": {
     "title": "Financial",
     "subtitle": "Workshop payment summary",
+    "hubSubtitle": "Choose the financial view you need",
+    "receivablesTitle": "Receivables",
+    "receivablesSubtitle": "Collected amounts and outstanding client balances",
+    "profitTitle": "Profit",
+    "profitSubtitle": "Weekly or monthly revenue, expenses, and profit",
+    "expensesTitle": "Expenses",
+    "expensesSubtitle": "Supplier, shipping, and extra expenses",
+    "addExpense": "Add expense",
+    "saveExpense": "Save expense",
+    "saveError": "Could not save expense.",
+    "amount": "Amount",
+    "date": "Date",
+    "category": "Category",
+    "categorySupplier": "Supplier",
+    "categoryShipping": "Shipping",
+    "categoryOther": "Extra",
+    "supplier": "Supplier",
+    "newSupplier": "New supplier",
+    "orderIdOptional": "Order ID (optional)",
+    "description": "Description",
+    "noExpenses": "No expenses found.",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "revenue": "Revenue",
+    "expensesTotal": "Expenses",
+    "profitResult": "Profit",
     "totalOrders": "Total Orders",
     "collected": "Collected",
     "outstanding": "Outstanding",
@@ -254,7 +332,7 @@
     "logout": "Log out",
     "aboutApp": "About App",
     "appName": "TailorCraft",
-    "version": "Version 1.1.1",
+    "version": "Version 1.1.3",
     "appDescription": "Professional app for tailors, built for efficient order and measurement management.",
     "editBanner": "Edit mode is on. Tap the fields below to change them.",
     "loadingCompany": "Loading company data...",
@@ -440,6 +518,7 @@
     "financialSection": "Payment",
     "deliverySection": "Delivery",
     "deliveryDate": "Delivery Date",
+    "deliveryDateLabel": "Delivery date",
     "notesSection": "Notes",
     "notesPlaceholder": "Add any special instructions or notes...",
     "submitOrder": "Create Order"
@@ -542,6 +621,9 @@
       "deliveryDateLabel": "Expected delivery date"
     },
     "measurements": {
+      "stepLabel": "03 · Measurements",
+      "tagline": "The body, in numbers",
+      "pointsHint": "{{count}} points for {{garment}}. Start with the essentials.",
       "savedForOrder": "Values saved here are for this order only.",
       "clientLatest": "Client's latest",
       "prefilledFromLastOrder": "Prefilled from last order",
@@ -549,7 +631,26 @@
       "defaultValues": "Default values",
       "forThisOrder": "For this order",
       "pageTitle": "Order measurements",
-      "noMeasurementFields": "This item has no measurement fields. The snapshot will be saved empty."
+      "noMeasurementFields": "This item has no measurement fields. The snapshot will be saved empty.",
+      "sketch": {
+        "title": "Order sketch",
+        "hint": "You can draw a sketch, import an image, or reuse one from previous orders.",
+        "openDrawing": "Open drawing",
+        "importImage": "Import image",
+        "fromPastOrders": "From past orders",
+        "fromSavedImports": "From saved imports",
+        "noSketchSelected": "No sketch selected yet.",
+        "sketchSelected": "Sketch selected for this order.",
+        "saveCurrentImport": "Save",
+        "savedToLibrary": "Image saved to your sketch library.",
+        "noPastSketches": "No sketches found in past orders.",
+        "noSavedImports": "No saved imports yet.",
+        "photoPermissionDenied": "Permission to access photos was denied.",
+        "loadPastError": "Could not load sketches from past orders.",
+        "selectPastError": "Could not use the selected sketch.",
+        "saveLibraryError": "Could not save image to sketch library.",
+        "removeLibraryError": "Could not remove saved image."
+      }
     },
     "catalogSelections": {
       "title": "Styles & Materials",
@@ -561,7 +662,11 @@
       "disabledItems": "Disabled items",
       "continue": "Continue",
       "editOrderTitle": "Edit Order",
-      "newOrderTitle": "New Order"
+      "newOrderTitle": "New Order",
+      "selectGarmentsHint": "Select garments to include in this order (at least one).",
+      "selectAtLeastOne": "Select at least one garment to continue.",
+      "includeSketchLabel": "Include a sketch for this order",
+      "includeSketchHint": "You will be able to add it in the next step."
     }
   },
   "orderDetails": {
@@ -571,6 +676,7 @@
     "clientInfo": "Client Information",
     "paymentInfo": "Payment Information",
     "totalOrder": "Order Total",
+    "totalPaid": "Total Paid",
     "advancePaid": "Advance Paid",
     "toPay": "To Pay",
     "paymentMethod": "Payment Method",
@@ -590,12 +696,13 @@
     "companyRequiredForPdf": "Company settings required for PDF. Set up in Profile.",
     "statusUpdated": "Order status has been updated.",
     "statusUpdateError": "Could not update order status.",
+    "markFullyPaid": "Mark as fully paid",
+    "markFullyPaidSuccess": "Order marked as fully paid.",
+    "markFullyPaidError": "Could not mark order as fully paid.",
     "garmentDeleted": "Garment (deleted)",
     "exportPdf": "Export PDF",
     "generatingPdf": "Generating PDF...",
     "downloadPdf": "Download PDF",
-    "downloadAs": "Download as",
-    "downloadCustomTemplate": "Custom Template",
     "downloadClassicTemplate": "Classic Template",
     "saveToFolder": "Save to folder",
     "measurementsForGarment": "Measurements {{name}}",
@@ -617,7 +724,45 @@
     "deliveryDateLabel": "Delivery date",
     "setDeliveryDate": "Set delivery date",
     "deliveryDateUpdated": "Delivery date has been updated.",
-    "deliveryDateUpdateError": "Could not update delivery date."
+    "deliveryDateUpdateError": "Could not update delivery date.",
+    "fittings": {
+      "title": "Fittings",
+      "add": "Add fitting",
+      "empty": "No fittings scheduled.",
+      "saveError": "Could not save fittings.",
+      "timeRequiredTitle": "Time is required",
+      "timeRequiredMessage": "Please select a time for the fitting date before saving.",
+      "slotConflictTitle": "Time slot taken",
+      "slotConflict": "Another fitting is already scheduled at this date and time. Choose a different time.",
+      "changeStatusButton": "Change status",
+      "changeStatusTitle": "Change fitting status",
+      "changeStatusMessage": "Choose a new status for this fitting.",
+      "delete": "Delete",
+      "saving": "Saving...",
+      "photos": {
+        "add": "Add fitting photo",
+        "addShort": "Photo",
+        "takePhoto": "Take photo",
+        "chooseFromLibrary": "Choose from library",
+        "open": "Open photo",
+        "remove": "Remove photo",
+        "removeConfirm": "Remove this photo from the fitting?",
+        "uploadError": "Could not upload the photo. Please try again.",
+        "permissionDenied": "Allow camera or photo access in Settings to add fitting photos.",
+        "hint": "Tap to view · hold to remove"
+      },
+      "status": {
+        "SCHEDULED": "Scheduled",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled",
+        "MISSED": "Missed"
+      }
+    },
+    "sketches": {
+      "title": "Sketch",
+      "hint": "Tap an image to view full size.",
+      "untitled": "Sketch"
+    }
   },
   "clients": {
     "new": {
@@ -737,7 +882,6 @@
     "clientLimitReached": "Client limit reached. Upgrade to Pro for unlimited clients.",
     "orderLimitReached": "Order limit reached. Upgrade to Pro for unlimited orders.",
     "templateLimitReached": "You've reached the limit of garment types. Free plan allows up to 2. Upgrade to Pro for unlimited.",
-    "customPdfProOnly": "Custom PDF templates are available on Pro plan.",
     "checkoutError": "Could not start checkout. Please try again.",
     "priceLoading": "...",
     "restorePurchases": "Restore Purchases",
@@ -839,6 +983,8 @@
     "themeSystem": "System",
     "themeLight": "Light",
     "themeDark": "Dark",
+    "currency": "Currency",
+    "currencyDescription": "Preferred currency for displaying order prices.",
     "phonePrefix": "Default Phone Prefix",
     "phonePrefixDescription": "Default country code for new client phone numbers.",
     "phonePrefix_": "None",
@@ -1061,6 +1207,10 @@
     "notesPlaceholder": "Client notes (optional)",
     "notesTitle": "Client Notes",
     "clientSince": "Client since",
+    "measurementAppointmentLabel": "Measurement appointment",
+    "measurementAppointmentHint": "You will get a push notification 2 hours before this time.",
+    "measurementAppointmentNotSet": "Not scheduled",
+    "measurementAppointmentClear": "Clear appointment",
     "clientStats": "Client Statistics",
     "totalOrdersLabel": "Total Orders",
     "totalSpentLabel": "Total Spent",
@@ -1155,73 +1305,7 @@
     "advance": "Advance",
     "payment": "Payment",
     "currency": "RON",
-    "classic": "Classic",
-    "custom": "Custom",
-    "customizePdf": "Customize PDF",
-    "customPdfProTitle": "Pro Feature",
-    "customPdfProMessage": "Custom branded PDFs with your logo, colors, and layout are available on the Pro plan. Upgrade to create professional documents for your business.",
-    "upgradeToPro": "Upgrade to Pro",
-    "logo": "Logo",
-    "uploadLogo": "Tap to upload logo",
-    "logoPosition": "Logo position",
-    "logoLeft": "Left",
-    "logoRight": "Right",
-    "primaryColor": "Primary color (hex)",
-    "secondaryColor": "Secondary color (hex)",
-    "fontFamily": "Font family",
-    "showHeader": "Show header",
-    "showFooter": "Show footer",
-    "customFooterText": "Custom footer text",
-    "customFooterPlaceholder": "Optional footer text",
-    "layoutType": "Layout style",
-    "layoutClassic": "Classic",
-    "layoutModern": "Modern",
-    "layoutMinimal": "Minimal",
-    "loadTemplateError": "Could not load PDF settings",
-    "saveTemplateError": "Could not save PDF settings",
-    "templateSaved": "PDF settings saved",
-    "photoPermissionDenied": "Photo library access is required to upload a logo.",
-    "buildYourPdf": "Build Your PDF",
-    "addSection": "Add Section",
-    "sectionClientInfo": "Client Info",
-    "sectionOrderInfo": "Order Info",
-    "sectionPricing": "Pricing",
-    "sectionContractText": "Contract Text",
-    "sectionSignatureBlock": "Signature Block",
-    "sectionMeasurements": "Measurements",
-    "fieldSelector": "Select fields",
-    "availableVariables": "Available variables",
-    "tapToInsert": "Tap to insert",
-    "reorderSections": "Reorder sections",
-    "tapArrowsToReorder": "Tap ↑ ↓ to reorder",
-    "moveUp": "Move up",
-    "moveDown": "Move down",
-    "contractPlaceholder": "e.g. This contract is between {{client_name}} and {{company_name}}...",
-    "documentTemplates": "Document templates",
-    "createContractPdf": "Create Contract PDF",
-    "contractPdfProCta": "Unlock fully customizable contract PDFs with Pro.",
-    "defaultTemplate": "Default",
-    "setAsDefault": "Set as default",
-    "templateName": "Template name",
-    "newTemplate": "New template",
-    "noDocumentTemplates": "No document templates yet. Create one to build contract-style PDFs.",
-    "chooseTemplate": "Choose template",
-    "saveAsNew": "Save as new",
-    "deleteTemplate": "Delete template",
-    "deleteTemplateConfirm": "Delete this template? This cannot be undone.",
-    "appearanceTitle": "Appearance",
-    "appearanceHint": "Logo, colors, font and layout for your PDFs.",
-    "contentTitle": "PDF content",
-    "contentHint": "Choose which sections appear on your PDF and in what order.",
-    "dragToReorder": "Long-press to drag and reorder.",
-    "previewLabel": "Preview",
-    "resetToDefault": "Reset to default",
-    "quickTemplate": {
-      "invoice": "Invoice",
-      "contract": "Contract",
-      "minimal": "Minimal"
-    },
-    "removeSection": "Remove section"
+    "classic": "Classic"
   },
   "legal": {
     "menuItem": "Legal & Privacy",
@@ -1396,6 +1480,118 @@
       "linings": "Linings",
       "closures": "Closures",
       "threads": "Threads"
+    }
+  },
+  "tutorial": {
+    "label": "Tutorial",
+    "menuItem": "App tutorial",
+    "skip": "Skip",
+    "back": "Back",
+    "next": "Next",
+    "tip": "Tip",
+    "finish": "Start using TailorCraft",
+    "createFirstGarment": "Create my first garment",
+    "slides": {
+      "welcome": {
+        "eyebrow": "Welcome",
+        "title": "Your atelier, without the paper",
+        "body": "TailorCraft keeps your clients, measurements, orders, fittings and payments in one place on your phone. This short guide shows how everything fits together.",
+        "p1": "Set up your garments: the pieces you make, with their measurements and styles.",
+        "p2": "Add your clients.",
+        "p3": "Create orders: pick the client and garments, take measurements, choose styles, set the price.",
+        "p4": "Track fittings, payments and delivery, and share the order as a PDF.",
+        "tip": "Swipe or tap Next to continue. You can reopen this tutorial anytime from Profile → App tutorial."
+      },
+      "garments": {
+        "eyebrow": "The basics",
+        "title": "What is a garment?",
+        "body": "A garment is a reusable template for something you sew: a suit jacket, trousers, a dress, a shirt, a coat. You set it up once and use it in every order.",
+        "p1": "It decides which measurements you take for that piece (e.g. chest, waist, sleeve length).",
+        "p2": "It holds the styles & materials the client can choose from: fabrics, buttons, lapels, pockets, linings…",
+        "p3": "An order can contain several garments, e.g. a jacket and trousers for one suit.",
+        "p4": "Each order keeps a copy of the garment as it was, so changing a garment later never alters old orders.",
+        "tip": "Start with the 2–3 pieces you make most often. You can add more anytime."
+      },
+      "addGarment": {
+        "eyebrow": "Step 1 · Garments",
+        "title": "How to add a garment",
+        "body": "Garments live under Profile → Garments / Templates. When you have none yet, the Home screen also shows an Add Garment button.",
+        "p1": "Open Profile → Garments / Templates and tap New garment.",
+        "p2": "Type a name (e.g. Jacket) and, if you like, a short description. Save.",
+        "p3": "Tap the garment in the list to open it and set up its measurements and styles (next steps).",
+        "p4": "Use the Enabled switch to hide a garment from new orders without deleting it. Duplicate a garment to quickly make a variation.",
+        "action": "Open Garments"
+      },
+      "measurements": {
+        "eyebrow": "Step 2 · Measurements",
+        "title": "Choose what to measure",
+        "body": "Inside a garment, the Measurements section is the list of points you take from the client for that piece.",
+        "p1": "Tap Add measurement and enter its name, e.g. Shoulder width.",
+        "p2": "Pick a type: Number (most measurements), Text (a free note), Select (choose from options like Slim, Regular, Loose) or Calculated (worked out from other measurements with a formula).",
+        "p3": "Mark the essential ones as Required so they can't be skipped in an order.",
+        "p4": "Put them in the order you measure; that's the order you'll fill them in with the client.",
+        "p5": "A measurement already used in orders can't be deleted, which protects your history.",
+        "tip": "The unit (cm or inches) comes from your general settings and applies to all measurements."
+      },
+      "styles": {
+        "eyebrow": "Step 3 · Styles & materials",
+        "title": "Add styles and materials",
+        "body": "Each garment also has a Styles & Materials section: the options your client chooses from. They're organised into categories, and each category holds items.",
+        "p1": "Categories group options, e.g. Fabrics, Buttons, Lapels, Pockets, Linings. Tap Add Category, give it a name and pick an icon.",
+        "p2": "Tap a category, then Add Item. Give it a name (e.g. Italian Wool Super 120s), an optional code and description, and a photo or a colour.",
+        "p3": "Drag categories and items to put the ones you use most at the top.",
+        "p4": "Items marked System default can't be deleted, but you can disable the ones you don't offer.",
+        "p5": "When you create an order, the client's choices are picked in the Summary step and printed on the order PDF.",
+        "tip": "A photo of each fabric or button makes choosing much easier when you're with the client."
+      },
+      "clients": {
+        "eyebrow": "Step 4 · Clients",
+        "title": "Add your clients",
+        "body": "Every order belongs to a client. Their details, orders and latest measurements are kept together on the client's page.",
+        "p1": "On Home, tap the + button and choose Add Client. You can also add a new client while creating an order.",
+        "p2": "Only first name, last name and phone are required. Email, address, notes and a reference photo are optional.",
+        "p3": "Set a measurement appointment and TailorCraft reminds you 2 hours before.",
+        "p4": "Open a client from Orders or Home to see all their orders and measurements in one place.",
+        "action": "Add a client"
+      },
+      "orders": {
+        "eyebrow": "Step 5 · Orders",
+        "title": "Create an order",
+        "body": "Tap + on Home and choose Create Order. The order is built in a few short steps, and you can go back to any step before saving.",
+        "p1": "Client: choose an existing client or enter a new one.",
+        "p2": "Garments: select one or more garments for this order. Disabled garments can't be picked.",
+        "p3": "Measurements: fill in each garment's measurements. They're prefilled from the client's last order, so you only update what changed. You can also add a sketch: draw it, import a photo, or reuse one.",
+        "p4": "Summary: pick the styles & materials, enter the total price, the amount paid and the expected delivery date.",
+        "p5": "Save. The order gets a number and appears under Orders.",
+        "tip": "Values you type in an order are saved with that order only. They never change the garment's default settings."
+      },
+      "tracking": {
+        "eyebrow": "Step 6 · Follow up",
+        "title": "Track fittings, payments & delivery",
+        "body": "Open any order from the Orders tab to manage it until it's delivered.",
+        "p1": "Update the status as you work: Pending → In progress → Completed → Delivered.",
+        "p2": "Add fittings with date and time, and mark them Completed, Missed or Cancelled. You get a reminder before each one.",
+        "p3": "Update the amount paid as the client pays; the order shows how much is still due on pickup.",
+        "p4": "Generate the order PDF with measurements, styles and sketch, and share it with the client or your workshop.",
+        "p5": "Orders past their delivery date are flagged as overdue, and the filters on Orders help you find unpaid ones."
+      },
+      "more": {
+        "eyebrow": "Everything else",
+        "title": "Gallery, calendar & finances",
+        "body": "A few more places that help you run the atelier.",
+        "p1": "Gallery: keep photos of your finished work to show clients.",
+        "p2": "Calendar: see fittings and measurement appointments by day.",
+        "p3": "Financial (from Home): money still owed by clients, expenses and profit.",
+        "p4": "Profile: company details for documents, garments, settings (units, language, currency, theme) and your subscription."
+      },
+      "done": {
+        "eyebrow": "You're ready",
+        "title": "Let's set up your first garment",
+        "body": "The best first step is a garment you make often. Once it has measurements and a few styles, you can take your first order.",
+        "p1": "Create a garment → add its measurements → add styles & materials.",
+        "p2": "Add a client → create an order.",
+        "p3": "You can reopen this tutorial anytime from Profile → App tutorial."
+      }
     }
   }
 }

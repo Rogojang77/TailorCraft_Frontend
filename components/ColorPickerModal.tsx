@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 function parseHex(hex: string): string | null {
   const s = hex.replace(/^#/, '').trim();
@@ -133,7 +133,7 @@ export function ColorPickerModal({
       onRequestClose={onClose}
     >
       <TouchableOpacity
-        style={[styles.overlay, { backgroundColor: colors.overlayModal }]}
+        style={[styles.overlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]}
         activeOpacity={1}
         onPress={onClose}
       >
@@ -141,7 +141,7 @@ export function ColorPickerModal({
           <TouchableOpacity
             activeOpacity={1}
             onPress={() => {}}
-            style={[styles.card, { backgroundColor: colors.surface }]}
+            style={[styles.card, { backgroundColor: colors.card }, AtelierShadow.card]}
           >
             <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
 
@@ -189,7 +189,7 @@ export function ColorPickerModal({
                   {
                     left: saturation * panelSizeRef.current.width - 10,
                     top: (1 - brightness) * panelSizeRef.current.height - 10,
-                    borderColor: colors.textInverse,
+                    borderColor: colors.paper ?? '#EFE9DC',
                   },
                 ]}
                 pointerEvents="none"
@@ -220,12 +220,12 @@ export function ColorPickerModal({
                 colors={['#f00', '#ff0', '#0f0', '#0ff', '#00f', '#f0f', '#f00']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[StyleSheet.absoluteFill, { borderRadius: BorderRadius.md }]}
+                style={[StyleSheet.absoluteFill, { borderRadius: AtelierRadius.md }]}
               />
               <View
                 style={[
                   styles.hueThumb,
-                  { left: (hue / 360) * hueSliderWidthRef.current - 8, borderColor: colors.textInverse },
+                  { left: (hue / 360) * hueSliderWidthRef.current - 8, borderColor: colors.paper ?? '#EFE9DC' },
                 ]}
                 pointerEvents="none"
               />
@@ -235,7 +235,7 @@ export function ColorPickerModal({
               <View
                 style={[
                   styles.swatch,
-                  { backgroundColor: parseHex(hex) || '#000', borderColor: colors.border },
+                  { backgroundColor: parseHex(hex) || '#000', borderColor: colors.rule ?? colors.border },
                 ]}
               />
               <Input
@@ -291,28 +291,29 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   keyboardAvoid: {
     flex: 1,
     justifyContent: 'center',
   },
   card: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
     maxWidth: 300,
     width: '100%',
     alignSelf: 'center',
-    ...Shadows.lg,
   },
   title: {
-    ...Typography.h3,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.md,
   },
   panel: {
     height: 180,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    marginBottom: AtelierSpacing.md,
     overflow: 'hidden',
   },
   thumb: {
@@ -331,8 +332,8 @@ const styles = StyleSheet.create({
   },
   hueSlider: {
     height: 28,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    marginBottom: AtelierSpacing.md,
     overflow: 'hidden',
   },
   hueThumb: {
@@ -353,13 +354,13 @@ const styles = StyleSheet.create({
   hexRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
+    gap: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   swatch: {
     width: 44,
     height: 44,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
   },
   input: {
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
     justifyContent: 'flex-end',
   },
   noneBtn: {

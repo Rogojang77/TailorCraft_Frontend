@@ -4,7 +4,8 @@ import { User, Phone, Calendar, CreditCard, Trash2 } from 'lucide-react-native';
 import { Button } from '@/components/ui/Button';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { useSettings } from '@/contexts/SettingsContext';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { OrderDetailsData } from '@/types/orderDetails';
 
 export interface OrderHeaderStatusConfig {
@@ -18,6 +19,9 @@ export interface OrderHeaderProps {
   onDeleteRequest: () => void;
   onEditOrderInfo: () => void;
   onStatusPress: () => void;
+  onMarkFullyPaid?: () => void;
+  markFullyPaidLoading?: boolean;
+  markFullyPaidDisabled?: boolean;
   statusConfig: OrderHeaderStatusConfig;
 }
 
@@ -26,11 +30,17 @@ export function OrderHeader({
   onDeleteRequest,
   onEditOrderInfo,
   onStatusPress,
+  onMarkFullyPaid,
+  markFullyPaidLoading = false,
+  markFullyPaidDisabled = false,
   statusConfig,
 }: OrderHeaderProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
+  const { preferredCurrency } = useSettings();
   const remaining = orderData.total - orderData.advance;
+  const isFullyPaid = orderData.advance >= orderData.total;
+  const shouldShowMarkFullyPaid = !!onMarkFullyPaid && !isFullyPaid;
 
   return (
     <>
@@ -42,14 +52,14 @@ export function OrderHeader({
         </View>
         <View style={styles.actionButtons}>
           <Button variant="dangerIcon" onPress={onDeleteRequest} accessibilityLabel={t('common.delete')}>
-            <Trash2 size={18} color={colors.error} strokeWidth={2.5} />
+            <Trash2 size={18} color={colors.ember} strokeWidth={2.5} />
           </Button>
         </View>
       </View>
 
-      <View style={[styles.section]}>
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
         <View style={styles.sectionHeader}>
-          <User size={20} color={colors.primary} />
+          <User size={20} color={colors.brass} />
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('orderDetails.clientInfo')}</Text>
         </View>
         <View style={styles.clientCard}>
@@ -57,20 +67,20 @@ export function OrderHeader({
             <View style={styles.clientInfo}>
               <Text style={[styles.clientName, { color: colors.textPrimary }]}>{orderData.clientName}</Text>
               <View style={styles.contactRow}>
-                <Phone size={16} color={colors.textSecondary} />
-                <Text style={[styles.contactText, { color: colors.textSecondary }]}>{orderData.clientPhone}</Text>
+                <Phone size={16} color={colors.ink3} />
+                <Text style={[styles.contactText, { color: colors.ink3 }]}>{orderData.clientPhone}</Text>
               </View>
               {orderData.clientEmail ? (
                 <View style={styles.contactRow}>
-                  <Text style={[styles.contactText, { color: colors.textSecondary }]}>{orderData.clientEmail}</Text>
+                  <Text style={[styles.contactText, { color: colors.ink3 }]}>{orderData.clientEmail}</Text>
                 </View>
               ) : null}
             </View>
           </View>
           <View style={styles.dateRow}>
             <View style={styles.dateItem}>
-              <Calendar size={16} color={colors.textSecondary} />
-              <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+              <Calendar size={16} color={colors.ink3} />
+              <Text style={[styles.dateLabel, { color: colors.ink3 }]}>
                 {t('orderDetails.orderDateLabel', { date: orderData.orderDate })}
               </Text>
             </View>
@@ -83,32 +93,59 @@ export function OrderHeader({
             </TouchableOpacity>
           </View>
           {orderData.lastUpdated ? (
-            <Text style={[styles.lastUpdated, { color: colors.textTertiary }]}>
+            <Text style={[styles.lastUpdated, { color: colors.ink4 }]}>
               {t('common.lastUpdated')}: {orderData.lastUpdated}
             </Text>
           ) : null}
         </View>
       </View>
 
-      <TouchableOpacity style={[styles.section]} onPress={onEditOrderInfo} activeOpacity={0.9}>
+      <TouchableOpacity style={[styles.section, { backgroundColor: colors.card }]} onPress={onEditOrderInfo} activeOpacity={0.9}>
         <View style={styles.sectionHeader}>
-          <CreditCard size={20} color={colors.primary} />
+          <CreditCard size={20} color={colors.brass} />
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('orderDetails.paymentInfo')}</Text>
         </View>
-        <View style={styles.paymentGrid}>
-          <View style={[styles.paymentItem, { backgroundColor: colors.successBg }]}>
-            <Text style={[styles.paymentLabel, { color: colors.successText }]}>{t('orderDetails.totalOrder')}</Text>
-            <Text style={[styles.paymentValue, { color: colors.successText }]}>{orderData.total} RON</Text>
+        {isFullyPaid ? (
+          <>
+            <Text style={[styles.fullyPaidText, { color: colors.pine }]}>{t('orders.filters.fullyPaid')}</Text>
+            <View style={styles.paymentGrid}>
+              <View style={[styles.paymentItem, { backgroundColor: colors.pine + '18' }]}>
+                <Text style={[styles.paymentLabel, { color: colors.pine }]}>
+                  {t('orderDetails.totalPaid')}
+                </Text>
+                <Text style={[styles.paymentValue, { color: colors.pine }]}>{orderData.advance} {preferredCurrency}</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.paymentGrid}>
+            <View style={[styles.paymentItem, { backgroundColor: colors.pine + '18' }]}>
+              <Text style={[styles.paymentLabel, { color: colors.pine }]}>{t('orderDetails.totalOrder')}</Text>
+              <Text style={[styles.paymentValue, { color: colors.pine }]}>{orderData.total} {preferredCurrency}</Text>
+            </View>
+            <View style={[styles.paymentItem, { backgroundColor: colors.pine + '18' }]}>
+              <Text style={[styles.paymentLabel, { color: colors.pine }]}>{t('orderDetails.advancePaid')}</Text>
+              <Text style={[styles.paymentValue, { color: colors.pine }]}>{orderData.advance} {preferredCurrency}</Text>
+            </View>
+            <View style={[styles.paymentItem, { backgroundColor: colors.ember + '12' }]}>
+              <Text style={[styles.paymentLabel, { color: colors.ember }]}>{t('orderDetails.toPay')}</Text>
+              <Text style={[styles.paymentValue, { color: colors.ember }]}>{remaining} {preferredCurrency}</Text>
+            </View>
           </View>
-          <View style={[styles.paymentItem, { backgroundColor: colors.successBg }]}>
-            <Text style={[styles.paymentLabel, { color: colors.successText }]}>{t('orderDetails.advancePaid')}</Text>
-            <Text style={[styles.paymentValue, { color: colors.successText }]}>{orderData.advance} RON</Text>
-          </View>
-          <View style={[styles.paymentItem, { backgroundColor: colors.successBg }]}>
-            <Text style={[styles.paymentLabel, { color: colors.successText }]}>{t('orderDetails.toPay')}</Text>
-            <Text style={[styles.paymentValue, { color: colors.error }]}>{remaining} RON</Text>
-          </View>
-        </View>
+        )}
+        {shouldShowMarkFullyPaid ? (
+          <Button
+            variant="primary"
+            size="sm"
+            onPress={onMarkFullyPaid}
+            loading={markFullyPaidLoading}
+            disabled={markFullyPaidDisabled}
+            style={styles.fullPayButton}
+            fullWidth
+          >
+            {t('orderDetails.markFullyPaid')}
+          </Button>
+        ) : null}
       </TouchableOpacity>
     </>
   );
@@ -119,81 +156,86 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    marginBottom: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   statusContainer: {
     flex: 1,
   },
   orderNumber: {
-    ...Typography.bodyBold,
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FontFamily.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   statusBadgeTouchable: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
   },
   statusBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.sm,
+    paddingVertical: 3,
+    borderRadius: AtelierRadius.xs,
     alignSelf: 'flex-start',
     maxWidth: '100%',
   },
   statusText: {
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 10,
-    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     flexWrap: 'wrap',
   },
   section: {
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    ...Shadows.md,
+    marginBottom: AtelierSpacing.md,
+    borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   sectionTitle: {
-    ...Typography.bodyBold,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 16,
+    lineHeight: 22,
+    marginLeft: AtelierSpacing.sm,
   },
   clientCard: {
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
   },
   clientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    ...Typography.bodyBold,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 22,
+    lineHeight: 28,
+    marginBottom: AtelierSpacing.sm,
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   contactText: {
-    ...Typography.caption,
-    marginLeft: Spacing.xs + 2,
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: AtelierSpacing.xs + 2,
   },
   dateRow: {
     flexDirection: 'row',
@@ -204,34 +246,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateLabel: {
-    ...Typography.small,
-    marginLeft: Spacing.xs + 2,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginLeft: AtelierSpacing.xs + 2,
   },
   lastUpdated: {
-    fontSize: 11,
-    marginTop: Spacing.xs + 2,
+    fontFamily: FontFamily.mono,
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: AtelierSpacing.xs + 2,
   },
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
+  },
+  fullyPaidText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.md,
   },
   paymentItem: {
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
     minWidth: '45%',
     flex: 1,
     alignItems: 'center',
   },
   paymentLabel: {
-    ...Typography.small,
-    fontWeight: '600',
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 10,
+    lineHeight: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.xs,
     textAlign: 'center',
   },
   paymentValue: {
-    ...Typography.bodyBold,
-    fontWeight: '700',
+    fontFamily: FontFamily.sansBold,
+    fontSize: 18,
+    lineHeight: 24,
     textAlign: 'center',
+  },
+  fullPayButton: {
+    marginTop: AtelierSpacing.md,
   },
 });

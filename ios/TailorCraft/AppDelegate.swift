@@ -68,3 +68,27 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #endif
   }
 }
+
+// iOS 27 SDK refuses to launch apps without the UIScene lifecycle; attach the window AppDelegate already built to the scene.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+  private var appDelegate: AppDelegate? { UIApplication.shared.delegate as? AppDelegate }
+
+  func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    guard let windowScene = scene as? UIWindowScene, let window = appDelegate?.window else { return }
+    window.windowScene = windowScene
+    window.makeKeyAndVisible()
+    // Cold-start links (dev-client URL, deep links) now arrive here instead of launchOptions.
+    self.scene(scene, openURLContexts: connectionOptions.urlContexts)
+    if let activity = connectionOptions.userActivities.first { self.scene(scene, continue: activity) }
+  }
+
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    for context in URLContexts {
+      _ = appDelegate?.application(UIApplication.shared, open: context.url, options: [:])
+    }
+  }
+
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    _ = appDelegate?.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
+  }
+}

@@ -9,7 +9,7 @@ import {
 import { Check, ExternalLink } from 'lucide-react-native';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, Spacing, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 export interface ConsentCheckboxProps {
   checked: boolean;
@@ -41,9 +41,8 @@ export function ConsentCheckbox({
 }: ConsentCheckboxProps) {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
   const displayLinkText = linkText ?? t('legal.viewDocument');
-  
+
   const handlePress = () => {
     if (disabled) return;
     onToggle();
@@ -71,21 +70,21 @@ export function ConsentCheckbox({
       accessibilityHint={optional ? undefined : t('legal.requiredToContinue')}
     >
       <View style={[
-        styles.checkbox, 
-        { borderColor: colors.border, backgroundColor: colors.surface },
-        checked && { backgroundColor: colors.primary, borderColor: colors.primary }
+        styles.checkbox,
+        { borderColor: colors.rule ?? colors.border, backgroundColor: colors.card },
+        checked && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary }
       ]}>
-        {checked && <Check size={14} color={colors.textInverse} strokeWidth={3} />}
+        {checked && <Check size={14} color={colors.paper ?? '#EFE9DC'} strokeWidth={3} />}
       </View>
       <View style={styles.labelWrap}>
-        <Text style={[typography.body, { color: colors.textPrimary }]}>
+        <Text style={[styles.bodyText, { color: colors.textPrimary }]}>
           {label}
           {optional && (
-            <Text style={{ color: colors.textSecondary, fontWeight: '400' }}> ({t('common.optional')})</Text>
+            <Text style={{ color: colors.ink3, fontWeight: '400' }}> ({t('common.optional')})</Text>
           )}
         </Text>
         {sublabel ? (
-          <Text style={[typography.caption, { color: colors.textSecondary }, styles.sublabel]}>{sublabel}</Text>
+          <Text style={[styles.captionText, { color: colors.ink3 }, styles.sublabel]}>{sublabel}</Text>
         ) : null}
         {documentUrl && onOpenDocument ? (
           <TouchableOpacity
@@ -95,8 +94,8 @@ export function ConsentCheckbox({
             accessibilityRole="link"
             accessibilityLabel={t('legal.openDocument')}
           >
-            <ExternalLink size={14} color={colors.primary} />
-            <Text style={[typography.caption, { color: colors.primary, fontWeight: '600' }]}>{displayLinkText}</Text>
+            <ExternalLink size={14} color={colors.brass ?? colors.primary} />
+            <Text style={[styles.captionText, { color: colors.brass ?? colors.primary, fontWeight: '600' }]}>{displayLinkText}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -109,8 +108,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     minHeight: MIN_TAP_TARGET,
-    paddingVertical: Spacing.sm,
-    paddingRight: Spacing.sm,
+    paddingVertical: AtelierSpacing.sm,
+    paddingRight: AtelierSpacing.sm,
   },
   rowPressed: {
     opacity: 0.8,
@@ -123,9 +122,9 @@ const styles = StyleSheet.create({
     height: CHECKBOX_SIZE,
     minWidth: CHECKBOX_SIZE,
     minHeight: CHECKBOX_SIZE,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 2,
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
     marginTop: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -139,7 +138,17 @@ const styles = StyleSheet.create({
   linkWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
     gap: 4,
+  },
+  bodyText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  captionText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

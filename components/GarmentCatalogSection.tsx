@@ -25,7 +25,7 @@ import { Section } from '@/components/ui/Section';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, Shadows, CompactLayoutStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 export interface GarmentCatalogSectionProps {
   garmentId: string;
@@ -167,7 +167,7 @@ export function GarmentCatalogSection({
         <TouchableOpacity
           style={[
             styles.categoryRow,
-            { backgroundColor: colors.surface },
+            { backgroundColor: colors.card },
             isActive && styles.categoryRowActive,
           ]}
           onPress={() => handleCategoryPress(category)}
@@ -179,7 +179,7 @@ export function GarmentCatalogSection({
               style={styles.dragHandle}
               accessibilityLabel={t('catalog.dragToReorder')}
             >
-              <GripVertical size={20} color={colors.textTertiary} />
+              <GripVertical size={20} color={colors.ink4 ?? colors.textTertiary} />
             </TouchableOpacity>
           )}
           <View style={styles.categoryMain}>
@@ -188,7 +188,7 @@ export function GarmentCatalogSection({
                 ? t(`catalog.categories.${category.code}`)
                 : category.name}
             </Text>
-            <Text style={[styles.categoryMeta, { color: colors.textSecondary }]}>
+            <Text style={[styles.categoryMeta, { color: colors.ink3 }]}>
               {t('catalog.itemCount', { count: category.itemCount })}
             </Text>
           </View>
@@ -198,7 +198,7 @@ export function GarmentCatalogSection({
                 variant="ghost"
                 size="sm"
                 onPress={() => handleEditCategory(category)}
-                leftIcon={<Edit size={16} color={colors.primary} />}
+                leftIcon={<Edit size={16} color={colors.brass ?? colors.primary} />}
                 style={styles.categoryActionBtn}
               >
                 {t('common.edit')}
@@ -210,17 +210,17 @@ export function GarmentCatalogSection({
                   setDeleteError(null);
                   setDeleteTarget(category);
                 }}
-                leftIcon={<Trash2 size={16} color={colors.error} />}
+                leftIcon={<Trash2 size={16} color={colors.ember ?? colors.error} />}
                 style={styles.categoryActionBtn}
               >
-                <Text style={[styles.categoryActionText, { color: colors.error }]}>
+                <Text style={[styles.categoryActionText, { color: colors.ember ?? colors.error }]}>
                   {t('common.delete')}
                 </Text>
               </Button>
             </View>
           )}
           {!canEdit && (
-            <ChevronRight size={20} color={colors.textTertiary} />
+            <ChevronRight size={20} color={colors.ink4 ?? colors.textTertiary} />
           )}
         </TouchableOpacity>
       </ScaleDecorator>
@@ -239,14 +239,13 @@ export function GarmentCatalogSection({
         headerRight={
           canEdit ? (
             <TouchableOpacity onPress={handleAddCategory} style={styles.addCategoryHeaderBtn}>
-              <Plus size={18} color={colors.primary} />
-              <Text style={[styles.addCategoryHeaderText, { color: colors.primary }]}>
+              <Plus size={18} color={colors.brass ?? colors.primary} />
+              <Text style={[styles.addCategoryHeaderText, { color: colors.brass ?? colors.primary }]}>
                 {t('catalog.addCategory')}
               </Text>
             </TouchableOpacity>
           ) : undefined
         }
-        style={CompactLayoutStyles.compactSection}
       >
         {sortedCategories.length === 0 ? (
           <EmptyState
@@ -268,7 +267,7 @@ export function GarmentCatalogSection({
             {sortedCategories.map((category) => (
               <TouchableOpacity
                 key={category.id}
-                style={[styles.categoryRow, { backgroundColor: colors.surface }]}
+                style={[styles.categoryRow, { backgroundColor: colors.card }]}
                 onPress={() => handleCategoryPress(category)}
                 activeOpacity={0.7}
               >
@@ -278,11 +277,11 @@ export function GarmentCatalogSection({
                       ? t(`catalog.categories.${category.code}`)
                       : category.name}
                   </Text>
-                  <Text style={[styles.categoryMeta, { color: colors.textSecondary }]}>
+                  <Text style={[styles.categoryMeta, { color: colors.ink3 }]}>
                     {t('catalog.itemCount', { count: category.itemCount })}
                   </Text>
                 </View>
-                <ChevronRight size={20} color={colors.textTertiary} />
+                <ChevronRight size={20} color={colors.ink4 ?? colors.textTertiary} />
               </TouchableOpacity>
             ))}
           </View>
@@ -323,59 +322,67 @@ export function GarmentCatalogSection({
 
 const styles = StyleSheet.create({
   draggableRoot: {
-    marginHorizontal: Spacing.md,
+    marginHorizontal: AtelierSpacing.md,
   },
   emptyCategories: {
-    marginHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    marginHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
     alignItems: 'center',
   },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.sm,
+    ...AtelierShadow.card,
   },
   categoryRowActive: {
     opacity: 0.95,
-    ...Shadows.md,
+    ...AtelierShadow.card,
   },
   dragHandle: {
-    padding: Spacing.xs,
-    marginRight: Spacing.sm,
+    padding: AtelierSpacing.xs,
+    marginRight: AtelierSpacing.sm,
     justifyContent: 'center',
   },
   categoryMain: {
     flex: 1,
   },
   categoryName: {
-    ...Typography.bodyBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xs,
   },
   categoryMeta: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   categoryActions: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   categoryActionBtn: {
     minHeight: 36,
     minWidth: 36,
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: AtelierSpacing.xs,
   },
   categoryActionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   addCategoryHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   addCategoryHeaderText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

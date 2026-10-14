@@ -3,64 +3,40 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Crown } from 'lucide-react-native';
 import { usePremium } from '@/contexts/SubscriptionContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierRadius } from '@/constants/atelierDesign';
 
 interface ProBadgeProps {
-  /**
-   * Size variant of the badge
-   * @default 'md'
-   */
   size?: 'sm' | 'md';
-  
-  /**
-   * Optional custom style to override or extend default styles
-   */
   style?: ViewStyle;
-  
-  /**
-   * Optional custom label (for future plan types like "TRIAL", "ENTERPRISE")
-   * @default 'PRO'
-   */
   label?: string;
-  
-  /**
-   * Debug flag to show badge even if not on Pro plan
-   * @default false
-   */
   showIfFree?: boolean;
 }
 
-/**
- * ProBadge Component
- * 
- * A reusable badge that displays the user's Pro subscription status.
- * The badge automatically checks the subscription state and only renders when the user is on a Pro plan.
- */
 export function ProBadge({ size = 'md', style, label = 'PRO', showIfFree = false }: ProBadgeProps) {
   const { colors } = useTheme();
   const { isPremium: isPro, loading } = usePremium();
 
   if (loading) return null;
   if (!isPro && !showIfFree) return null;
-  
+
   const isSizeSmall = size === 'sm';
   const iconSize = isSizeSmall ? 12 : 14;
-  const badgeStyle = isSizeSmall ? styles.badgeSmall : styles.badgeMedium;
   const textFontSize = isSizeSmall ? 10 : 12;
-  
+  const brassColor = colors.brass ?? colors.primary;
+
   return (
-    <View 
+    <View
       style={[
-        styles.badge, 
-        badgeStyle, 
-        { backgroundColor: colors.warningBg, borderColor: colors.primary },
-        style
-      ]} 
-      accessibilityLabel={`${label} subscription`} 
+        styles.badge,
+        isSizeSmall ? styles.badgeSmall : styles.badgeMedium,
+        { backgroundColor: (colors.brassPale ?? colors.brass) + '18', borderColor: brassColor },
+        style,
+      ]}
+      accessibilityLabel={`${label} subscription`}
       accessibilityRole="text"
     >
-      <Crown size={iconSize} color={colors.primary} strokeWidth={2.5} />
-      <Text style={[styles.text, { color: colors.primary, fontSize: textFontSize }]}>{label}</Text>
+      <Crown size={iconSize} color={brassColor} strokeWidth={2.5} />
+      <Text style={[styles.text, { color: brassColor, fontSize: textFontSize }]}>{label}</Text>
     </View>
   );
 }
@@ -71,7 +47,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderRadius: BorderRadius.full,
+    borderRadius: AtelierRadius.full,
     gap: 4,
   },
   badgeSmall: {
@@ -83,7 +59,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   text: {
-    fontWeight: '700',
+    fontFamily: FontFamily.monoBold,
     letterSpacing: 0.5,
   },
 });

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { useCustomBack } from '@/contexts/PageTitleContext';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 
 /**
  * Shown when the user tries to start a new order but has no clients.
@@ -25,11 +25,11 @@ export default function NoClientsScreen() {
 
   return (
     <ScreenContainer noPadding contentPadding safeBottom>
-      <View style={[styles.content, { backgroundColor: colors.background }]}>
+      <View style={[styles.content, { backgroundColor: colors.paper ?? colors.background }]}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {t('newOrder.clientRequired')}
         </Text>
-        <Text style={[styles.message, { color: colors.textSecondary }]}>
+        <Text style={[styles.message, { color: colors.ink3 }]}>
           {t('newOrder.clientRequiredAlertMessage')}
         </Text>
         <View style={styles.actions}>
@@ -46,19 +46,23 @@ export default function NoClientsScreen() {
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.xl,
+    paddingBottom: AtelierSpacing.lg,
   },
   title: {
-    ...Typography.h2,
-    marginBottom: Spacing.md,
+    fontFamily: FontFamily.serif,
+    fontSize: 28,
+    lineHeight: 36,
+    marginBottom: AtelierSpacing.md,
   },
   message: {
-    ...Typography.body,
-    marginBottom: Spacing.xl,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xl,
   },
   actions: {
-    marginTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
   },
 });

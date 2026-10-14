@@ -11,7 +11,7 @@ import { KeyboardAccessoryHostForModal } from '@/contexts/KeyboardAccessoryConte
 import { storageToMeasurementValue } from '@/lib/measurement';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, Shadows, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 import type { EditItemModalState } from '@/types/orderDetails';
 import type { GarmentTypeRecord } from '@/types/templates';
 import type { MeasurementDefinition } from '@/constants/garments';
@@ -77,8 +77,10 @@ export function OrderEditItemModal({
       : (() => {
           const garment = garmentTypes.find((g) => g.id === editItemModal.garmentId);
           const garmentName = garment ? getGarmentDisplayName(garment, garmentUnavailableLabel) : garmentUnavailableLabel;
-          const categoryLabel = t(`catalog.categories.${editItemModal.categoryCode}`, { defaultValue: editItemModal.categoryCode });
-          return `${garmentName}: ${categoryLabel}`;
+          const categories = editCategoriesByGarment[editItemModal.garmentId] ?? [];
+          const categoryName =
+            categories.find((c) => c.code === editItemModal.categoryCode)?.name ?? editItemModal.categoryCode;
+          return `${garmentName}: ${categoryName}`;
         })();
 
   return (
@@ -91,16 +93,16 @@ export function OrderEditItemModal({
     >
       <View style={styles.editModalRoot}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={[styles.editModalOverlay, { backgroundColor: colors.overlayModal }]} />
+          <View style={[styles.editModalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]} />
         </TouchableWithoutFeedback>
         <View style={styles.editModalCentered} pointerEvents="box-none">
-          <View style={[styles.editModalCard, { backgroundColor: colors.surface }]}>
+          <View style={[styles.editModalCard, { backgroundColor: colors.card }]}>
             <View style={styles.editModalHeader}>
               <Text style={[styles.editModalTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                 {modalTitle}
               </Text>
               <TouchableOpacity style={styles.editModalCloseBtn} onPress={onClose} disabled={saveLoading} activeOpacity={0.7}>
-                <X size={22} color={colors.textSecondary} strokeWidth={2.5} />
+                <X size={22} color={colors.ink3} strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
             <KeyboardAwareScrollViewWithAccessory
@@ -113,7 +115,7 @@ export function OrderEditItemModal({
                   {editDefinitionsLoading ? (
                     <View style={styles.editModalLoadingDefs}>
                       <InlineSpinner size="small" />
-                      <Text style={[styles.editModalLoadingDefsText, { color: colors.textSecondary }]}>{t('common.loading')}</Text>
+                      <Text style={[styles.editModalLoadingDefsText, { color: colors.ink3 }]}>{t('common.loading')}</Text>
                     </View>
                   ) : (() => {
                     const defs = editDefinitionsByGarment[editItemModal.garmentId] ?? [];
@@ -135,7 +137,7 @@ export function OrderEditItemModal({
                         compact
                       />
                     ) : (
-                      <Text style={[styles.editModalNoDefsHint, { color: colors.textTertiary }]}>{t('orderDetails.measurementsSection')} —</Text>
+                      <Text style={[styles.editModalNoDefsHint, { color: colors.ink4 }]}>{t('orderDetails.measurementsSection')} —</Text>
                     );
                   })()}
                 </>
@@ -146,7 +148,7 @@ export function OrderEditItemModal({
                   {editCatalogLoading[editItemModal.garmentId] ? (
                     <View style={styles.editModalLoadingDefs}>
                       <InlineSpinner size="small" />
-                      <Text style={[styles.editModalLoadingDefsText, { color: colors.textSecondary }]}>{t('common.loading')}</Text>
+                      <Text style={[styles.editModalLoadingDefsText, { color: colors.ink3 }]}>{t('common.loading')}</Text>
                     </View>
                   ) : (() => {
                     const categories = editCategoriesByGarment[editItemModal.garmentId] ?? [];
@@ -174,7 +176,7 @@ export function OrderEditItemModal({
                 </>
               )}
             </KeyboardAwareScrollViewWithAccessory>
-            <View style={[styles.editModalActions, { borderTopColor: colors.border }]}>
+            <View style={[styles.editModalActions, { borderTopColor: colors.rule ?? colors.border }]}>
               <Button variant="secondary" onPress={onClose} disabled={saveLoading} style={styles.editModalCancelBtn}>
                 {t('common.cancel')}
               </Button>
@@ -183,7 +185,7 @@ export function OrderEditItemModal({
                 onPress={onSave}
                 disabled={saveLoading}
                 loading={saveLoading}
-                leftIcon={saveLoading ? undefined : <Save size={18} color={colors.textInverse} strokeWidth={2.5} />}
+                leftIcon={saveLoading ? undefined : <Save size={18} color={colors.paper ?? '#EFE9DC'} strokeWidth={2.5} />}
                 style={styles.editModalSaveBtn}
               >
                 {t('common.save')}
@@ -208,26 +210,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   editModalCard: {
     width: '100%',
     maxWidth: 400,
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Shadows.xl,
+    borderRadius: AtelierRadius.lg,
+    ...AtelierShadow.elevated,
     overflow: 'hidden',
   },
   editModalHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   editModalTitle: {
-    ...Typography.h3,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 18,
+    lineHeight: 26,
     flex: 0,
     maxWidth: '80%',
   },
@@ -240,28 +244,32 @@ const styles = StyleSheet.create({
   },
   editModalScroll: {
     maxHeight: 500,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: AtelierSpacing.lg,
   },
   editModalLoadingDefs: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    gap: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.md,
   },
   editModalLoadingDefsText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   editModalDefsError: {
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
   editModalNoDefsHint: {
-    ...Typography.caption,
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
+    lineHeight: 18,
     fontStyle: 'italic',
   },
   editModalActions: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    padding: Spacing.lg,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
   editModalCancelBtn: {

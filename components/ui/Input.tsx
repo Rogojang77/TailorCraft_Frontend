@@ -12,11 +12,10 @@ import {
   TextInput as RNTextInput,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, BorderRadius, Shadows, DENSITY, getTypography, getInputStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
-const _inputCompact = DENSITY === 'compact';
-const _inputMinHeight = _inputCompact ? 44 : 54;
-const _codeBoxSize = _inputCompact ? 40 : 48;
+const _inputMinHeight = 48;
+const _codeBoxSize = 44;
 
 export type InputVariant = 'default' | 'code';
 
@@ -37,6 +36,8 @@ export interface InputProps extends Omit<React.ComponentPropsWithoutRef<typeof R
   containerStyle?: ViewStyle;
   /** Ref for focus management */
   ref?: React.Ref<RNTextInput | null>;
+  /** Starts one line tall and grows with the text (wraps instead of scrolling sideways). */
+  autoGrow?: boolean;
 }
 
 const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
@@ -49,7 +50,8 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
     variant = 'default',
     containerStyle,
     placeholderTextColor,
-    multiline,
+    multiline: multilineProp,
+    autoGrow = false,
     numberOfLines,
     textAlignVertical,
     editable = true,
@@ -59,8 +61,7 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
   ref
 ) {
   const { colors } = useTheme();
-  const typography = getTypography(colors);
-  const inputStyles = getInputStyles(colors);
+  const multiline = multilineProp || autoGrow;
   const { onFocus: onFocusProp, onBlur: onBlurProp, ...restProps } = rest;
 
   const [focused, setFocused] = useState(false);
@@ -83,17 +84,20 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
               minWidth: _codeBoxSize,
               minHeight: _codeBoxSize,
               borderWidth: 2,
-              borderColor: colors.border,
-              borderRadius: BorderRadius.md,
-              ...typography.h2,
+              borderColor: colors.rule ?? colors.border,
+              borderRadius: AtelierRadius.md,
+              fontFamily: FontFamily.serif,
+              fontSize: 22,
+              lineHeight: 28,
               textAlign: 'center',
-              backgroundColor: colors.surface,
+              backgroundColor: colors.card,
+              color: colors.textPrimary,
               padding: 0,
             },
             value && { borderColor: colors.textPrimary },
-            hasError && { borderColor: colors.error },
+            hasError && { borderColor: colors.ember ?? colors.error },
           ]}
-          placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
+          placeholderTextColor={placeholderTextColor ?? (colors.ink4 ?? colors.textTertiary)}
           {...restProps}
           value={value}
         />
@@ -102,15 +106,13 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
   }
 
   return (
-    <View style={[inputStyles.container, containerStyle]}>
+    <View style={[styles.container, containerStyle]}>
       {label ? (
-        <Text 
-          style={optional ? {
-            ...typography.label,
-            marginBottom: Spacing.sm,
-            color: colors.textTertiary,
-            fontSize: 12,
-          } : inputStyles.label} 
+        <Text
+          style={[
+            styles.label,
+            { color: optional ? (colors.ink4 ?? colors.textTertiary) : colors.textPrimary },
+          ]}
           numberOfLines={1}
         >
           {label}
@@ -122,44 +124,48 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
             position: 'relative',
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: colors.surface,
-            borderRadius: BorderRadius.sm,
-            paddingHorizontal: Spacing.md,
+            backgroundColor: colors.card,
+            borderRadius: AtelierRadius.sm,
+            paddingHorizontal: AtelierSpacing.md,
             borderWidth: 1.5,
-            borderColor: colors.border,
-            ...Shadows.sm,
+            borderColor: colors.rule ?? colors.border,
             minHeight: _inputMinHeight,
           },
-          optional && { borderColor: colors.borderLight },
-          multiline && { alignItems: 'flex-start', paddingVertical: Spacing.md, minHeight: 80 },
-          hasError && { borderColor: colors.error },
-          focused && !hasError && { borderColor: colors.primary },
+          optional && { borderColor: colors.ruleSoft ?? colors.rule ?? colors.border },
+          multiline && !autoGrow && { alignItems: 'flex-start', paddingVertical: AtelierSpacing.md, minHeight: 80 },
+          hasError && { borderColor: colors.ember ?? colors.error },
+          focused && !hasError && { borderColor: colors.brass ?? colors.primary },
         ]}
       >
-        {leftIcon ? <View style={{ marginRight: Spacing.md }}>{leftIcon}</View> : null}
+        {leftIcon ? <View style={{ marginRight: AtelierSpacing.md }}>{leftIcon}</View> : null}
         <TextInput
           ref={ref}
           style={[
             {
               flex: 1,
-              ...inputStyles.input,
-              paddingVertical: _inputCompact ? 10 : 14,
+              fontFamily: FontFamily.sans,
+              fontSize: 15,
+              lineHeight: 22,
+              color: colors.textPrimary,
+              paddingVertical: 13,
               marginVertical: 0,
               minHeight: _inputMinHeight,
               height: _inputMinHeight,
             },
-            multiline && {
+            multiline && !autoGrow && {
               minHeight: 80,
               height: undefined,
-              paddingTop: Spacing.sm,
-              paddingBottom: Spacing.sm,
+              paddingTop: AtelierSpacing.sm,
+              paddingBottom: AtelierSpacing.sm,
               textAlignVertical: 'top',
             },
+            autoGrow && { height: undefined, paddingTop: 13, paddingBottom: 13 },
             rightElement ? { paddingRight: 44 } : null,
           ]}
-          placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
+          placeholderTextColor={placeholderTextColor ?? (colors.ink4 ?? colors.textTertiary)}
           multiline={multiline}
-          numberOfLines={numberOfLines ?? (multiline ? 4 : 1)}
+          numberOfLines={autoGrow ? undefined : numberOfLines ?? (multiline ? 4 : 1)}
+          scrollEnabled={autoGrow ? false : undefined}
           textAlignVertical={textAlignVertical ?? (multiline ? 'top' : 'center')}
           editable={editable}
           value={value}
@@ -180,7 +186,10 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
         ) : null}
       </View>
       {errorMessage ? (
-        <Text style={{ ...typography.caption, color: colors.error, marginTop: Spacing.xs }} numberOfLines={2}>
+        <Text
+          style={{ fontFamily: FontFamily.mono, fontSize: 11, lineHeight: 16, color: colors.ember ?? colors.error, marginTop: AtelierSpacing.xs }}
+          numberOfLines={2}
+        >
           {errorMessage}
         </Text>
       ) : null}
@@ -189,3 +198,17 @@ const InputComponent = forwardRef<RNTextInput, InputProps>(function Input(
 });
 
 export const Input = InputComponent;
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: AtelierSpacing.sm,
+  },
+  label: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
+  },
+});

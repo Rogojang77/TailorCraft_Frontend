@@ -1,30 +1,25 @@
 /**
  * In-content loading block: centered ActivityIndicator with optional message.
- * Use for section/screen loading (not full-screen; use ListSkeletonLoader for that).
- * Uses theme-aware styles from ThemeContext.
  */
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography } from '@/constants/design';
+import { FontFamily } from '@/constants/atelierDesign';
 
 export interface LoaderProps {
-  /** Optional message below spinner */
   message?: string;
-  /** Spinner size */
   size?: 'small' | 'large';
   style?: ViewStyle;
 }
 
 const LoaderComponent = ({ message, size = 'large', style }: LoaderProps) => {
   const { colors } = useTheme();
-  const typography = getTypography(colors);
 
   return (
     <View style={[styles.container, style]}>
-      <ActivityIndicator size={size} color={colors.primary} />
+      <ActivityIndicator size={size} color={colors.brass ?? colors.primary} />
       {message != null && message !== '' && (
-        <Text style={[typography.caption, { color: colors.textSecondary }, styles.message]} numberOfLines={2}>
+        <Text style={[styles.message, { color: colors.ink3 }]} numberOfLines={2}>
           {message}
         </Text>
       )}
@@ -40,6 +35,9 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   message: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     marginTop: 12,
   },
 });

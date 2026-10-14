@@ -11,33 +11,25 @@ import { useRouter } from 'expo-router';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getTypography, Spacing, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 /**
- * Modal shown when a draft was restored from storage. User must choose:
- * Continuă (acknowledge and keep draft) or Șterge draft (clear). Draft never restores silently.
+ * Modal shown when a draft was restored from storage.
  */
 export function DraftRestoredBanner() {
   const { t } = useI18n();
   const { colors } = useTheme();
-  const typography = getTypography(colors);
   const router = useRouter();
   const { draftStatus, acknowledgeRestoredDraft, clearDraft } = useOrderDraft();
 
   const visible = draftStatus === 'restored';
-
-  const handleContinue = () => {
-    acknowledgeRestoredDraft();
-  };
 
   const handleDeleteDraft = () => {
     clearDraft();
     router.replace('/new-order/client-data');
   };
 
-  if (!visible) {
-    return null;
-  }
+  if (!visible) return null;
 
   return (
     <Modal
@@ -45,14 +37,16 @@ export function DraftRestoredBanner() {
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={handleContinue}
+      onRequestClose={acknowledgeRestoredDraft}
     >
-      <TouchableWithoutFeedback onPress={handleContinue}>
-        <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+      <TouchableWithoutFeedback onPress={acknowledgeRestoredDraft}>
+        <View style={[styles.backdrop, { backgroundColor: 'rgba(27,22,17,0.5)' }]}>
           <TouchableWithoutFeedback>
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[typography.h3, styles.title]}>{t('orderDraft.restoredTitle')}</Text>
-              <Text style={[typography.body, { color: colors.textSecondary }, styles.message]}>
+            <View style={[styles.card, { backgroundColor: colors.card }, AtelierShadow.elevated]}>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>
+                {t('orderDraft.restoredTitle')}
+              </Text>
+              <Text style={[styles.message, { color: colors.ink3 }]}>
                 {t('orderDraft.restoredMessage')}
               </Text>
               <View style={styles.actions}>
@@ -61,16 +55,16 @@ export function DraftRestoredBanner() {
                   onPress={handleDeleteDraft}
                   activeOpacity={0.7}
                 >
-                  <Text style={[typography.bodyBold, { color: colors.textSecondary }]}>
+                  <Text style={[styles.secondaryLabel, { color: colors.ink3 }]}>
                     {t('orderDraft.deleteDraft')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                  onPress={handleContinue}
+                  style={[styles.primaryButton, { backgroundColor: colors.brass ?? colors.primary }]}
+                  onPress={acknowledgeRestoredDraft}
                   activeOpacity={0.7}
                 >
-                  <Text style={[typography.bodyBold, { color: colors.textInverse }]}>
+                  <Text style={[styles.primaryLabel, { color: colors.paper ?? '#EFE9DC' }]}>
                     {t('orderDraft.continue')}
                   </Text>
                 </TouchableOpacity>
@@ -88,39 +82,53 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   card: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xxl,
-    ...Shadows.lg,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.xl,
   },
   title: {
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: AtelierSpacing.sm,
   },
   message: {
-    marginBottom: Spacing.xl,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
     lineHeight: 22,
+    marginBottom: AtelierSpacing.xl,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
   },
   secondaryButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.lg,
     minHeight: 44,
     justifyContent: 'center',
   },
+  secondaryLabel: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
   primaryButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.md,
     minHeight: 44,
     justifyContent: 'center',
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
+  },
+  primaryLabel: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    lineHeight: 22,
   },
 });

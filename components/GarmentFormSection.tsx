@@ -16,7 +16,7 @@ import { MeasurementForm } from './MeasurementForm';
 import { GarmentSketchPicker, LapelType, CollarType } from './garments';
 import type { MeasurementDefinition } from '@/constants/garments';
 import type { MeasurementValue } from '@/types/measurement';
-import { Spacing, Typography, BorderRadius, Shadows } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { Input } from './ui/Input';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -110,8 +110,8 @@ export function GarmentFormSection({
       return (
         <View style={styles.designSection}>
           <View style={styles.sectionHeaderRow}>
-            <Palette size={16} color={colors.primary} />
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            <Palette size={16} color={colors.brass ?? colors.primary} />
+            <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
               {t('garmentForm.designOptions')}
             </Text>
           </View>
@@ -125,7 +125,7 @@ export function GarmentFormSection({
           />
 
           <View style={styles.optionGroup}>
-            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>
+            <Text style={[styles.optionLabel, { color: colors.ink3 }]}>
               {t('garmentForm.lapelMaterial')}
             </Text>
             <View style={styles.optionButtonsRow}>
@@ -134,10 +134,10 @@ export function GarmentFormSection({
                   key={opt}
                   style={[
                     styles.optionButton,
-                    { backgroundColor: colors.borderLight, borderColor: colors.border },
+                    { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border },
                     designConfig?.lapelMaterial === opt && {
-                      backgroundColor: colors.primary,
-                      borderColor: colors.primary,
+                      backgroundColor: colors.brass ?? colors.primary,
+                      borderColor: colors.brass ?? colors.primary,
                     },
                   ]}
                   onPress={() => updateDesignConfig({ lapelMaterial: opt })}
@@ -146,8 +146,8 @@ export function GarmentFormSection({
                   <Text
                     style={[
                       styles.optionButtonText,
-                      { color: colors.textSecondary },
-                      designConfig?.lapelMaterial === opt && { color: colors.textInverse },
+                      { color: colors.ink3 },
+                      designConfig?.lapelMaterial === opt && { color: colors.paper ?? '#EFE9DC' },
                     ]}
                   >
                     {opt}
@@ -158,7 +158,7 @@ export function GarmentFormSection({
           </View>
 
           <View style={styles.optionGroup}>
-            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>
+            <Text style={[styles.optionLabel, { color: colors.ink3 }]}>
               {t('garmentForm.model')}
             </Text>
             <View style={styles.optionButtonsRow}>
@@ -167,10 +167,10 @@ export function GarmentFormSection({
                   key={opt}
                   style={[
                     styles.optionButton,
-                    { backgroundColor: colors.borderLight, borderColor: colors.border },
+                    { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border },
                     designConfig?.model === opt && {
-                      backgroundColor: colors.primary,
-                      borderColor: colors.primary,
+                      backgroundColor: colors.brass ?? colors.primary,
+                      borderColor: colors.brass ?? colors.primary,
                     },
                   ]}
                   onPress={() => updateDesignConfig({ model: opt })}
@@ -179,8 +179,8 @@ export function GarmentFormSection({
                   <Text
                     style={[
                       styles.optionButtonText,
-                      { color: colors.textSecondary },
-                      designConfig?.model === opt && { color: colors.textInverse },
+                      { color: colors.ink3 },
+                      designConfig?.model === opt && { color: colors.paper ?? '#EFE9DC' },
                     ]}
                   >
                     {opt}
@@ -199,7 +199,7 @@ export function GarmentFormSection({
           />
 
           <View style={styles.optionGroup}>
-            <Text style={[styles.optionLabel, { color: colors.textSecondary }]}>
+            <Text style={[styles.optionLabel, { color: colors.ink3 }]}>
               {t('garmentForm.personalization')}
             </Text>
             <View style={styles.optionButtonsRow}>
@@ -208,10 +208,10 @@ export function GarmentFormSection({
                   key={opt}
                   style={[
                     styles.optionButton,
-                    { backgroundColor: colors.borderLight, borderColor: colors.border },
+                    { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, borderColor: colors.rule ?? colors.border },
                     designConfig?.personalization === opt && {
-                      backgroundColor: colors.primary,
-                      borderColor: colors.primary,
+                      backgroundColor: colors.brass ?? colors.primary,
+                      borderColor: colors.brass ?? colors.primary,
                     },
                   ]}
                   onPress={() => updateDesignConfig({ personalization: opt })}
@@ -220,8 +220,8 @@ export function GarmentFormSection({
                   <Text
                     style={[
                       styles.optionButtonText,
-                      { color: colors.textSecondary },
-                      designConfig?.personalization === opt && { color: colors.textInverse },
+                      { color: colors.ink3 },
+                      designConfig?.personalization === opt && { color: colors.paper ?? '#EFE9DC' },
                     ]}
                   >
                     {opt}
@@ -246,8 +246,8 @@ export function GarmentFormSection({
       return (
         <View style={styles.designSection}>
           <View style={styles.sectionHeaderRow}>
-            <Palette size={16} color={colors.primary} />
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            <Palette size={16} color={colors.brass ?? colors.primary} />
+            <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
               {t('garmentForm.designOptions')}
             </Text>
           </View>
@@ -271,8 +271,8 @@ export function GarmentFormSection({
       style={[
         styles.container,
         {
-          backgroundColor: colors.surface,
-          borderColor: isSelected ? colors.primary : colors.border,
+          backgroundColor: colors.card,
+          borderColor: isSelected ? colors.brass ?? colors.primary : colors.rule ?? colors.border,
         },
         disabled && styles.containerDisabled,
       ]}
@@ -289,33 +289,33 @@ export function GarmentFormSection({
             <TouchableOpacity
               style={[
                 styles.checkbox,
-                { borderColor: colors.border },
-                isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                { borderColor: colors.rule ?? colors.border },
+                isSelected && { backgroundColor: colors.brass ?? colors.primary, borderColor: colors.brass ?? colors.primary },
               ]}
               onPress={onToggleSelect}
               activeOpacity={0.7}
             >
               {isSelected && (
-                <Text style={[styles.checkmark, { color: colors.textInverse }]}>✓</Text>
+                <Text style={[styles.checkmark, { color: colors.paper ?? '#EFE9DC' }]}>✓</Text>
               )}
             </TouchableOpacity>
           )}
           <View style={styles.titleContainer}>
             <View style={styles.titleRow}>
-              <View style={[styles.accentBar, { backgroundColor: colors.primary }]} />
+              <View style={[styles.accentBar, { backgroundColor: colors.brass ?? colors.primary }]} />
               <Text style={[styles.title, { color: colors.textPrimary }]}>{garmentName}</Text>
             </View>
             {size && (
-              <Text style={[styles.sizeLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.sizeLabel, { color: colors.ink3 }]}>
                 {t('garmentForm.size')}: {size}
               </Text>
             )}
           </View>
         </View>
         {isExpanded ? (
-          <ChevronUp size={24} color={colors.textSecondary} />
+          <ChevronUp size={24} color={colors.ink3} />
         ) : (
-          <ChevronDown size={24} color={colors.textSecondary} />
+          <ChevronDown size={24} color={colors.ink3} />
         )}
       </TouchableOpacity>
 
@@ -325,22 +325,22 @@ export function GarmentFormSection({
           {/* Size Input */}
           {onSizeChange && (
             <View style={styles.sizeInputContainer}>
-              <Text style={[styles.sizeInputLabel, { color: colors.textSecondary }]}>
+              <Text style={[styles.sizeInputLabel, { color: colors.ink3 }]}>
                 {t('garmentForm.size')}
               </Text>
               <TextInput
                 style={[
                   styles.sizeInput,
                   {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.primary,
-                    color: colors.primary,
+                    backgroundColor: colors.card,
+                    borderColor: colors.brass ?? colors.primary,
+                    color: colors.brass ?? colors.primary,
                   },
                 ]}
                 value={size ?? ''}
                 onChangeText={onSizeChange}
                 placeholder="—"
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor={colors.ink4 ?? colors.textTertiary}
                 keyboardType="default"
                 maxLength={10}
               />
@@ -351,8 +351,8 @@ export function GarmentFormSection({
           {hasMeasurements && (
             <View style={styles.measurementsSection}>
               <View style={styles.sectionHeaderRow}>
-                <Ruler size={16} color={colors.primary} />
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                <Ruler size={16} color={colors.brass ?? colors.primary} />
+                <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
                   {t('garmentForm.measurements')}
                 </Text>
               </View>
@@ -373,20 +373,20 @@ export function GarmentFormSection({
           {onNotesChange && (
             <View style={styles.notesSection}>
               <View style={styles.sectionHeaderRow}>
-                <MessageSquare size={16} color={colors.primary} />
-                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                <MessageSquare size={16} color={colors.brass ?? colors.primary} />
+                <Text style={[styles.sectionLabel, { color: colors.ink3 }]}>
                   {t('garmentForm.productionNotes')}
                 </Text>
               </View>
               <TextInput
                 style={[
                   styles.notesInput,
-                  { backgroundColor: colors.borderLight, color: colors.textPrimary },
+                  { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border, color: colors.textPrimary },
                 ]}
                 value={notes ?? ''}
                 onChangeText={onNotesChange}
                 placeholder={t('garmentForm.productionNotesPlaceholder')}
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor={colors.ink4 ?? colors.textTertiary}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -401,11 +401,11 @@ export function GarmentFormSection({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: AtelierRadius.lg,
     borderWidth: 1.5,
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
     overflow: 'hidden',
-    ...Shadows.sm,
+    ...AtelierShadow.card,
   },
   containerDisabled: {
     opacity: 0.5,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -424,11 +424,11 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.md,
+    marginRight: AtelierSpacing.md,
   },
   checkmark: {
     fontSize: 14,
@@ -445,103 +445,116 @@ const styles = StyleSheet.create({
     width: 3,
     height: 20,
     borderRadius: 2,
-    marginRight: Spacing.sm,
+    marginRight: AtelierSpacing.sm,
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   sizeLabel: {
-    ...Typography.small,
-    marginTop: Spacing.xs,
-    marginLeft: Spacing.sm + 3,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.xs,
+    marginLeft: AtelierSpacing.sm + 3,
   },
   content: {
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
     paddingTop: 0,
   },
   sizeInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
-    paddingBottom: Spacing.md,
+    marginBottom: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.md,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   sizeInputLabel: {
-    ...Typography.label,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginRight: Spacing.md,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    textTransformValue: 'uppercase',
+    marginRight: AtelierSpacing.md,
   },
   sizeInput: {
     width: 64,
     height: 36,
     borderWidth: 1.5,
-    borderRadius: BorderRadius.sm,
+    borderRadius: AtelierRadius.sm,
     textAlign: 'center',
     fontWeight: '700',
     fontSize: 16,
   },
   measurementsSection: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   designSection: {
-    marginBottom: Spacing.lg,
-    paddingTop: Spacing.md,
+    marginBottom: AtelierSpacing.lg,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
   },
   notesSection: {
-    paddingTop: Spacing.md,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    gap: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.md,
   },
   sectionLabel: {
-    ...Typography.label,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
   },
   optionGroup: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   optionLabel: {
-    ...Typography.label,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 11,
-    marginBottom: Spacing.sm,
+    lineHeight: 16,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
   optionButtonsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   optionButton: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
   },
   optionButtonText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   notesInput: {
     minHeight: 80,
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
-    ...Typography.body,
+    borderRadius: AtelierRadius.sm,
+    padding: AtelierSpacing.md,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     fontStyle: 'italic',
   },
 });

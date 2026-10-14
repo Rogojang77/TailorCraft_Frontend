@@ -8,7 +8,7 @@ import { requestPasswordReset } from '@/lib/services/authService';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getLocalizedApiMessage } from '@/lib/api';
-import { Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 export default function ForgotPasswordScreen() {
   const { colors } = useTheme();
@@ -115,45 +115,51 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: Spacing.xl,
+    paddingVertical: AtelierSpacing.xl,
   },
   content: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: AtelierSpacing.md,
   },
   title: {
-    ...Typography.h1,
-    marginBottom: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 28,
+    lineHeight: 34,
+    marginBottom: AtelierSpacing.sm,
   },
   subtitle: {
-    ...Typography.body,
-    marginBottom: Spacing.xl,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xl,
   },
   input: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   errorContainer: {
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    ...StatusStyles.error,
-    borderRadius: BorderRadius.sm,
+    marginBottom: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
   },
   errorText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
     lineHeight: 21,
   },
   submitButton: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   backButton: {
-    marginTop: Spacing.lg,
+    marginTop: AtelierSpacing.lg,
   },
   backLink: {
-    marginTop: Spacing.sm,
+    marginTop: AtelierSpacing.sm,
   },
   backLinkText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
   },
 });

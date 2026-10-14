@@ -29,7 +29,7 @@ import type {
 import { useI18n } from '@/lib/i18n';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 const INPUT_TYPES: { value: MeasurementInputTypeApi; label: string }[] = [
   { value: 'number', label: 'Number' },
@@ -198,7 +198,7 @@ export function MeasurementDefinitionEditorModal({
         <Animated.View
           entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
           exiting={modalExiting}
-          style={[styles.card, { backgroundColor: colors.surface }]}
+          style={[styles.card, { backgroundColor: colors.card }]}
         >
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>{mode === 'add' ? t('modals.measurement.add') : t('modals.measurement.edit')}</Text>
@@ -241,12 +241,12 @@ export function MeasurementDefinitionEditorModal({
                     key={opt.value}
                     style={[
                       styles.typeChip,
-                      { backgroundColor: colors.borderLight },
-                      inputType === opt.value && { backgroundColor: colors.primaryLight + '60', borderWidth: 1, borderColor: colors.primary }
+                      { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border },
+                      inputType === opt.value && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' + '60', borderWidth: 1, borderColor: colors.brass ?? colors.primary }
                     ]}
                     onPress={() => setInputType(opt.value)}
                   >
-                    <Text style={[styles.typeChipText, { color: colors.textSecondary }, inputType === opt.value && { ...Typography.captionBold, color: colors.primary }]}>
+                    <Text style={[styles.typeChipText, { color: colors.ink3 }, inputType === opt.value && { fontFamily: FontFamily.monoSemiBold, fontSize: 11, lineHeight: 16, color: colors.brass ?? colors.primary }]}>
                       {opt.label}
                     </Text>
                   </TouchableOpacity>
@@ -277,17 +277,26 @@ export function MeasurementDefinitionEditorModal({
                 />
               </View>
             )}
+          </KeyboardAwareScrollView>
+          <View style={[styles.footer, { borderTopColor: colors.rule ?? colors.border }]}>
+            <Button
+              variant="secondary"
+              onPress={onClose}
+              disabled={submitting}
+              style={styles.footerCancelBtn}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               variant="primary"
-              fullWidth
               onPress={handleSubmit}
               disabled={submitting}
               loading={submitting}
-              style={styles.saveBtn}
+              style={styles.footerSaveBtn}
             >
               {mode === 'add' ? t('common.add') : t('common.save')}
             </Button>
-          </KeyboardAwareScrollView>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -305,45 +314,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: 440,
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Typography.body,
+    borderRadius: AtelierRadius.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   scroll: {
     maxHeight: 400,
   },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    padding: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.lg,
   },
   field: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   fieldRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   inputInField: {
     marginBottom: 0,
@@ -351,60 +366,68 @@ const styles = StyleSheet.create({
   typeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   dependsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   typeChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
+    borderRadius: AtelierRadius.sm,
   },
   typeChipActive: {
   },
   typeChipText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   typeChipTextActive: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   hint: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   helperText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
     fontSize: 12,
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
     lineHeight: 16,
   },
   exampleText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
     fontSize: 11,
-    marginTop: Spacing.xs,
+    marginTop: AtelierSpacing.xs,
     fontStyle: 'italic',
     lineHeight: 16,
   },
   orderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   orderInput: {
-    ...Typography.body,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
     borderWidth: 1,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    borderRadius: AtelierRadius.md,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.md,
     minWidth: 80,
     flex: 1,
   },
   orderButton: {
     width: 44,
     height: 44,
-    borderRadius: BorderRadius.md,
+    borderRadius: AtelierRadius.md,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -413,10 +436,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: AtelierSpacing.sm,
   },
   advancedHeaderText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   chevron: {
     transform: [{ rotate: '0deg' }],
@@ -425,21 +450,20 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '180deg' }],
   },
   advancedContent: {
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.md,
+    marginTop: AtelierSpacing.sm,
+    paddingTop: AtelierSpacing.md,
     borderTopWidth: 1,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Spacing.md,
-    padding: Spacing.lg,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
     borderTopWidth: 1,
   },
-  cancelText: {
-    ...Typography.bodyBold,
+  footerCancelBtn: {
+    flex: 1,
   },
-  saveBtn: {
-    marginTop: Spacing.sm,
+  footerSaveBtn: {
+    flex: 1,
   },
 });

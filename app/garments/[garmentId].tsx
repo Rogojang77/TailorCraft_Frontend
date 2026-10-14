@@ -42,7 +42,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useI18n } from '@/lib/i18n';
 import { getUnitDisplay } from '@/constants/units';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, Shadows, CompactLayoutStyles } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
 
 function inputTypeLabel(type: string): string {
   const map: Record<string, string> = {
@@ -458,7 +458,7 @@ export default function GarmentDetailScreen() {
                         </TouchableOpacity>
                       ) : undefined
                     }
-                    style={CompactLayoutStyles.compactSection}
+                    style={undefined}
                   >
                     <View />
                   </Section>
@@ -660,31 +660,33 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: AtelierSpacing.md,
   },
   retryBtn: {
-    marginTop: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    marginTop: AtelierSpacing.md,
+    paddingHorizontal: AtelierSpacing.sm,
   },
   scroll: {
     flex: 1,
   },
   content: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xl,
   },
   headerTitleInput: {
     flex: 1,
-    ...Typography.h3,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+    paddingVertical: AtelierSpacing.xs,
+    paddingHorizontal: AtelierSpacing.sm,
   },
   headerCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   statusRow: {
     flexDirection: 'row',
@@ -692,36 +694,44 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusRowLabel: {
-    ...Typography.bodyBold,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
   },
   badges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
     flexWrap: 'wrap',
-    marginBottom: Spacing.xs,
+    marginBottom: AtelierSpacing.xs,
   },
   statusBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: AtelierSpacing.sm,
+    paddingVertical: AtelierSpacing.xs,
+    borderRadius: AtelierRadius.sm,
   },
   statusText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '600',
   },
   orderCount: {
-    ...Typography.caption,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   sharedNotice: {
-    marginTop: Spacing.md,
+    marginTop: AtelierSpacing.md,
     borderTopWidth: 1,
-    paddingTop: Spacing.md,
+    paddingTop: AtelierSpacing.md,
   },
   sharedNoticeText: {
-    ...Typography.caption,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   duplicateBtn: {
     alignSelf: 'flex-start',
@@ -733,12 +743,12 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   draggableListContent: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.xl,
   },
   emptyMeasurements: {
-    marginHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    marginHorizontal: AtelierSpacing.md,
+    paddingVertical: AtelierSpacing.sm,
     alignItems: 'center',
   },
   mainWithFooter: {
@@ -747,55 +757,63 @@ const styles = StyleSheet.create({
   addMeasurementHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: AtelierSpacing.xs,
   },
   addMeasurementHeaderText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
   defRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    ...Shadows.sm,
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
+    marginBottom: AtelierSpacing.md,
+    ...AtelierShadow.card,
   },
   defRowActive: {
     opacity: 0.95,
-    ...Shadows.md,
+    ...AtelierShadow.elevated,
   },
   dragHandle: {
-    padding: Spacing.xs,
-    marginRight: Spacing.sm,
+    padding: AtelierSpacing.xs,
+    marginRight: AtelierSpacing.sm,
     justifyContent: 'center',
   },
   defMain: {
     flex: 1,
   },
   defLabel: {
-    ...Typography.bodyBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: AtelierSpacing.xs,
   },
   defMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   defMetaText: {
-    ...Typography.small,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
   },
   defActions: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.sm,
   },
   defActionBtn: {
     minHeight: 36,
     minWidth: 36,
-    paddingHorizontal: Spacing.xs,
+    paddingHorizontal: AtelierSpacing.xs,
   },
   defActionText: {
-    ...Typography.captionBold,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

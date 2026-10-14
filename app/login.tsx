@@ -4,10 +4,9 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Image,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
-import { ScreenLayout } from '@/components/layout/ScreenLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'expo-router';
@@ -16,14 +15,31 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/lib/i18n';
 import { getLocalizedApiMessage } from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius, StatusStyles } from '@/constants/design';
 import type { BiometricAvailability } from '@/lib/biometric';
 import { useAuthRequest } from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import {
+  FontFamily,
+  AtelierSpacing,
+  AtelierRadius,
+  AtelierShadow,
+} from '@/constants/atelierDesign';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Cloth swatch palette — fabric-inspired hues
+const SWATCHES = [
+  '#2C3E50', '#8B7355', '#4A6741', '#7B3B3B',
+  '#5C4A72', '#3D5C48', '#9C7A3E', '#1B3A4B',
+  '#6B4C3B', '#3C5772', '#7A6545', '#4B4237',
+  '#8B6914', '#2D4A3E', '#5A3E2B', '#3D3535',
+];
 
 export default function LoginScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,8 +49,8 @@ export default function LoginScreen() {
   const [appleLoading, setAppleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
+
   const {
-    user,
     login,
     loginWithSocial,
     isBiometricEnabled,
@@ -52,17 +68,15 @@ export default function LoginScreen() {
   const hasGoogleConfig =
     !!googleClientIds.iosClientId || !!googleClientIds.androidClientId || !!googleClientIds.webClientId;
 
-  const [request, googleResult, promptGoogleAsync] = useAuthRequest(
+  const [, googleResult, promptGoogleAsync] = useAuthRequest(
     hasGoogleConfig ? googleClientIds : { clientId: 'placeholder-no-google-config' }
   );
 
-  // When biometric login is enabled, check if device supports it so we can show the biometric button.
   useEffect(() => {
     if (!isBiometricEnabled) return;
     getBiometricAvailability().then(setBiometricAvailability);
   }, [isBiometricEnabled, getBiometricAvailability]);
 
-  // When Google OAuth returns successfully, send id_token to backend.
   useEffect(() => {
     if (!googleResult || googleResult.type !== 'success' || !hasGoogleConfig) return;
     const idToken =
@@ -79,21 +93,16 @@ export default function LoginScreen() {
         setErrorMessage(msg);
         Alert.alert(t('auth.login.loginFailed'), msg);
       })
-      .finally(() => {
-        setGoogleLoading(false);
-      });
+      .finally(() => setGoogleLoading(false));
   }, [googleResult, hasGoogleConfig, loginWithSocial, router, t]);
 
-  const clearError = () => {
-    if (errorMessage) setErrorMessage('');
-  };
+  const clearError = () => { if (errorMessage) setErrorMessage(''); };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert(t('common.error'), t('auth.login.enterBoth'));
       return;
     }
-
     setErrorMessage('');
     setIsLoading(true);
     try {
@@ -130,9 +139,7 @@ export default function LoginScreen() {
     setBiometricLoading(true);
     setErrorMessage('');
     try {
-      const result = await loginWithBiometric({
-        promptMessage: t('auth.biometric.promptMessage'),
-      });
+      const result = await loginWithBiometric({ promptMessage: t('auth.biometric.promptMessage') });
       if (result.success) {
         router.replace('/(tabs)');
       } else if (result.reason === 'session_expired') {
@@ -152,12 +159,7 @@ export default function LoginScreen() {
     setGoogleLoading(true);
     try {
       const result = await promptGoogleAsync();
-      if (result.type === 'dismiss' || result.type === 'cancel') {
-        // User cancelled; don't show error.
-      } else if (result.type === 'error') {
-        setErrorMessage(t('auth.social.error'));
-      }
-      // Success is handled in useEffect when googleResult updates.
+      if (result.type === 'error') setErrorMessage(t('auth.social.error'));
     } catch (err) {
       setErrorMessage(getLocalizedApiMessage(err, t, t('auth.social.error')));
     } finally {
@@ -176,34 +178,21 @@ export default function LoginScreen() {
         ],
       });
       if (credential.identityToken) {
-        const result = await loginWithSocial('apple', { identityToken: credential.identityToken });
-        // If needsCompanyDetails, we still go to (tabs); CompanyDetailsRequiredModal will block until they complete the form.
+        await loginWithSocial('apple', { identityToken: credential.identityToken });
         router.replace('/(tabs)');
       } else {
         setErrorMessage(t('auth.social.error'));
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      // 1000 = ASAuthorizationError.canceled, -7026 = AuthKit user denied; treat as user cancelled.
-      const isUserCancel =
-        msg.includes('cancel') ||
-        msg.includes('Cancel') ||
-        msg.includes('ERR_REQUEST_CANCELED') ||
-        msg.includes('1000') ||
-        msg.includes('-7026');
-      if (isUserCancel) {
-        // User cancelled or dismissed; no message.
-      } else if (msg.includes('No active account')) {
-        // No Apple ID signed in on device – show helpful message.
-        setErrorMessage(t('auth.social.appleUnavailable'));
-      } else if (
-        msg.includes('AuthorizationError') ||
-        msg.includes('AKAuthenticationError')
-      ) {
-        // Other Apple auth errors (e.g. capability not ready, simulator) – show helpful message.
-        setErrorMessage(t('auth.social.appleUnavailable'));
-      } else {
-        setErrorMessage(getLocalizedApiMessage(err, t, t('auth.social.error')));
+      const isCancel = msg.includes('cancel') || msg.includes('Cancel') ||
+        msg.includes('ERR_REQUEST_CANCELED') || msg.includes('1000') || msg.includes('-7026');
+      if (!isCancel) {
+        if (msg.includes('No active account') || msg.includes('AuthorizationError') || msg.includes('AKAuthenticationError')) {
+          setErrorMessage(t('auth.social.appleUnavailable'));
+        } else {
+          setErrorMessage(getLocalizedApiMessage(err, t, t('auth.social.error')));
+        }
       }
     } finally {
       setAppleLoading(false);
@@ -211,260 +200,343 @@ export default function LoginScreen() {
   };
 
   const isSocialLoading = googleLoading || appleLoading;
-  const anyLoading = isLoading || isSocialLoading;
+  const anyLoading = isLoading || isSocialLoading || biometricLoading;
+
+  const bg = colors.paper;
+  const inkColor = colors.textPrimary;
+  const ink3 = colors.ink3 ?? colors.textSecondary;
+  const ink4 = colors.ink4 ?? colors.textTertiary;
+  const brassColor = colors.brass;
+  const ruleColor = colors.rule ?? colors.border;
+  const cardBg = colors.card;
 
   return (
-    <ScreenLayout
-      scrollable
-      contentContainerStyle={styles.scrollContent}
+    <KeyboardAwareScrollView
+      bottomOffset={AtelierSpacing.xl}
+      style={[styles.scroll, { backgroundColor: bg }]}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingTop: insets.top + AtelierSpacing.sm, paddingBottom: insets.bottom + AtelierSpacing.xxl },
+      ]}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.content}>
-          <View style={styles.header}>
-            <Image
-              source={isDark 
-                ? require('@/assets/images/Logo_white.png')
-                : require('@/assets/images/Logo_black.png')
-              }
-              style={styles.logo}
-              resizeMode="contain"
+      {/* Cloth swatch grid */}
+      <View style={styles.swatchGrid}>
+        {SWATCHES.map((swatch, i) => (
+          <View key={i} style={[styles.swatchCell, { backgroundColor: swatch }]} />
+        ))}
+      </View>
+
+      {/* Nameplate */}
+      <View style={styles.nameplate}>
+        <Text style={[styles.nameplateEyebrow, { color: brassColor }]}>
+          ATELIER · EST. 2024
+        </Text>
+        <Text style={[styles.nameplateTitle, { color: inkColor }]}>
+          TailorCraft
+        </Text>
+        <View style={[styles.nameplateRule, { backgroundColor: ruleColor }]} />
+        <Text style={[styles.nameplateTagline, { color: ink3 }]}>
+          CRAFT · FIT · DELIVER
+        </Text>
+      </View>
+
+      {/* Sign-in card */}
+      <View style={[styles.card, { backgroundColor: cardBg }, AtelierShadow.card]}>
+        {/* Social buttons */}
+        {hasGoogleConfig ? (
+          <TouchableOpacity
+            style={[styles.socialBtn, { borderColor: ruleColor, backgroundColor: bg }]}
+            onPress={handleGooglePress}
+            disabled={anyLoading}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.socialBtnText, { color: inkColor }]}>
+              {t('auth.social.continueGoogle')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {Platform.OS === 'ios' ? (
+          <View style={[styles.appleWrap, anyLoading && styles.disabled]}>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={AtelierRadius.sm}
+              style={styles.appleBtn}
+              onPress={handleApplePress}
             />
-            <Text style={[styles.title, { color: colors.textPrimary }]}>{t('auth.login.title')}</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('auth.login.subtitle')}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.form}>
-            {hasGoogleConfig ? (
-              <Button
-                variant="secondary"
-                fullWidth
-                onPress={handleGooglePress}
-                disabled={anyLoading}
-                loading={googleLoading}
-                style={styles.socialButton}
-              >
-                <Text style={[styles.socialButtonText, { color: colors.textPrimary }]}>{t('auth.social.continueGoogle')}</Text>
-              </Button>
-            ) : null}
-            {Platform.OS === 'ios' ? (
-              <View
-                style={[styles.appleButtonWrap, anyLoading && styles.appleButtonWrapDisabled]}
-                pointerEvents={anyLoading ? 'none' : 'auto'}
-              >
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={BorderRadius.md}
-                  style={styles.appleButton}
-                  onPress={handleApplePress}
-                />
-              </View>
-            ) : null}
-            {(hasGoogleConfig || Platform.OS === 'ios') ? (
-              <View style={styles.divider}>
-                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>{t('common.or').toLowerCase()}</Text>
-              </View>
-            ) : null}
+        {(hasGoogleConfig || Platform.OS === 'ios') ? (
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: ruleColor }]} />
+            <Text style={[styles.dividerText, { color: ink4 }]}>{t('common.or').toLowerCase()}</Text>
+            <View style={[styles.dividerLine, { backgroundColor: ruleColor }]} />
+          </View>
+        ) : null}
 
-            <Input
-              label={t('auth.login.email')}
-              placeholder={t('auth.login.emailPlaceholder')}
-              value={email}
-              onChangeText={(t) => {
-                setEmail(t);
-                clearError();
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              editable={!anyLoading}
-            />
+        {/* Email + password */}
+        <Input
+          label={t('auth.login.email')}
+          placeholder={t('auth.login.emailPlaceholder')}
+          value={email}
+          onChangeText={(v) => { setEmail(v); clearError(); }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          editable={!anyLoading}
+        />
 
-            <Input
-              label={t('auth.login.password')}
-              placeholder={t('auth.login.passwordPlaceholder')}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                clearError();
-              }}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!anyLoading}
-              onSubmitEditing={handleLogin}
-              rightElement={
-                <Button
-                  variant="ghost"
-                  onPress={() => setShowPassword((v) => !v)}
-                  accessibilityLabel={showPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color={colors.textSecondary} />
-                  ) : (
-                    <Eye size={20} color={colors.textSecondary} />
-                  )}
-                </Button>
-              }
-            />
-
+        <Input
+          label={t('auth.login.password')}
+          placeholder={t('auth.login.passwordPlaceholder')}
+          value={password}
+          onChangeText={(v) => { setPassword(v); clearError(); }}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!anyLoading}
+          onSubmitEditing={handleLogin}
+          rightElement={
             <Button
               variant="ghost"
-              onPress={() => router.push('/forgot-password')}
-              style={styles.forgotPasswordLink}
+              onPress={() => setShowPassword((v) => !v)}
+              accessibilityLabel={showPassword ? t('auth.signup.hidePassword') : t('auth.signup.showPassword')}
             >
-              <Text style={[styles.forgotPasswordText, { color: colors.textSecondary }]}>
-                {t('auth.login.forgotPassword')}
-              </Text>
+              {showPassword
+                ? <EyeOff size={18} color={ink3} />
+                : <Eye size={18} color={ink3} />
+              }
             </Button>
+          }
+        />
 
-            {errorMessage ? (
-              <View style={styles.errorContainer}>
-                <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
-              </View>
-            ) : null}
+        <TouchableOpacity
+          style={styles.forgotRow}
+          onPress={() => router.push('/forgot-password')}
+          hitSlop={{ top: 8, bottom: 8 }}
+        >
+          <Text style={[styles.forgotText, { color: ink3 }]}>
+            {t('auth.login.forgotPassword')}
+          </Text>
+        </TouchableOpacity>
 
-            {isBiometricEnabled && biometricAvailability?.available ? (
-              <Button
-                variant="secondary"
-                fullWidth
-                onPress={handleBiometricLogin}
-                disabled={anyLoading || biometricLoading}
-                loading={biometricLoading}
-                style={styles.biometricButton}
-              >
-                {t('auth.biometric.loginWith', { method: biometricAvailability.buttonLabel })}
-              </Button>
-            ) : null}
-
-            <View style={styles.divider}>
-              {isBiometricEnabled && biometricAvailability?.available ? (
-                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>{t('common.or').toLowerCase()}</Text>
-              ) : null}
-            </View>
-
-            <Button
-              variant="primary"
-              fullWidth
-              onPress={handleLogin}
-              disabled={anyLoading}
-              loading={isLoading}
-              style={styles.submitButton}
-            >
-              {t('auth.login.signIn')}
-            </Button>
+        {errorMessage ? (
+          <View style={[styles.errorBox, { borderColor: colors.ember, backgroundColor: `${colors.ember}12` }]}>
+            <Text style={[styles.errorText, { color: colors.ember }]}>{errorMessage}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.footer}>
-            <Button
-              variant="ghost"
-              onPress={() => router.push('/signup')}
-              style={styles.signupLink}
-            >
-              <Text style={[styles.signupLinkText, { color: colors.textSecondary }]}>
-                {t('auth.login.noAccount')} <Text style={[styles.signupLinkBold, { color: colors.textPrimary }]}>{t('auth.login.signUp')}</Text>
-              </Text>
-            </Button>
-          </View>
-        </View>
-    </ScreenLayout>
+        {isBiometricEnabled && biometricAvailability?.available ? (
+          <Button
+            variant="secondary"
+            fullWidth
+            onPress={handleBiometricLogin}
+            disabled={anyLoading}
+            loading={biometricLoading}
+            style={styles.biometricBtn}
+          >
+            {t('auth.biometric.loginWith', { method: biometricAvailability.buttonLabel })}
+          </Button>
+        ) : null}
+
+        {/* Primary CTA */}
+        <TouchableOpacity
+          style={[styles.primaryBtn, { backgroundColor: brassColor }, anyLoading && styles.disabled]}
+          onPress={handleLogin}
+          disabled={anyLoading}
+          activeOpacity={0.85}
+        >
+          {isLoading ? (
+            <Text style={styles.primaryBtnText}>...</Text>
+          ) : (
+            <Text style={styles.primaryBtnText}>{t('auth.login.signIn')}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Footer */}
+      <TouchableOpacity style={styles.signupRow} onPress={() => router.push('/signup')}>
+        <Text style={[styles.signupText, { color: ink3 }]}>
+          {t('auth.login.noAccount')}{' '}
+          <Text style={[styles.signupLink, { color: brassColor }]}>
+            {t('auth.login.signUp')}
+          </Text>
+        </Text>
+      </TouchableOpacity>
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: Spacing.xl,
+    paddingHorizontal: AtelierSpacing.pagePad,
   },
-  content: {
-    paddingHorizontal: Spacing.md,
+
+  // Swatch grid
+  swatchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: AtelierSpacing.xl,
+    borderRadius: AtelierRadius.sm,
+    overflow: 'hidden',
   },
-  header: {
+  swatchCell: {
+    width: '25%',
+    aspectRatio: 1.4,
+  },
+
+  // Nameplate
+  nameplate: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: AtelierSpacing.xl,
+    gap: 6,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: Spacing.lg,
+  nameplateEyebrow: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
   },
-  title: {
-    ...Typography.h1,
-    marginBottom: Spacing.sm,
+  nameplateTitle: {
+    fontFamily: FontFamily.serif,
+    fontSize: 40,
+    lineHeight: 46,
+    letterSpacing: -1,
   },
-  subtitle: {
-    ...Typography.body,
+  nameplateRule: {
+    width: 48,
+    height: 1,
+    marginVertical: 4,
   },
-  form: {
-    width: '100%',
+  nameplateTagline: {
+    fontFamily: FontFamily.mono,
+    fontSize: 10,
+    letterSpacing: 2,
   },
-  socialButton: {
-    marginBottom: Spacing.sm,
+
+  // Card
+  card: {
+    borderRadius: AtelierRadius.lg,
+    padding: AtelierSpacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
-  socialButtonText: {
-    ...Typography.body,
+  cardTitle: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 18,
+    lineHeight: 24,
+    marginBottom: 4,
   },
-  appleButtonWrap: {
-    width: '100%',
-    marginBottom: Spacing.sm,
+  cardSubtitle: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: AtelierSpacing.md,
   },
-  appleButtonWrapDisabled: {
-    opacity: 0.6,
-  },
-  appleButton: {
-    width: '100%',
-    height: 50,
-  },
-  forgotPasswordLink: {
-    alignSelf: 'flex-end',
-    marginBottom: Spacing.sm,
-  },
-  forgotPasswordText: {
-    ...Typography.caption,
-  },
-  errorContainer: {
-    marginBottom: Spacing.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    ...StatusStyles.error,
-    borderRadius: BorderRadius.sm,
+
+  // Social
+  socialBtn: {
+    height: 44,
+    borderRadius: AtelierRadius.sm,
     borderWidth: 1,
-  },
-  errorText: {
-    ...Typography.caption,
-    lineHeight: 21,
-  },
-  biometricButton: {
-    marginBottom: Spacing.sm,
-  },
-  divider: {
-    marginVertical: Spacing.sm,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: AtelierSpacing.sm,
+  },
+  socialBtnText: {
+    fontFamily: FontFamily.sansMedium,
+    fontSize: 14,
+    letterSpacing: 0.1,
+  },
+  appleWrap: {
+    marginBottom: AtelierSpacing.sm,
+  },
+  appleBtn: {
+    width: '100%',
+    height: 44,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: AtelierSpacing.sm,
+    gap: AtelierSpacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
   },
   dividerText: {
-    ...Typography.caption,
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
-  submitButton: {
-    marginTop: Spacing.sm,
+
+  // Forgot password
+  forgotRow: {
+    alignSelf: 'flex-end',
+    marginBottom: AtelierSpacing.md,
   },
-  footer: {
-    marginTop: Spacing.xxxl,
+  forgotText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  // Error
+  errorBox: {
+    borderWidth: 1,
+    borderRadius: AtelierRadius.xs,
+    padding: AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.md,
+  },
+  errorText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Biometric
+  biometricBtn: {
+    marginBottom: AtelierSpacing.sm,
+  },
+
+  // Primary CTA
+  primaryBtn: {
+    height: 48,
+    borderRadius: AtelierRadius.sm,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: AtelierSpacing.xs,
+  },
+  primaryBtnText: {
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 15,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+
+  // Footer
+  signupRow: {
+    alignItems: 'center',
+    paddingVertical: AtelierSpacing.sm,
+  },
+  signupText: {
+    fontFamily: FontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
   },
   signupLink: {
-    marginBottom: Spacing.lg,
-  },
-  signupLinkText: {
-    ...Typography.caption,
-    textAlign: 'center',
-  },
-  signupLinkBold: {
-    fontWeight: '600',
-  },
-  footerText: {
-    ...Typography.small,
-    textAlign: 'center',
-    lineHeight: 18,
+    fontFamily: FontFamily.sansSemiBold,
+    fontSize: 13,
   },
 });

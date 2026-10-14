@@ -23,10 +23,9 @@ import type {
   CreateGarmentCatalogCategoryRequest,
   UpdateGarmentCatalogCategoryRequest,
 } from '@/types/catalog';
-import { CATALOG_ICONS } from '@/types/catalog';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
 export interface GarmentCatalogCategoryEditorModalProps {
   visible: boolean;
@@ -59,11 +58,6 @@ function uniqueCode(baseCode: string, existingCodes: Set<string>): string {
   return `${baseCode}_${n}`;
 }
 
-const ICON_OPTIONS = Object.entries(CATALOG_ICONS).map(([code, icon]) => ({
-  code,
-  icon,
-}));
-
 export function GarmentCatalogCategoryEditorModal({
   visible,
   onClose,
@@ -78,7 +72,6 @@ export function GarmentCatalogCategoryEditorModal({
   const reduceMotion = useReducedMotion();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const existingCodes = React.useMemo(() => {
@@ -96,11 +89,9 @@ export function GarmentCatalogCategoryEditorModal({
     if (mode === 'edit' && initial) {
       setName(initial.name ?? '');
       setDescription(initial.description ?? '');
-      setSelectedIcon(initial.icon ?? null);
     } else {
       setName('');
       setDescription('');
-      setSelectedIcon(null);
     }
   }, [visible, mode, initial]);
 
@@ -125,7 +116,6 @@ export function GarmentCatalogCategoryEditorModal({
           name: trimmedName,
           code: derivedCode,
           description: description.trim() || undefined,
-          icon: selectedIcon ?? undefined,
           sortOrder: suggestedSortOrder ?? 0,
         };
         await onSubmit(payload);
@@ -133,7 +123,6 @@ export function GarmentCatalogCategoryEditorModal({
         const payload: UpdateGarmentCatalogCategoryRequest = {
           name: trimmedName,
           description: description.trim() || null,
-          icon: selectedIcon,
         };
         await onSubmit(payload);
       }
@@ -165,7 +154,7 @@ export function GarmentCatalogCategoryEditorModal({
         <Animated.View
           entering={reduceMotion ? modalEnteringReducedMotion : modalEntering}
           exiting={modalExiting}
-          style={[styles.card, { backgroundColor: colors.surface }]}
+          style={[styles.card, { backgroundColor: colors.card }]}
         >
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -203,78 +192,26 @@ export function GarmentCatalogCategoryEditorModal({
                 containerStyle={styles.inputInField}
               />
             </View>
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>
-                {t('catalog.categoryIcon')}
-              </Text>
-              <View style={styles.iconRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.iconChip,
-                    { backgroundColor: colors.borderLight },
-                    !selectedIcon && {
-                      backgroundColor: colors.primaryLight + '60',
-                      borderWidth: 1,
-                      borderColor: colors.primary,
-                    },
-                  ]}
-                  onPress={() => setSelectedIcon(null)}
-                >
-                  <Text
-                    style={[
-                      styles.iconChipText,
-                      { color: colors.textSecondary },
-                      !selectedIcon && { ...Typography.captionBold, color: colors.primary },
-                    ]}
-                  >
-                    {t('common.none')}
-                  </Text>
-                </TouchableOpacity>
-                {ICON_OPTIONS.map((opt) => {
-                  const labelKey = `catalog.categories.${opt.code}`;
-                  const label = t(labelKey) !== labelKey ? t(labelKey) : opt.code;
-                  return (
-                    <TouchableOpacity
-                      key={opt.code}
-                      style={[
-                        styles.iconChip,
-                        { backgroundColor: colors.borderLight },
-                        selectedIcon === opt.icon && {
-                          backgroundColor: colors.primaryLight + '60',
-                          borderWidth: 1,
-                          borderColor: colors.primary,
-                        },
-                      ]}
-                      onPress={() => setSelectedIcon(opt.icon)}
-                    >
-                      <Text
-                        style={[
-                          styles.iconChipText,
-                          { color: colors.textSecondary },
-                          selectedIcon === opt.icon && {
-                            ...Typography.captionBold,
-                            color: colors.primary,
-                          },
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+          </KeyboardAwareScrollView>
+          <View style={[styles.footer, { borderTopColor: colors.rule ?? colors.border }]}>
+            <Button
+              variant="secondary"
+              onPress={onClose}
+              disabled={submitting}
+              style={styles.footerCancelBtn}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               variant="primary"
-              fullWidth
               onPress={handleSubmit}
               disabled={submitting}
               loading={submitting}
-              style={styles.saveBtn}
+              style={styles.footerSaveBtn}
             >
               {mode === 'add' ? t('common.add') : t('common.save')}
             </Button>
-          </KeyboardAwareScrollView>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -289,57 +226,59 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
+    padding: AtelierSpacing.lg,
   },
   card: {
     width: '100%',
     maxWidth: 440,
     maxHeight: '85%',
-    borderRadius: BorderRadius.lg,
-    ...Typography.body,
+    borderRadius: AtelierRadius.lg,
+    fontFamily: FontFamily.sans,
+    fontSize: 15,
+    lineHeight: 22,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingTop: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.sm,
   },
   title: {
-    ...Typography.h3,
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   scroll: {
     maxHeight: 400,
   },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    padding: AtelierSpacing.lg,
+    paddingBottom: AtelierSpacing.lg,
   },
   field: {
-    marginBottom: Spacing.lg,
+    marginBottom: AtelierSpacing.lg,
   },
   label: {
-    ...Typography.captionBold,
-    marginBottom: Spacing.xs,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: AtelierSpacing.xs,
   },
   inputInField: {
     marginBottom: 0,
   },
-  iconRow: {
+  footer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: AtelierSpacing.md,
+    padding: AtelierSpacing.lg,
+    borderTopWidth: 1,
   },
-  iconChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+  footerCancelBtn: {
+    flex: 1,
   },
-  iconChipText: {
-    ...Typography.caption,
-  },
-  saveBtn: {
-    marginTop: Spacing.sm,
+  footerSaveBtn: {
+    flex: 1,
   },
 });

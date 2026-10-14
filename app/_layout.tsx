@@ -1,11 +1,30 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { ThemeProvider as NavigationThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { useFonts } from 'expo-font';
+import {
+  InstrumentSerif_400Regular,
+  InstrumentSerif_400Regular_Italic,
+} from '@expo-google-fonts/instrument-serif';
+import {
+  Geist_300Light,
+  Geist_400Regular,
+  Geist_500Medium,
+  Geist_600SemiBold,
+  Geist_700Bold,
+} from '@expo-google-fonts/geist';
+import {
+  GeistMono_400Regular,
+  GeistMono_500Medium,
+  GeistMono_600SemiBold,
+  GeistMono_700Bold,
+} from '@expo-google-fonts/geist-mono';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFrameworkReady } from '@/hooks';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { AnimatedSplashScreen } from '@/components/AnimatedSplashScreen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { AddPasswordModal } from '@/components/AddPasswordModal';
@@ -15,13 +34,16 @@ import { ConsentProvider } from '@/contexts/ConsentContext';
 import { CompanyProvider } from '@/contexts/CompanyContext';
 import { PageTitleProvider } from '@/contexts/PageTitleContext';
 import { I18nProvider } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { KeyboardAccessoryProvider } from '@/contexts/KeyboardAccessoryContext';
 import { GlobalHeader } from '@/components/layout/GlobalHeader';
+import { InboxUnreadProvider } from '@/contexts/InboxUnreadContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { hasSeenTutorial } from '@/lib/tutorial';
 // Keyboard architecture: KeyboardProvider wraps the entire navigation tree so that
 // react-native-keyboard-controller can drive native keyboard animations and insets.
 // This replaces KeyboardAvoidingView at root, eliminating Android resize hacks and
@@ -56,8 +78,9 @@ const ROUTE_RULES: Record<Segment, RouteRule> = {
   'order-details': { requiresAuth: true },
   'garments': { requiresAuth: true },
   'subscription': { requiresAuth: true },
-  'pdf-customize': { requiresAuth: true },
   'settings': { requiresAuth: true },
+  'notifications': { requiresAuth: true },
+  'tutorial': { requiresAuth: true },
   'legacy': {}, // Hard-disabled: redirect below
   '+not-found': {},
 };
@@ -117,10 +140,25 @@ function resolveRedirect(
 // Optional: handle other deep links here (e.g. app-open, unknown).
 
 function RootLayoutNav() {
-  const { isAuthenticated, isLoading, needsCompanyDetails, needsPassword, clearNeedsCompanyDetails, clearNeedsPassword } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    accessToken,
+    isBiometricLocked,
+    needsCompanyDetails,
+    needsPassword,
+    clearNeedsCompanyDetails,
+    clearNeedsPassword,
+    loginWithBiometric,
+    user,
+  } = useAuth();
+  const { t } = useI18n();
+  usePushNotifications(isAuthenticated && !isLoading, accessToken);
   const { colors, isDark } = useTheme();
   const segments = useSegments();
   const router = useRouter();
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const hasAutoPromptedBiometricRef = useRef(false);
 
   useFrameworkReady();
 
@@ -136,6 +174,42 @@ function RootLayoutNav() {
       router.replace(target);
     }
   }, [isAuthenticated, isLoading, segmentsKey, router]);
+
+  // First-run tutorial: open once per user, after login gates (password, company details) are done.
+  const tutorialCheckedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId || !isAuthenticated || isLoading || isBiometricLocked || needsPassword || needsCompanyDetails) return;
+    if (segments[0] !== '(tabs)' || tutorialCheckedForRef.current === userId) return;
+    tutorialCheckedForRef.current = userId;
+    void hasSeenTutorial(userId).then((seen) => {
+      if (!seen) router.push('/tutorial');
+    });
+  }, [user?.id, isAuthenticated, isLoading, isBiometricLocked, needsPassword, needsCompanyDetails, segmentsKey, router]);
+
+  useEffect(() => {
+    if (!isBiometricLocked) {
+      hasAutoPromptedBiometricRef.current = false;
+      return;
+    }
+    if (hasAutoPromptedBiometricRef.current || isUnlocking) return;
+    hasAutoPromptedBiometricRef.current = true;
+    void handleBiometricUnlock();
+  }, [isBiometricLocked, isUnlocking]);
+
+  const handleBiometricUnlock = async () => {
+    setIsUnlocking(true);
+    try {
+      const result = await loginWithBiometric({
+        promptMessage: t('auth.biometric.promptMessage'),
+      });
+      if (!result.success && result.reason === 'session_expired') {
+        router.replace('/login');
+      }
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
   const navigationTheme = {
@@ -162,22 +236,23 @@ function RootLayoutNav() {
                 <KeyboardProvider>
                   <KeyboardAccessoryProvider>
                     <ErrorBoundary onGoBack={() => router.back()}>
-                      <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
-                        {isAuthenticated && needsPassword && (
+                      <InboxUnreadProvider>
+                        <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
+                        {isAuthenticated && !isBiometricLocked && needsPassword && (
                           <AddPasswordModal
                             visible={true}
                             onComplete={() => {}}
                             clearNeedsPassword={clearNeedsPassword}
                           />
                         )}
-                        {isAuthenticated && needsCompanyDetails && !needsPassword && (
+                        {isAuthenticated && !isBiometricLocked && needsCompanyDetails && !needsPassword && (
                           <CompanyDetailsRequiredModal
                             visible={true}
                             onComplete={() => {}}
                             clearNeedsCompanyDetails={clearNeedsCompanyDetails}
                           />
                         )}
-                        {isAuthenticated && !needsCompanyDetails && <GlobalHeader />}
+                        {isAuthenticated && !isBiometricLocked && !needsCompanyDetails && <GlobalHeader />}
                         <OfflineBanner />
                         <Stack screenOptions={{ headerShown: false }}>
                           <Stack.Screen name="login" />
@@ -195,10 +270,17 @@ function RootLayoutNav() {
                           <Stack.Screen name="garments" />
                           <Stack.Screen name="account" />
                           <Stack.Screen name="subscription" />
-                          <Stack.Screen name="pdf-customize" />
                           <Stack.Screen name="settings" />
+                          <Stack.Screen name="notifications" />
+                          <Stack.Screen name="tutorial" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
                         </Stack>
-                      </View>
+                        {isAuthenticated && isBiometricLocked && (
+                          <View style={[styles.biometricLockOverlay, { backgroundColor: colors.background }]}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                          </View>
+                        )}
+                        </View>
+                      </InboxUnreadProvider>
                     </ErrorBoundary>
                     <StatusBar style={isDark ? 'light' : 'dark'} />
                   </KeyboardAccessoryProvider>
@@ -213,6 +295,20 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useFonts({
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    Geist_300Light,
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
+    GeistMono_400Regular,
+    GeistMono_500Medium,
+    GeistMono_600SemiBold,
+    GeistMono_700Bold,
+  });
+
   return (
     <ThemeProvider>
       <AuthProvider>
@@ -233,5 +329,11 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
+  },
+  biometricLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

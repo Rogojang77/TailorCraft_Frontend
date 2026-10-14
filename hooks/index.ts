@@ -21,10 +21,6 @@ export type {
   UseOrderDeleteResult,
 } from './orders';
 
-// PDF
-export { usePdfTemplate, usePdfSections } from './pdf';
-export type { UsePdfTemplateArgs, UsePdfSectionsArgs } from './pdf';
-
 // Subscriptions
 export {
   useSubscriptions,

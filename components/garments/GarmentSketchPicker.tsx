@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
-import { Spacing, Typography, BorderRadius } from '@/constants/design';
+import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 import { LapelIcon, LapelType, LAPEL_TYPES } from './LapelIcon';
 import { CollarIcon, CollarType, COLLAR_TYPES } from './CollarIcon';
 
@@ -33,7 +33,7 @@ export function GarmentSketchPicker(props: GarmentSketchPickerProps) {
     return (
       <View style={styles.container}>
         {label && (
-          <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+          <Text style={[styles.label, { color: colors.ink3 }]}>{label}</Text>
         )}
         <View style={styles.optionsRow}>
           {LAPEL_TYPES.map((lapel) => (
@@ -51,7 +51,7 @@ export function GarmentSketchPicker(props: GarmentSketchPickerProps) {
               <Text
                 style={[
                   styles.optionLabel,
-                  { color: value === lapel.id ? colors.primary : colors.textSecondary },
+                  { color: value === lapel.id ? colors.brass ?? colors.primary : colors.ink3 },
                   value === lapel.id && styles.optionLabelActive,
                 ]}
               >
@@ -67,7 +67,7 @@ export function GarmentSketchPicker(props: GarmentSketchPickerProps) {
   return (
     <View style={styles.container}>
       {label && (
-        <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.ink3 }]}>{label}</Text>
       )}
       <View style={styles.optionsRow}>
         {COLLAR_TYPES.map((collar) => (
@@ -85,7 +85,7 @@ export function GarmentSketchPicker(props: GarmentSketchPickerProps) {
             <Text
               style={[
                 styles.optionLabel,
-                { color: value === collar.id ? colors.primary : colors.textSecondary },
+                { color: value === collar.id ? colors.brass ?? colors.primary : colors.ink3 },
                 value === collar.id && styles.optionLabelActive,
               ]}
             >
@@ -100,29 +100,31 @@ export function GarmentSketchPicker(props: GarmentSketchPickerProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: Spacing.md,
+    marginBottom: AtelierSpacing.md,
   },
   label: {
-    ...Typography.label,
-    marginBottom: Spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    marginBottom: AtelierSpacing.sm,
   },
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
+    gap: AtelierSpacing.md,
   },
   option: {
     alignItems: 'center',
   },
   optionLabel: {
-    ...Typography.small,
-    marginTop: Spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontFamily: FontFamily.mono,
     fontSize: 10,
+    lineHeight: 16,
+    marginTop: AtelierSpacing.xs,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
   },
   optionLabelActive: {
     fontWeight: '700',

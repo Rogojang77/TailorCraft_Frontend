@@ -5,10 +5,10 @@
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getLayoutStyles, getTypography, Spacing } from '@/constants/design';
+import { FontFamily, AtelierSpacing } from '@/constants/atelierDesign';
 
 export interface SectionProps {
-  /** Section title (uses h3 typography) */
+  /** Section title (uses serif headline typography) */
   title?: string;
   /** Optional right-side actions (e.g. "See all" link) */
   headerRight?: React.ReactNode;
@@ -19,15 +19,21 @@ export interface SectionProps {
 
 const SectionComponent = ({ title, headerRight, children, style, titleStyle }: SectionProps) => {
   const { colors } = useTheme();
-  const layoutStyles = getLayoutStyles(colors);
-  const typography = getTypography(colors);
 
   return (
-    <View style={[layoutStyles.section, style]}>
+    <View style={[styles.section, style]}>
       {(title != null || headerRight != null) && (
-        <View style={[layoutStyles.sectionHeader, styles.sectionHeaderWithPadding, headerRight != null && styles.headerRow]}>
+        <View style={[styles.sectionHeader, headerRight != null && styles.headerRow]}>
           {title != null ? (
-            <Text style={[typography.h3, headerRight != null && styles.sectionTitleFlex, titleStyle]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.title,
+                { color: colors.textPrimary },
+                headerRight != null && styles.titleFlex,
+                titleStyle,
+              ]}
+              numberOfLines={1}
+            >
               {title}
             </Text>
           ) : null}
@@ -40,17 +46,26 @@ const SectionComponent = ({ title, headerRight, children, style, titleStyle }: S
 };
 
 const styles = StyleSheet.create({
-  sectionTitleFlex: {
-    flex: 1,
-    marginRight: Spacing.sm,
+  section: {
+    marginBottom: AtelierSpacing.lg,
+  },
+  sectionHeader: {
+    marginBottom: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sectionHeaderWithPadding: {
-    paddingHorizontal: Spacing.md,
+  title: {
+    fontFamily: FontFamily.serif,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  titleFlex: {
+    flex: 1,
+    marginRight: AtelierSpacing.sm,
   },
 });
 
