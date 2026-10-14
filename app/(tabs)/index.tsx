@@ -225,14 +225,6 @@ export default function HomeTab() {
     });
   }, [activeOrders]);
 
-  const pendingPaymentsTotal = useMemo(() =>
-    orders.reduce((sum, o) => {
-      const pending = (o.totalAmount ?? 0) - (o.paidAmount ?? 0);
-      return sum + (pending > 0 ? pending : 0);
-    }, 0),
-    [orders]
-  );
-
   const recentOrders = useMemo(() =>
     [...orders]
       .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
@@ -381,14 +373,6 @@ export default function HomeTab() {
                   <Text style={[styles.heroStatLabel, { color: ink4 }]}>Clients</Text>
                 </View>
               </View>
-              {pendingPaymentsTotal > 0 ? (
-                <View style={[styles.heroPendingRow, { borderTopColor: ink2 }]}>
-                  <Text style={[styles.heroPendingLabel, { color: ink4 }]}>PENDING PAYMENTS</Text>
-                  <Text style={[styles.heroPendingAmount, { color: colors.brassPale ?? brassColor }]}>
-                    {pendingPaymentsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                </View>
-              ) : null}
             </View>
 
             {/* ─── Quick actions strip ─────────────────────────────────── */}
@@ -475,11 +459,6 @@ export default function HomeTab() {
                                   Due {formatDate(order.deliveryDate)}
                                 </Text>
                               ) : null}
-                            </View>
-                            <View style={styles.orderRowRight}>
-                              <Text style={[styles.orderAmount, { color: inkColor }]}>
-                                {(order.totalAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </Text>
                             </View>
                           </TouchableOpacity>
                           {idx < recentOrders.length - 1 ? (
@@ -672,23 +651,6 @@ const styles = StyleSheet.create({
     height: 36,
     opacity: 0.3,
   },
-  heroPendingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: AtelierSpacing.md,
-    paddingTop: AtelierSpacing.md,
-    borderTopWidth: 1,
-  },
-  heroPendingLabel: {
-    ...AtelierType.monoLabel,
-    letterSpacing: 1,
-  },
-  heroPendingAmount: {
-    fontFamily: FontFamily.monoSemiBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
 
   // Quick actions strip
   quickStrip: {
@@ -772,16 +734,6 @@ const styles = StyleSheet.create({
   orderDate: {
     ...AtelierType.monoSm,
     fontSize: 11,
-  },
-  orderRowRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    marginLeft: AtelierSpacing.sm,
-  },
-  orderAmount: {
-    fontFamily: FontFamily.monoSemiBold,
-    fontSize: 13,
-    lineHeight: 18,
   },
   orderDivider: {
     height: 1,
