@@ -379,7 +379,7 @@ export default function HomeTab() {
             <View style={styles.quickStrip}>
               <TouchableOpacity
                 style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
-                onPress={() => router.push('/(tabs)/orders')}
+                onPress={() => router.push({ pathname: '/(tabs)/orders', params: { tab: 'orders' } })}
                 activeOpacity={0.7}
               >
                 <ShoppingBag size={18} color={brassColor} />
@@ -403,7 +403,7 @@ export default function HomeTab() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.quickBtn, { backgroundColor: cardBg, borderColor: ruleColor }]}
-                onPress={() => router.push('/clients')}
+                onPress={() => router.push({ pathname: '/(tabs)/orders', params: { tab: 'clients' } })}
                 activeOpacity={0.7}
               >
                 <Users size={18} color={colors.ember} />
@@ -469,7 +469,7 @@ export default function HomeTab() {
                     })}
                     <TouchableOpacity
                       style={[styles.viewAllRow, { borderTopColor: ruleColor }]}
-                      onPress={() => router.push('/(tabs)/orders')}
+                      onPress={() => router.push({ pathname: '/(tabs)/orders', params: { tab: 'orders' } })}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.viewAllText, { color: brassColor }]}>

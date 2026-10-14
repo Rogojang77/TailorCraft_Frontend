@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Search, Plus, Filter, X } from 'lucide-react-native';
 import { ClientListItem } from '@/components/ClientListItem';
@@ -147,6 +147,11 @@ export default function OrdersTab() {
   const limitMsgs = getLimitMessages();
 
   const [activeTab, setActiveTab] = useState<'clients' | 'orders'>('orders');
+  // Home's quick buttons open this screen on a given tab (?tab=clients | orders).
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  useEffect(() => {
+    if (tab === 'clients' || tab === 'orders') setActiveTab(tab);
+  }, [tab]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
