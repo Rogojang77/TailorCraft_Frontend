@@ -366,6 +366,7 @@
     "login": {
       "title": "TailorCraft",
       "subtitle": "Conectează-te pentru a continua",
+      "tagline": "Clienți, măsuri și comenzi pentru atelierul tău.",
       "email": "Email",
       "password": "Parolă",
       "emailPlaceholder": "Introdu email-ul",

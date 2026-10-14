@@ -366,6 +366,7 @@
     "login": {
       "title": "TailorCraft",
       "subtitle": "Sign in to continue",
+      "tagline": "Clients, measurements and orders for your workshop.",
       "email": "Email",
       "password": "Password",
       "emailPlaceholder": "Enter your email",

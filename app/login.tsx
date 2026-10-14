@@ -6,6 +6,7 @@ import {
   Alert,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -215,15 +216,12 @@ export default function LoginScreen() {
     >
       {/* Nameplate */}
       <View style={styles.nameplate}>
-        <Text style={[styles.nameplateEyebrow, { color: brassColor }]}>
-          ATELIER · EST. 2024
-        </Text>
         <Text style={[styles.nameplateTitle, { color: inkColor }]}>
           TailorCraft
         </Text>
-        <View style={[styles.nameplateRule, { backgroundColor: ruleColor }]} />
+        <View style={[styles.nameplateRule, { backgroundColor: brassColor }]} />
         <Text style={[styles.nameplateTagline, { color: ink3 }]}>
-          CRAFT · FIT · DELIVER
+          {t('auth.login.tagline')}
         </Text>
       </View>
 
@@ -336,7 +334,7 @@ export default function LoginScreen() {
           activeOpacity={0.85}
         >
           {isLoading ? (
-            <Text style={styles.primaryBtnText}>...</Text>
+            <ActivityIndicator color="#FFFFFF" accessibilityLabel={t('auth.login.signIn')} />
           ) : (
             <Text style={styles.primaryBtnText}>{t('auth.login.signIn')}</Text>
           )}
@@ -374,11 +372,6 @@ const styles = StyleSheet.create({
     marginBottom: AtelierSpacing.xl,
     gap: 6,
   },
-  nameplateEyebrow: {
-    fontFamily: FontFamily.monoMedium,
-    fontSize: 10,
-    letterSpacing: 2,
-  },
   nameplateTitle: {
     fontFamily: FontFamily.serif,
     fontSize: 40,
@@ -391,9 +384,11 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   nameplateTagline: {
-    fontFamily: FontFamily.mono,
-    fontSize: 10,
-    letterSpacing: 2,
+    fontFamily: FontFamily.serifItalic,
+    fontSize: 17,
+    lineHeight: 24,
+    textAlign: 'center',
+    maxWidth: 280,
   },
 
   // Card
