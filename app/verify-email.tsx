@@ -7,6 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api, apiFetch, getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,7 +95,11 @@ export default function VerifyEmailScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <View style={styles.content}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={AtelierSpacing.xl}
+      >
         {status === 'loading' && (
           <>
             <ActivityIndicator size="large" color={colors.textPrimary} />
@@ -151,14 +156,14 @@ export default function VerifyEmailScreen() {
             </Button>
           </>
         )}
-      </View>
+      </KeyboardAwareScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: AtelierSpacing.xxl,

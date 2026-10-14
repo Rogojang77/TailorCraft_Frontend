@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Input } from '@/components/ui/Input';
@@ -105,7 +106,12 @@ export default function FinancialExpenseNewScreen() {
 
   return (
     <ScreenContainer noPadding>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={AtelierSpacing.xl}
+      >
         <Input
           label={t('financial.amount')}
           value={amount}
@@ -213,7 +219,7 @@ export default function FinancialExpenseNewScreen() {
         <Button onPress={onSave} loading={loading} disabled={!canSubmit}>
           {t('financial.saveExpense')}
         </Button>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ScreenContainer>
   );
 }

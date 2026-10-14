@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { ScreenLayout } from '@/components/layout/ScreenLayout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -365,8 +365,9 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.flex1}>
-          <ScrollView
+          <KeyboardAwareScrollView
             style={styles.scrollView}
+            bottomOffset={AtelierSpacing.xl}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -374,7 +375,7 @@ export default function SignupScreen() {
             <View style={styles.content}>
               {step === 'personal' ? renderPersonalStep() : renderCompanyStep()}
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, AtelierSpacing.md), backgroundColor: colors.paper ?? colors.background, borderTopColor: colors.rule ?? colors.border }]}>
             {step === 'personal' ? (

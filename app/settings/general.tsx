@@ -16,6 +16,7 @@ import {
   Switch,
   TextInput,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ruler, Globe, Sun, Phone, LayoutGrid, Wallet, ChevronDown, Check, Search } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
@@ -217,6 +218,7 @@ export default function GeneralSettingsScreen() {
       </ScrollView>
 
       <Modal visible={activeSelect !== null} transparent animationType="fade" onRequestClose={() => { setActiveSelect(null); setSearchQuery(''); }}>
+        <KeyboardAvoidingView behavior="padding" style={styles.flex1}>
         <TouchableOpacity
           style={[styles.modalOverlay, { backgroundColor: 'rgba(27,22,17,0.5)' }]}
           onPress={() => { setActiveSelect(null); setSearchQuery(''); }}
@@ -269,6 +271,7 @@ export default function GeneralSettingsScreen() {
             />
           </TouchableOpacity>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </ScreenContainer>
   );
@@ -336,6 +339,9 @@ const styles = StyleSheet.create({
   },
   iconSpacing: {
     marginRight: AtelierSpacing.sm,
+  },
+  flex1: {
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,
