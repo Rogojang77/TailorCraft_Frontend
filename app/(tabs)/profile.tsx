@@ -489,7 +489,7 @@ export default function ProfileTab() {
                     <Text style={[styles.upgradeButtonText, { color: bg }]}>{t('profile.upgradeToPro')}</Text>
                   </TouchableOpacity>
                   <Text style={[styles.upgradeValueStatement, { color: ink3 }]}>
-                    Acces nelimitat pentru a-ți crește afacerea
+                    {t('subscription.unlimitedAccess')}
                   </Text>
 
                   {/* View Details Link */}

@@ -325,6 +325,8 @@ const styles = StyleSheet.create({
     marginHorizontal: AtelierSpacing.md,
   },
   emptyCategories: {
+    // EmptyState defaults to 80% height for full-screen lists; inside a page section it should hug its text.
+    height: 'auto',
     marginHorizontal: AtelierSpacing.md,
     paddingVertical: AtelierSpacing.sm,
     alignItems: 'center',

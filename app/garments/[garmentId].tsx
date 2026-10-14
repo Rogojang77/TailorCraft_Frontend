@@ -390,7 +390,7 @@ export default function GarmentDetailScreen() {
               }
               ListHeaderComponent={
                 <>
-                  <View style={[styles.headerCard, { backgroundColor: colors.surface }]}>
+                  <View style={[styles.headerCard, { backgroundColor: colors.card }]}>
                     {canToggleStatus && (
                       <View style={styles.statusRow}>
                         <Text style={[styles.statusRowLabel, { color: colors.textPrimary }]}>{t('garments.enabled')}</Text>
@@ -467,7 +467,7 @@ export default function GarmentDetailScreen() {
               }
               renderItem={({ item: def, drag, isActive }) => (
               <ScaleDecorator activeScale={1.02}>
-                <View style={[styles.defRow, { backgroundColor: colors.surface }, isActive && styles.defRowActive]}>
+                <View style={[styles.defRow, { backgroundColor: colors.card }, isActive && styles.defRowActive]}>
                   <TouchableOpacity
                     onLongPress={drag}
                     style={styles.dragHandle}
@@ -524,7 +524,7 @@ export default function GarmentDetailScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
         >
-          <View style={[styles.headerCard, { backgroundColor: colors.surface }]}>
+          <View style={[styles.headerCard, { backgroundColor: colors.card }]}>
             {canToggleStatus && (
               <View style={styles.statusRow}>
                 <Text style={[styles.statusRowLabel, { color: colors.textPrimary }]}>{t('garments.enabled')}</Text>
@@ -603,7 +603,7 @@ export default function GarmentDetailScreen() {
             ) : (
               <>
                 {sortedDefinitions.map((def) => (
-                  <View key={def.id} style={[styles.defRow, { backgroundColor: colors.surface }]}>
+                  <View key={def.id} style={[styles.defRow, { backgroundColor: colors.card }]}>
                     <View style={styles.defMain}>
                       <Text style={[styles.defLabel, { color: colors.textPrimary }]}>{def.label}</Text>
                       <View style={styles.defMeta}>
@@ -748,6 +748,7 @@ const styles = StyleSheet.create({
     paddingBottom: AtelierSpacing.xl,
   },
   emptyMeasurements: {
+    height: 'auto',
     marginHorizontal: AtelierSpacing.md,
     paddingVertical: AtelierSpacing.sm,
     alignItems: 'center',
