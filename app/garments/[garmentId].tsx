@@ -43,6 +43,7 @@ import { useI18n } from '@/lib/i18n';
 import { getUnitDisplay } from '@/constants/units';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FontFamily, AtelierSpacing, AtelierRadius, AtelierShadow } from '@/constants/atelierDesign';
+import { CompactLayoutStyles } from '@/constants/design';
 
 function inputTypeLabel(type: string): string {
   const map: Record<string, string> = {
