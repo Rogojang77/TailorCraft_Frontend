@@ -127,7 +127,7 @@ export default function FinancialExpenseNewScreen() {
         />
 
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>{t('financial.category')}</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>{t('financial.category')}</Text>
           <View style={styles.chips}>
             {CATEGORY_OPTIONS.map((item) => (
               <TouchableOpacity
@@ -156,7 +156,7 @@ export default function FinancialExpenseNewScreen() {
 
         {category === 'SUPPLIER' ? (
           <View style={styles.section}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('financial.supplier')}</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>{t('financial.supplier')}</Text>
             <View style={styles.chips}>
               {suppliers.map((supplier) => (
                 <TouchableOpacity
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     gap: AtelierSpacing.sm,
   },
   label: {
-    fontFamily: FontFamily.mono,
+    fontFamily: FontFamily.monoSemiBold,
     fontSize: 11,
     lineHeight: 16,
     textTransform: 'uppercase',

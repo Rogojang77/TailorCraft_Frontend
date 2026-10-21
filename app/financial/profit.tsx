@@ -145,7 +145,7 @@ export default function FinancialProfitScreen() {
         </View>
 
         <View style={styles.list}>
-          {buckets.map((bucket) => (
+          {[...buckets].reverse().map((bucket) => (
             <View key={bucket.bucketStart} style={[styles.row, { backgroundColor: colors.card, borderColor: colors.rule ?? colors.border }]}>
               <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>
                 {dateFmt.format(new Date(bucket.bucketStart))} - {dateFmt.format(new Date(bucket.bucketEnd))}

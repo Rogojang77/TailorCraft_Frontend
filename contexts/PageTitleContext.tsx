@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 /**
  * Context for dynamic page title overrides and custom back button handlers.
  * 
@@ -72,14 +73,16 @@ export function usePageTitleContext(): PageTitleContextValue {
  * Automatically clears on unmount.
  */
 export function useDynamicTitle(title: string | null): void {
-  const { setDynamicTitle, clearOverrides } = usePageTitleContext();
+  const { setDynamicTitle } = usePageTitleContext();
 
-  useEffect(() => {
-    setDynamicTitle(title);
-    return () => {
-      setDynamicTitle(null);
-    };
-  }, [title, setDynamicTitle]);
+  // Apply only while this screen is focused; otherwise a screen lower in the stack
+  // keeps its title on screens pushed on top of it.
+  useFocusEffect(
+    useCallback(() => {
+      setDynamicTitle(title);
+      return () => setDynamicTitle(null);
+    }, [title, setDynamicTitle])
+  );
 }
 
 /**

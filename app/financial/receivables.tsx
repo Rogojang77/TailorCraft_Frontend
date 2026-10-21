@@ -76,14 +76,14 @@ export default function FinancialReceivablesScreen() {
           if (existing) {
             existing.totalOrders += order.totalAmount || 0;
             existing.totalPaid += order.paidAmount || 0;
-            existing.balance = existing.totalOrders - existing.totalPaid;
+            existing.balance += Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0));
           } else {
             clientMap.set(customerId, {
               id: customerId,
               name: customerFullName(order.customer.firstName, order.customer.lastName),
               totalOrders: order.totalAmount || 0,
               totalPaid: order.paidAmount || 0,
-              balance: (order.totalAmount || 0) - (order.paidAmount || 0),
+              balance: Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0)),
             });
           }
         }
@@ -135,7 +135,8 @@ export default function FinancialReceivablesScreen() {
   );
 
   const onRefresh = () => fetchData(true);
-  const totalOutstanding = totalExpected - totalCollected;
+  // Sum of what clients still owe; an overpaid order doesn't cancel another client's debt.
+  const totalOutstanding = clientBalances.reduce((sum, c) => sum + c.balance, 0);
 
   if (loading && !refreshing) {
     return (
