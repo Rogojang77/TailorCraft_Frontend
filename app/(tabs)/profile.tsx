@@ -265,7 +265,7 @@ export default function ProfileTab() {
 
   return (
     <ScreenContainer noPadding style={{ backgroundColor: bg }}>
-      <ScrollView style={[styles.content, { backgroundColor: bg }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.content, { backgroundColor: bg }]} contentContainerStyle={{ paddingTop: AtelierSpacing.md, paddingBottom: AtelierSpacing.xl }} showsVerticalScrollIndicator={false}>
         {companyLoading ? (
           <View style={styles.loadingSection}>
             <ActivityIndicator size="large" color={brassColor} />
@@ -578,7 +578,7 @@ export default function ProfileTab() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
+            style={[styles.menuItem, styles.menuItemLast]}
             onPress={() => router.push('/account/legal')}
           >
             <View style={styles.menuItemLeft}>
@@ -638,7 +638,7 @@ export default function ProfileTab() {
             <ChevronRight size={20} color={colors.ember} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: ruleColor }]}
+            style={[styles.menuItem, styles.menuItemLast]}
             onPress={handleLogout}
             activeOpacity={0.7}
           >
@@ -1166,6 +1166,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
   },
   menuItemLeft: {
     flexDirection: 'row',
