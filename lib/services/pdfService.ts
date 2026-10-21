@@ -2,7 +2,7 @@
  * Classic PDF generation API.
  */
 
-import { api, getStoredAccessToken, ApiError } from '@/lib/api';
+import { api, getStoredAccessToken, ApiError, refreshAccessToken, notifySessionExpired } from '@/lib/api';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
 
 /** Base64 decode that works in React Native (atob may be undefined in Hermes). */
@@ -69,16 +69,24 @@ async function fetchGeneratePdfInternal(
   if (__DEV__) {
     console.log('[pdf] Generating PDF:', url, { orderId, hasToken: !!token });
   }
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(wantRawPdf ? { Accept: 'application/pdf' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
+  const send = (accessToken: string | null) =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(wantRawPdf ? { Accept: 'application/pdf' } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+  let res = await send(token);
+  // Access tokens last 15 minutes; renew and retry once like apiFetch does, or the PDF fails after that.
+  if (res.status === 401 && token && !options?.accessToken) {
+    const renewed = await refreshAccessToken();
+    if (renewed) res = await send(renewed);
+    else notifySessionExpired();
+  }
 
   if (!res.ok) {
     const errBody = (await res.json().catch(() => ({}))) as {

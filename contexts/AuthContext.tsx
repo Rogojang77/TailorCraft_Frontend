@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { setSessionExpiredHandler } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import * as authService from '@/lib/services/authService';
@@ -216,6 +217,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsPassword(false);
     }
   };
+
+  // Expired/revoked session (e.g. refresh token older than 7 days): log out once so the router shows the login
+  // screen, instead of staying on screens where every request fails.
+  const loggingOutRef = useRef(false);
+  const logoutRef = useRef(logout);
+  logoutRef.current = logout;
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      if (loggingOutRef.current) return;
+      loggingOutRef.current = true;
+      void logoutRef.current().finally(() => {
+        loggingOutRef.current = false;
+      });
+    });
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   const enableBiometricLogin = async () => {
     await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, 'true');

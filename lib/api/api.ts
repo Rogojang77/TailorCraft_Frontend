@@ -325,6 +325,49 @@ function formatApiError(
  * If token is not provided and skipAuth is false, it will try to get token from SecureStore.
  * Throws user-friendly Errors for network failures and API errors (including validation details).
  */
+let sessionExpiredHandler: (() => void) | null = null;
+
+/** Called when a request is rejected and the session can't be renewed; AuthContext logs out so the app shows the login screen. */
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler;
+}
+
+export function notifySessionExpired() {
+  sessionExpiredHandler?.();
+}
+
+/**
+ * Exchange the stored refresh token for a new access token (and store both).
+ * Returns the new access token, or null when the session can't be renewed.
+ * Shared by apiFetch and raw fetches (PDF download) that need the same 401 → refresh → retry behaviour.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  try {
+    const storedRefresh = await SecureStore.getItemAsync('refreshToken');
+    const refreshBody =
+      storedRefresh != null && storedRefresh.length > 0
+        ? JSON.stringify({ refreshToken: storedRefresh })
+        : undefined;
+    const refreshRes = await fetch(api.auth.refresh, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      ...(refreshBody != null && { body: refreshBody }),
+    });
+    if (!refreshRes.ok) return null;
+    const refreshData = (await refreshRes.json()) as { accessToken?: string; refreshToken?: string };
+    if (!refreshData.accessToken) return null;
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, refreshData.accessToken);
+    if (refreshData.refreshToken) {
+      await SecureStore.setItemAsync('refreshToken', refreshData.refreshToken);
+    }
+    return refreshData.accessToken;
+  } catch (refreshErr) {
+    console.error('Token refresh failed:', refreshErr);
+    return null;
+  }
+}
+
 export async function apiFetch<T = unknown>(
   pathOrUrl: string,
   options: ApiOptions = {}
@@ -411,31 +454,10 @@ export async function apiFetch<T = unknown>(
   }
 
   if (res.status === HttpStatus.Unauthorized && authToken && !skipAuth && !pathOrUrl.includes('/auth/')) {
-    let refreshData: { accessToken?: string; refreshToken?: string } | null = null;
-    try {
-      const storedRefresh = await SecureStore.getItemAsync('refreshToken');
-      const refreshBody =
-        storedRefresh != null && storedRefresh.length > 0
-          ? JSON.stringify({ refreshToken: storedRefresh })
-          : undefined;
-      const refreshRes = await fetch(api.auth.refresh, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        ...(refreshBody != null && { body: refreshBody }),
-      });
-      if (refreshRes.ok) {
-        refreshData = await refreshRes.json();
-        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, refreshData!.accessToken!);
-        if (refreshData!.refreshToken) {
-          await SecureStore.setItemAsync('refreshToken', refreshData!.refreshToken);
-        }
-      }
-    } catch (refreshErr) {
-      console.error('Token refresh failed:', refreshErr);
-    }
-    if (refreshData?.accessToken) {
-      reqHeaders.Authorization = `Bearer ${refreshData.accessToken}`;
+    const newAccessToken = await refreshAccessToken();
+    if (!newAccessToken) notifySessionExpired();
+    if (newAccessToken) {
+      reqHeaders.Authorization = `Bearer ${newAccessToken}`;
       try {
         const retryRes = await fetch(url, { ...rest, headers: reqHeaders });
         const retryData = (await retryRes.json().catch(() => ({}))) as T & ApiErrorPayload;
