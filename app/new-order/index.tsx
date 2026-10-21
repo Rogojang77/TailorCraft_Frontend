@@ -247,12 +247,13 @@ export default function NewOrderScreen() {
         <View style={styles.errorWrapper}>
           <ErrorText style={styles.loadErrorText}>{garmentsLoadError}</ErrorText>
           <Button
-            label={t('common.retry')}
             onPress={() => {
               setGarmentsLoadError(null);
               fetchGarmentTypes();
             }}
-          />
+          >
+            {t('common.retry')}
+          </Button>
         </View>
       </ScreenContainer>
     );

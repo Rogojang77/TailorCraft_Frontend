@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Modal,
   FlatList,
   Platform,
   Image,
 } from 'react-native';
-import { KeyboardAwareScrollView, KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { Input } from '@/components/ui/Input';
@@ -22,7 +21,7 @@ import { useCustomBack } from '@/contexts/PageTitleContext';
 import { Section } from '@/components/ui/Section';
 import { Loader } from '@/components/ui/Loader';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, User, Phone, Save, Search, X, ChevronDown, Mail, Camera, ImageIcon, ZoomIn, Calendar } from 'lucide-react-native';
+import { User, Phone, Search, X, ChevronDown, ChevronRight, Check, Mail, Camera, ImageIcon, ZoomIn, Calendar, UserPlus } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -71,18 +70,6 @@ export default function ClientDataScreen() {
   const { subscription, upgradeToPro, refreshSubscription } = useSubscription();
   const { defaultPhonePrefix } = useSettings();
 
-  // Helper to parse name into first and last name (safe for undefined/null)
-  const parseName = (fullName: string | undefined | null): { firstName: string; lastName: string } => {
-    const s = fullName != null ? String(fullName).trim() : '';
-    const parts = s ? s.split(/\s+/) : [];
-    if (parts.length === 0) return { firstName: '', lastName: '' };
-    if (parts.length === 1) return { firstName: parts[0], lastName: '' };
-    return {
-      firstName: parts[0],
-      lastName: parts.slice(1).join(' '),
-    };
-  };
-
   // Keep phone input permissive; avoid forcing a specific country code.
   const formatPhoneNumber = (input: string): string => {
     return input;
@@ -98,41 +85,14 @@ export default function ClientDataScreen() {
     return formatted.replace(/\D/g, '');
   };
 
-  // When opening from client-details ("New order"), URL params (clientId, clientName, clientPhone, clientEmail, clientNotes) are applied so the form is pre-filled.
-  // Initialize form fields - check route params first, then draft order
-  const getInitialFields = () => {
-    if (params.clientId && params.clientName && params.clientPhone) {
-      const { firstName, lastName } = parseName(params.clientName);
-      return {
-        firstName,
-        lastName,
-        phone: formatPhoneNumber(params.clientPhone),
-        email: params.clientEmail || '',
-      };
-    }
-    const customer = draftOrder.customer;
-    const nameParts = parseName(customer?.name);
-    return {
-      firstName: nameParts.firstName,
-      lastName: nameParts.lastName,
-      phone: customer?.phone ? formatPhoneNumber(customer.phone) : (defaultPhonePrefix || ''),
-      email: customer?.email || '',
-    };
-  };
-
-  const initialFields = getInitialFields();
-  const initialGender = parseGender(params.clientGender) ?? draftOrder.customer.gender ?? null;
-  const initialReferenceImage = params.clientReferenceImage ?? draftOrder.customer.referenceImage ?? null;
-  const [firstName, setFirstName] = useState(initialFields.firstName);
-  const [lastName, setLastName] = useState(initialFields.lastName);
-  const [phone, setPhone] = useState(initialFields.phone);
-  const [email, setEmail] = useState(initialFields.email);
-  const [notes, setNotes] = useState(
-    params.clientNotes ?? draftOrder.notes ?? ''
-  );
-  const [showNotes, setShowNotes] = useState(!!(params.clientNotes ?? draftOrder.notes));
-  const [gender, setGender] = useState<Gender>(initialGender);
-  const [referenceImage, setReferenceImage] = useState<string | null>(initialReferenceImage);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState(defaultPhonePrefix || '');
+  const [email, setEmail] = useState('');
+  const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
+  const [gender, setGender] = useState<Gender>(null);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
@@ -140,7 +100,8 @@ export default function ClientDataScreen() {
   const [showMeasurementAppointmentIosPicker, setShowMeasurementAppointmentIosPicker] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  /** pick = client list with search (default); form = add a new client. */
+  const [mode, setMode] = useState<'pick' | 'form'>('pick');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -148,160 +109,21 @@ export default function ClientDataScreen() {
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
-  const syncToDraftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Snapshot of client data when we loaded/selected an existing customer; used to detect edits and prompt save-to-client vs only-for-order */
-  const originalCustomerRef = useRef<{
-    firstName: string;
-    lastName: string;
-    phone: string;
-    email: string;
-    gender: Gender;
-    referenceImage: string | null;
-    measurementAppointmentAt: string | null;
-  } | null>(null);
 
-  // Sync form fields (name, phone, email, notes) into the draft as the user types, so the draft persists client details even before they tap Next
+  // Opened for a known client (client page, or right after adding one): skip the picker.
   useEffect(() => {
-    if (syncToDraftTimeoutRef.current) clearTimeout(syncToDraftTimeoutRef.current);
-    syncToDraftTimeoutRef.current = setTimeout(() => {
-      syncToDraftTimeoutRef.current = null;
-      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
-      const rawPhone = getPhoneDigits(phone);
-      const phoneToStore = rawPhone.length >= 10 ? rawPhone : phone || '';
-      updateCustomer({
-        name: fullName || undefined,
-        phone: phoneToStore || undefined,
-        email: email.trim() || undefined,
-        gender,
-        referenceImage: referenceImage ?? undefined,
-      });
-      updateNotes(notes.trim() || undefined);
-    }, 400);
-
-    return () => {
-      if (syncToDraftTimeoutRef.current) {
-        clearTimeout(syncToDraftTimeoutRef.current);
-        syncToDraftTimeoutRef.current = null;
-      }
-    };
-  }, [firstName, lastName, phone, email, notes, gender, referenceImage, updateCustomer, updateNotes]);
-
-  // When draft is restored with customer info after mount (e.g. we were redirected to client-data before loadDraft resolved), sync draft -> form so the user sees saved client details
-  const hasParamsOverride = !!(params.clientId && params.clientName && params.clientPhone);
-  useEffect(() => {
-    if (hasParamsOverride) return;
-    const customer = draftOrder.customer;
-    const hasDraftCustomer = (customer?.name?.trim() ?? '') !== '' || (customer?.phone?.trim() ?? '') !== '';
-    const formLooksEmpty = !firstName.trim() && !lastName.trim() && getPhoneDigits(phone).length < 10 && !email.trim();
-    if (!hasDraftCustomer || !formLooksEmpty) return;
-
-    const nameParts = parseName(customer?.name);
-    setFirstName(nameParts.firstName);
-    setLastName(nameParts.lastName);
-    setPhone(customer?.phone ? formatPhoneNumber(customer.phone) : (defaultPhonePrefix || ''));
-    setEmail(customer?.email ?? '');
-    setGender((customer?.gender as Gender) ?? null);
-    setReferenceImage(customer?.referenceImage ?? null);
-    if ((draftOrder.notes ?? '').trim()) {
-      setNotes(draftOrder.notes ?? '');
-      setShowNotes(true);
-    }
-  }, [draftOrder.customer?.name, draftOrder.customer?.phone, draftOrder.customer?.email, draftOrder.notes]);
-
-  // When we have a customer id from params or draft, fetch full customer to keep metadata complete
-  useEffect(() => {
-    const customerId = params.clientId || draftOrder.customer.id;
-    if (!customerId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const customer = await apiFetch<Customer>(api.customers(customerId));
-        if (!cancelled && customer) {
-          const normalizedGender = parseGender(customer.gender);
-          setGender(normalizedGender);
-          setReferenceImage(customer.referenceImage ?? null);
-          setMeasurementAppointment(
-            customer.measurementAppointmentAt ? new Date(customer.measurementAppointmentAt) : null
-          );
-          updateCustomer({
-            id: customer.id,
-            name: customerFullName(customer.firstName, customer.lastName),
-            phone: customer.phone,
-            email: customer.email || undefined,
-            gender: normalizedGender,
-            referenceImage: customer.referenceImage ?? undefined,
-          });
-          originalCustomerRef.current = {
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            phone: getPhoneDigits(customer.phone),
-            email: customer.email ?? '',
-            gender: normalizedGender,
-            referenceImage: customer.referenceImage ?? null,
-            measurementAppointmentAt: customer.measurementAppointmentAt ?? null,
-          };
-        }
-      } catch {
-        // ignore; customer may not have gender/referenceImage
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [params.clientId, draftOrder.customer.id, updateCustomer]);
-
-  // When draft was cleared (e.g. user tapped "Delete draft"), reset form so client details are not left on screen
-  useEffect(() => {
-    if (hasParamsOverride) return;
-    const c = draftOrder.customer;
-    const draftCustomerEmpty = !c?.id && !(c?.name?.trim()) && !(c?.phone?.trim());
-    if (!draftCustomerEmpty) return;
-    originalCustomerRef.current = null;
-    setFirstName('');
-    setLastName('');
-    setPhone(defaultPhonePrefix || '');
-    setEmail('');
-    setNotes('');
-    setShowNotes(false);
-    setGender(null);
-    setReferenceImage(null);
-    setMeasurementAppointment(null);
-    setShowMeasurementAppointmentIosPicker(false);
-  }, [draftOrder.customer?.id, draftOrder.customer?.name, draftOrder.customer?.phone, hasParamsOverride, defaultPhonePrefix]);
-
-  // Sync context and local state when route params (client) change (e.g. same screen, different client)
-  useEffect(() => {
-    if (params.clientId && params.clientName && params.clientPhone) {
-      updateCustomer({
-        id: params.clientId,
-        name: params.clientName,
-        phone: params.clientPhone,
-        email: params.clientEmail || undefined,
-        gender: parseGender(params.clientGender),
-        referenceImage: params.clientReferenceImage || undefined,
-      });
-      if (params.clientNotes) {
-        updateNotes(params.clientNotes);
-      }
-      const { firstName: f, lastName: l } = parseName(params.clientName);
-      setFirstName(f);
-      setLastName(l);
-      setPhone(formatPhoneNumber(params.clientPhone));
-      setEmail(params.clientEmail || '');
-      setGender(parseGender(params.clientGender));
-      setReferenceImage(params.clientReferenceImage ?? null);
-      setNotes(params.clientNotes ?? '');
-      setShowNotes(!!params.clientNotes);
-    }
-  }, [
-    params.clientId,
-    params.clientName,
-    params.clientPhone,
-    params.clientEmail,
-    params.clientNotes,
-    params.clientGender,
-    params.clientReferenceImage,
-    updateCustomer,
-    updateNotes,
-  ]);
+    if (!params.clientId || !params.clientName || !params.clientPhone) return;
+    updateCustomer({
+      id: params.clientId,
+      name: params.clientName,
+      phone: params.clientPhone,
+      email: params.clientEmail || undefined,
+      gender: parseGender(params.clientGender),
+      referenceImage: params.clientReferenceImage || undefined,
+    });
+    if (params.clientNotes) updateNotes(params.clientNotes);
+    router.push('/new-order');
+  }, [params.clientId]);
 
   const loadInitialCustomers = useCallback(async () => {
     setIsLoadingInitial(true);
@@ -338,27 +160,6 @@ export default function ClientDataScreen() {
   };
 
   const selectCustomer = (customer: Customer) => {
-    setFirstName(customer.firstName);
-    setLastName(customer.lastName);
-    // Format phone number when selecting
-    const formattedPhone = formatPhoneNumber(customer.phone);
-    setPhone(formattedPhone);
-    setEmail(customer.email || '');
-    setGender(customer.gender === 'male' || customer.gender === 'female' ? customer.gender : null);
-    setReferenceImage(customer.referenceImage ?? null);
-    setMeasurementAppointment(
-      customer.measurementAppointmentAt ? new Date(customer.measurementAppointmentAt) : null
-    );
-    setShowMeasurementAppointmentIosPicker(false);
-    originalCustomerRef.current = {
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      phone: getPhoneDigits(customer.phone),
-      email: customer.email ?? '',
-      gender: (customer.gender as Gender) ?? null,
-      referenceImage: customer.referenceImage ?? null,
-      measurementAppointmentAt: customer.measurementAppointmentAt ?? null,
-    };
     updateCustomer({
       id: customer.id,
       name: customerFullName(customer.firstName, customer.lastName),
@@ -367,9 +168,21 @@ export default function ClientDataScreen() {
       gender: parseGender(customer.gender),
       referenceImage: customer.referenceImage ?? undefined,
     });
-    setShowCustomerSearch(false);
-    setSearchQuery('');
-    setSearchResults([]);
+    router.push('/new-order');
+  };
+
+  const openNewClientForm = () => {
+    setFirstName('');
+    setLastName('');
+    setPhone(defaultPhonePrefix || '');
+    setEmail('');
+    setNotes('');
+    setShowNotes(false);
+    setGender(null);
+    setReferenceImage(null);
+    setMeasurementAppointment(null);
+    setShowMeasurementAppointmentIosPicker(false);
+    setMode('form');
   };
 
   const handlePickReferenceImage = async () => {
@@ -399,12 +212,10 @@ export default function ClientDataScreen() {
     setReferenceImage(null);
   };
 
-  // Load initial customers when modal opens
+  // (Re)load the list whenever the picker is shown, so a client added in the form appears.
   useEffect(() => {
-    if (showCustomerSearch) {
-      loadInitialCustomers();
-    }
-  }, [showCustomerSearch, loadInitialCustomers]);
+    if (mode === 'pick') loadInitialCustomers();
+  }, [mode, loadInitialCustomers]);
 
   // Set default delivery date on mount if not already set
   useEffect(() => {
@@ -502,7 +313,7 @@ export default function ClientDataScreen() {
 
     setIsLoading(true);
     try {
-      let customerId = draftOrder.customer.id;
+      let customerId: string | undefined;
       const phoneToSave = phoneDigits;
 
       if (!customerId) {
@@ -573,117 +384,11 @@ export default function ClientDataScreen() {
     }
   };
 
-  const hasClientDataChanged = (): boolean => {
-    const orig = originalCustomerRef.current;
-    if (!orig) return false;
-    const p = getPhoneDigits(phone);
-    const nextMeas = measurementAppointment ? measurementAppointment.toISOString() : null;
-    return (
-      firstName.trim() !== orig.firstName.trim() ||
-      lastName.trim() !== orig.lastName.trim() ||
-      p !== orig.phone ||
-      (email ?? '').trim() !== orig.email.trim() ||
-      gender !== orig.gender ||
-      (referenceImage ?? null) !== orig.referenceImage ||
-      nextMeas !== orig.measurementAppointmentAt
-    );
-  };
-
-  const applyDraftAndNavigate = () => {
-    const phoneDigits = getPhoneDigits(phone);
-    const phoneToSave = phoneDigits;
-    updateCustomer({
-      id: draftOrder.customer.id,
-      name: customerFullName(firstName.trim(), lastName.trim()),
-      phone: phoneToSave,
-      email: email.trim() || undefined,
-      gender,
-      referenceImage: referenceImage ?? undefined,
-    });
-    if (notes.trim()) updateNotes(notes.trim());
-    router.push('/new-order');
-  };
-
-  const handleSave = async () => {
-    const ok = await saveClientData();
-    if (ok) {
-      Alert.alert(t('common.success'), t('newOrder.client.saveSuccess'), [
-        { text: t('common.ok'), onPress: () => router.replace('/(tabs)/orders') },
-      ]);
-    }
-  };
-
   const handleNext = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert(t('common.error'), t('newOrder.client.firstNameRequired'));
-      return;
-    }
-    const phoneDigits = getPhoneDigits(phone);
-    if (!phoneDigits || phoneDigits.length < 10) {
-      Alert.alert(t('common.error'), t('newOrder.client.phoneRequired'));
-      return;
-    }
-
-    const existingCustomerId = draftOrder.customer.id;
-    const hasChanges = existingCustomerId && hasClientDataChanged();
-
-    if (hasChanges) {
-      Alert.alert(
-        t('newOrder.client.saveChangesToClientTitle'),
-        t('newOrder.client.saveChangesToClientMessage'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('newOrder.client.onlyForThisOrder'),
-            onPress: async () => {
-              const ok = await saveClientData();
-              if (ok) router.push('/new-order');
-            },
-          },
-          {
-            text: t('newOrder.client.saveToClient'),
-            onPress: async () => {
-              setIsLoading(true);
-              try {
-                const phoneToSave = phoneDigits;
-                await apiFetch(api.customers(existingCustomerId), {
-                  method: 'PUT',
-                  body: JSON.stringify({
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
-                    phone: phoneToSave,
-                    email: email.trim() || null,
-                    notes: notes.trim() || null,
-                    gender: gender || null,
-                    referenceImage: referenceImage || null,
-                    measurementAppointmentAt: measurementAppointment
-                      ? measurementAppointment.toISOString()
-                      : null,
-                  }),
-                });
-                if (originalCustomerRef.current) {
-                  originalCustomerRef.current = {
-                    ...originalCustomerRef.current,
-                    measurementAppointmentAt: measurementAppointment
-                      ? measurementAppointment.toISOString()
-                      : null,
-                  };
-                }
-                applyDraftAndNavigate();
-              } catch (e) {
-                Alert.alert(t('common.error'), getErrorMessage(e, t('newOrder.client.saveError')));
-              } finally {
-                setIsLoading(false);
-              }
-            },
-          },
-        ]
-      );
-      return;
-    }
-
     const ok = await saveClientData();
-    if (ok) router.push('/new-order');
+    if (!ok) return;
+    setMode('pick');
+    router.push('/new-order');
   };
 
   const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
@@ -710,7 +415,95 @@ export default function ClientDataScreen() {
 
   // First step: return to wherever the order was started from (Home, client page, Orders).
   const exitFlow = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/orders'));
-  useCustomBack(exitFlow, t('common.back'));
+  const handleBack = () => (mode === 'form' ? setMode('pick') : exitFlow());
+  useCustomBack(handleBack, t('common.back'));
+
+  const visibleCustomers = searchQuery.trim() ? searchResults : initialCustomers;
+  const isListLoading = isSearching || isLoadingInitial;
+
+  if (mode === 'pick') {
+    return (
+      <ScreenContainer noPadding>
+        <View style={styles.pickerHeader}>
+          <Input
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              searchCustomers(text);
+            }}
+            placeholder={t('newOrder.client.searchPlaceholder')}
+            leftIcon={<Search size={20} color={colors.ink3} />}
+            autoCorrect={false}
+            containerStyle={styles.pickerSearch}
+          />
+          <Button
+            variant="secondary"
+            onPress={openNewClientForm}
+            leftIcon={<UserPlus size={18} color={colors.brass ?? colors.primary} />}
+            fullWidth
+          >
+            {t('orders.addClient')}
+          </Button>
+        </View>
+        <FlatList
+          data={visibleCustomers}
+          keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + AtelierSpacing.xl }}
+          renderItem={({ item }) => {
+            const isSelected = item.id === draftOrder.customer.id;
+            return (
+              <TouchableOpacity
+                style={[styles.customerItem, { borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}
+                onPress={() => selectCustomer(item)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <View style={styles.customerInfo}>
+                  <Text style={[styles.customerName, { color: colors.textPrimary }]} numberOfLines={2}>
+                    {customerFullName(item.firstName, item.lastName)}
+                  </Text>
+                  <Text style={[styles.customerPhone, { color: colors.ink3 }]} numberOfLines={1}>{item.phone}</Text>
+                  {item.email ? (
+                    <Text style={[styles.customerEmail, { color: colors.ink4 ?? colors.textTertiary }]} numberOfLines={1}>
+                      {item.email}
+                    </Text>
+                  ) : null}
+                </View>
+                {isSelected ? (
+                  <Check size={20} color={colors.brass ?? colors.primary} />
+                ) : (
+                  <ChevronRight size={20} color={colors.ink4 ?? colors.textTertiary} />
+                )}
+              </TouchableOpacity>
+            );
+          }}
+          ListHeaderComponent={
+            isListLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.brass ?? colors.primary} />
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            isListLoading ? null : (
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: colors.ink3 }]}>
+                  {searchQuery.trim() ? t('newOrder.client.emptySearchResults') : t('newOrder.client.noClients')}
+                </Text>
+              </View>
+            )
+          }
+        />
+        <PaywallModal
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          onUpgrade={handleUpgrade}
+          loading={isUpgrading}
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <>
@@ -723,24 +516,6 @@ export default function ClientDataScreen() {
           keyboardShouldPersistTaps="handled"
           bottomOffset={footerBottomOffset}
         >
-          <Section title={t('newOrder.client.existingCustomer')} style={StyleSheet.flatten([styles.searchSection, { backgroundColor: colors.card }])}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onPress={() => setShowCustomerSearch(true)}
-              leftIcon={<Search size={18} color={colors.brass ?? colors.primary} />}
-              style={StyleSheet.flatten([styles.searchButton, { backgroundColor: colors.paper ?? colors.background, borderColor: colors.brass ?? colors.primary }])}
-            >
-              {t('newOrder.client.searchExistingCustomer')}
-            </Button>
-          </Section>
-
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: colors.rule ?? colors.border }]} />
-            <Text style={[styles.dividerText, { color: colors.ink4 ?? colors.textTertiary }]}>{t('newOrder.client.or')}</Text>
-            <View style={[styles.dividerLine, { backgroundColor: colors.rule ?? colors.border }]} />
-          </View>
-
           <Section title={t('newOrder.client.newClientDataSection')} style={[styles.form, { backgroundColor: colors.card }]}>
             <Input
               label={t('newOrder.client.lastNameLabel')}
@@ -1001,86 +776,10 @@ export default function ClientDataScreen() {
           primaryDisabled={!isValid || isLoading}
           primaryLoading={isLoading}
           secondaryLabel={t('newOrder.back')}
-          onSecondaryPress={exitFlow}
+          onSecondaryPress={handleBack}
         />
       </View>
     </ScreenContainer>
-
-      {/* Customer Search Modal */}
-      <Modal
-        visible={showCustomerSearch}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowCustomerSearch(false)}
-      >
-        <KeyboardAvoidingView style={styles.modalKeyboardAvoid} behavior="padding">
-          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.paper ?? colors.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.rule ?? colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t('newOrder.client.searchModalTitle')}</Text>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => {
-                setShowCustomerSearch(false);
-                setSearchQuery('');
-                setSearchResults([]);
-                setInitialCustomers([]);
-              }}
-            >
-              <X size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.searchInputContainer, { borderBottomColor: colors.rule ?? colors.border }]}>
-            <Input
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                searchCustomers(text);
-              }}
-              placeholder={t('newOrder.client.searchPlaceholder')}
-              autoFocus
-            />
-          </View>
-
-          {(isSearching || isLoadingInitial) && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.brass ?? colors.primary} />
-            </View>
-          )}
-
-          <FlatList
-            data={searchQuery.trim() ? searchResults : initialCustomers}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.customerItem, { backgroundColor: colors.card, borderBottomColor: colors.ruleSoft ?? colors.rule ?? colors.border }]}
-                onPress={() => selectCustomer(item)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.customerInfo}>
-                  <Text style={[styles.customerName, { color: colors.textPrimary }]}>
-                    {customerFullName(item.firstName, item.lastName)}
-                  </Text>
-                  <Text style={[styles.customerPhone, { color: colors.ink3 }]}>{item.phone}</Text>
-                  {item.email && <Text style={[styles.customerEmail, { color: colors.ink4 ?? colors.textTertiary }]}>{item.email}</Text>}
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              !isSearching && !isLoadingInitial && searchQuery.trim() ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={[styles.emptyText, { color: colors.ink3 }]}>{t('newOrder.client.emptySearchResults')}</Text>
-                </View>
-              ) : !isSearching && !isLoadingInitial && !searchQuery.trim() && initialCustomers.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={[styles.emptyText, { color: colors.ink3 }]}>{t('newOrder.client.noClients')}</Text>
-                </View>
-              ) : null
-            }
-          />
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </Modal>
 
       {/* Paywall Modal */}
       <PaywallModal
@@ -1115,49 +814,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: AtelierSpacing.md,
     paddingBottom: AtelierSpacing.xxl,
-  },
-  searchSection: {
-    paddingHorizontal: AtelierSpacing.md,
-    paddingTop: AtelierSpacing.md,
-    paddingBottom: AtelierSpacing.sm,
-    marginHorizontal: AtelierSpacing.md,
-    marginTop: AtelierSpacing.sm,
-    borderRadius: AtelierRadius.md,
-    padding: AtelierSpacing.md,
-    ...AtelierShadow.card,
-  },
-  searchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: AtelierSpacing.sm,
-    paddingVertical: AtelierSpacing.sm,
-    paddingHorizontal: AtelierSpacing.lg,
-    borderRadius: AtelierRadius.md,
-    borderWidth: 2,
-  },
-  searchButtonText: {
-    fontFamily: FontFamily.sansSemiBold,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: AtelierSpacing.md,
-    marginHorizontal: AtelierSpacing.md,
-    gap: AtelierSpacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontFamily: FontFamily.mono,
-    fontSize: 11,
-    lineHeight: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   form: {
     paddingHorizontal: AtelierSpacing.md,
@@ -1329,47 +985,31 @@ const styles = StyleSheet.create({
   chevronRotated: {
     transform: [{ rotate: '180deg' }],
   },
-  modalKeyboardAvoid: {
-    flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  pickerHeader: {
     paddingHorizontal: AtelierSpacing.md,
-    paddingTop: Platform.OS === 'ios' ? 64 : 0,
-    paddingBottom: AtelierSpacing.lg,
-    borderBottomWidth: 1,
+    paddingTop: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.sm,
+    gap: AtelierSpacing.sm,
   },
-  modalTitle: {
-    fontFamily: FontFamily.serif,
-    fontSize: 22,
-    lineHeight: 28,
-  },
-  modalCloseButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchInputContainer: {
-    paddingHorizontal: AtelierSpacing.md,
-    paddingVertical: AtelierSpacing.md,
-    borderBottomWidth: 1,
+  pickerSearch: {
+    marginBottom: 0,
   },
   loadingContainer: {
-    padding: AtelierSpacing.xxl,
+    padding: AtelierSpacing.md,
     alignItems: 'center',
   },
   customerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AtelierSpacing.sm,
+    minHeight: 56,
     paddingHorizontal: AtelierSpacing.md,
     paddingVertical: AtelierSpacing.md,
     borderBottomWidth: 1,
   },
   customerInfo: {
+    flex: 1,
+    minWidth: 0,
     gap: AtelierSpacing.xs,
   },
   customerName: {

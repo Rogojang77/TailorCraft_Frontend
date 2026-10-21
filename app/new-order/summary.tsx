@@ -17,10 +17,8 @@ import { Section } from '@/components/ui/Section';
 import { useRouter } from 'expo-router';
 import { Calendar } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useAuth } from '@/contexts/AuthContext';
 import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { clearDraftStorage } from '@/lib/order';
 import { AppFloatingFooter, FOOTER_CONTENT_HEIGHT } from '@/components/AppFloatingFooter';
 import { PaywallModal } from '@/components/subscription';
 import {
@@ -77,7 +75,6 @@ export default function SummaryScreen() {
   const { t, locale } = useI18n();
   const { colors, isDark } = useTheme();
   const { preferredCurrency } = useSettings();
-  const { user } = useAuth();
   const { draftOrder, orderMode, updatePayment, updateDeliveryDate, updateFittings, updateSketchDraftUri } = useOrderDraft();
   const { upgradeToPro, checkCanCreateOrder, getLimitMessages } = useSubscription();
   const canCreateOrder = checkCanCreateOrder();
@@ -506,7 +503,6 @@ export default function SummaryScreen() {
             text: t('common.ok'),
             onPress: () => {
               const orderId = order.id;
-              if (user?.id) clearDraftStorage(user.id).catch(() => {});
               router.replace(`/order-details/${orderId}`);
             },
           },

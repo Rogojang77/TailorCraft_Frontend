@@ -33,10 +33,7 @@ export default function NoClientsScreen() {
           {t('newOrder.clientRequiredAlertMessage')}
         </Text>
         <View style={styles.actions}>
-          <Button
-            label={t('orders.addClient')}
-            onPress={handleAddClient}
-          />
+          <Button onPress={handleAddClient}>{t('orders.addClient')}</Button>
         </View>
       </View>
     </ScreenContainer>

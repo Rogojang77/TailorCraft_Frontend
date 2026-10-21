@@ -1,21 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  saveDraft,
-  loadDraft,
-  clearDraftStorage,
-  isDraftNonEmpty,
-} from '@/lib/order';
-import * as diagnostics from '@/lib/diagnostics';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 // Measurements are key → value only; no fixed schema. Updates are merged so unknown keys are preserved.
 export type GarmentMeasurements = Record<string, string>;
 
 /** Catalog selections per garment: categoryCode -> itemId(s) */
 export type GarmentCatalogSelections = Record<string, string | string[]>;
-
-/** Draft lifecycle: none (no draft), active (user editing), restored (loaded from storage, show banner). */
-export type DraftStatus = 'none' | 'active' | 'restored';
 
 /** Explicit mode for new-order flow. Set once when entering /new-order. */
 export type OrderMode = 'create' | 'edit';
@@ -53,14 +42,10 @@ export interface DraftOrder {
 
 interface OrderDraftContextType {
   draftOrder: DraftOrder;
-  /** Explicit mode: create (can restore drafts) | edit (never restore). Set once in new-order layout. */
+  /** Explicit mode: create | edit. Set once in new-order layout. */
   orderMode: OrderMode;
   /** When orderMode === 'edit', the order id to load. Undefined in create mode. */
   orderIdToEdit: string | undefined;
-  /** Lifecycle: none | active | restored. Restored = loaded from storage; show banner until user acknowledges. */
-  draftStatus: DraftStatus;
-  /** Call after user taps "Continuă" on restored-draft banner; sets status to 'active'. */
-  acknowledgeRestoredDraft: () => void;
   setSelectedGarmentIds: (ids: string[]) => void;
   updateCustomer: (customer: Partial<DraftOrder['customer']>) => void;
   updateMeasurements: (garmentId: string, measurements: GarmentMeasurements) => void;
@@ -118,11 +103,9 @@ const defaultDraftOrder: DraftOrder = {
 
 const OrderDraftContext = createContext<OrderDraftContextType | undefined>(undefined);
 
-const PERSIST_DEBOUNCE_MS = 500;
-
 export interface OrderDraftProviderProps {
   children: ReactNode;
-  /** Explicit mode: create (can restore drafts) | edit (never restore). Set once when entering /new-order. */
+  /** Explicit mode: create | edit. Set once when entering /new-order. */
   orderMode: OrderMode;
   /** When orderMode === 'edit', the order id to load. Omit or undefined in create mode. */
   orderIdToEdit?: string;
@@ -133,71 +116,8 @@ export function OrderDraftProvider({
   orderMode,
   orderIdToEdit,
 }: OrderDraftProviderProps) {
-  const { user } = useAuth();
+  // In-memory only: an unfinished order is discarded when the flow is left.
   const [draftOrder, setDraftOrder] = useState<DraftOrder>(defaultDraftOrder);
-  const [draftStatus, setDraftStatus] = useState<DraftStatus>('none');
-  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isRestoredRef = useRef(false);
-
-  const skipRestore = orderMode === 'edit';
-
-  // Restore draft on mount when same user and draft exists (create mode only). Edit mode never restores.
-  useEffect(() => {
-    if (!user?.id || skipRestore) {
-      if (skipRestore) isRestoredRef.current = true;
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      const loaded = await loadDraft(user.id);
-      if (cancelled) return;
-      if (loaded && isDraftNonEmpty(loaded)) {
-        const normalized: DraftOrder = {
-          ...defaultDraftOrder,
-          ...loaded,
-          customer: { ...defaultDraftOrder.customer, ...loaded.customer },
-          payment: { ...defaultDraftOrder.payment, ...loaded.payment },
-        };
-        setDraftOrder(normalized);
-        setDraftStatus('restored');
-        diagnostics.recordDraftRestore();
-      }
-      isRestoredRef.current = true;
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, skipRestore]);
-
-  // Persist draft when it changes (debounced). Only in create mode — edit mode must not overwrite the create draft key.
-  // Persist when draft is non-empty even if restore hasn't completed yet, so we don't lose client details typed before loadDraft() resolved.
-  useEffect(() => {
-    if (!user?.id || orderMode === 'edit') return;
-    const canPersist = isRestoredRef.current || isDraftNonEmpty(draftOrder);
-    if (!canPersist) return;
-
-    if (persistTimeoutRef.current) {
-      clearTimeout(persistTimeoutRef.current);
-    }
-
-    persistTimeoutRef.current = setTimeout(() => {
-      persistTimeoutRef.current = null;
-      if (isDraftNonEmpty(draftOrder)) {
-        saveDraft(user.id, draftOrder);
-      }
-      // Do not clear storage when draft is empty - could be transient (e.g. edit flow before loadOrderData).
-      // Storage is cleared only via clearDraft() (successful order creation or explicit cancel).
-    }, PERSIST_DEBOUNCE_MS);
-
-    return () => {
-      if (persistTimeoutRef.current) {
-        clearTimeout(persistTimeoutRef.current);
-      }
-    };
-  }, [user?.id, draftOrder, orderMode]);
 
   const setSelectedGarmentIds = useCallback((ids: string[]) => {
     setDraftOrder((prev) => {
@@ -295,10 +215,6 @@ export function OrderDraftProvider({
     }));
   }, []);
 
-  const acknowledgeRestoredDraft = useCallback(() => {
-    setDraftStatus('active');
-  }, []);
-
   const loadOrderData = (orderData: {
     id: string;
     customer?: {
@@ -373,7 +289,6 @@ export function OrderDraftProvider({
       wantsOrderSketch: (orderData.sketches?.length ?? 0) > 0,
       notes: orderData.notes || undefined,
     });
-    setDraftStatus('active');
   };
 
   const clearDraft = useCallback(() => {
@@ -389,11 +304,7 @@ export function OrderDraftProvider({
       wantsOrderSketch: false,
       sketchDraftUri: undefined,
     });
-    setDraftStatus('none');
-    if (user?.id) {
-      void clearDraftStorage(user.id);
-    }
-  }, [user?.id]);
+  }, []);
 
   return (
     <OrderDraftContext.Provider
@@ -401,8 +312,6 @@ export function OrderDraftProvider({
         draftOrder,
         orderMode,
         orderIdToEdit: orderMode === 'edit' ? orderIdToEdit : undefined,
-        draftStatus,
-        acknowledgeRestoredDraft,
         setSelectedGarmentIds,
         updateCustomer,
         updateMeasurements,

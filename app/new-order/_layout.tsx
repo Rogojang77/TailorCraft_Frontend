@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { OrderDraftProvider } from '@/contexts/OrderDraftContext';
-import { DraftRestoredBanner } from '@/components/DraftRestoredBanner';
 import { ListSkeletonLoader } from '@/components/ListSkeletonLoader';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
 import { api, apiFetch } from '@/lib/api';
@@ -78,7 +77,6 @@ export default function NewOrderLayout() {
       <TemplatesProvider>
         <NewOrderGuard>
           <View style={styles.container}>
-            <DraftRestoredBanner />
             <View style={styles.stackWrap}>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
