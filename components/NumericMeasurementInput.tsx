@@ -19,7 +19,7 @@ import {
   InputAccessoryView,
 } from 'react-native';
 import { Input } from '@/components/ui/Input';
-import { toNumericMeasurementValue } from '@/lib/measurement';
+import { toNumericMeasurementValue, toSignedMeasurementString, withMeasurementSign } from '@/lib/measurement';
 import type { MeasurementValue } from '@/types/measurement';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/lib/i18n';
@@ -93,7 +93,9 @@ export function NumericMeasurementInput({
     (direction: 1 | -1) => {
       const raw = toNumericMeasurementValue(value);
       const next = stepValue(raw, direction, step, min, max);
-      onChange(next);
+      // Keep the explicit "+" of a size adjustment while stepping (+2 → +2,5, not 2,5).
+      const signed = String(value ?? '').trim().startsWith('+') || next < 0;
+      onChange(signed ? toSignedMeasurementString(next) : next);
     },
     [value, step, min, max, onChange]
   );
@@ -139,17 +141,12 @@ export function NumericMeasurementInput({
 
   const handleMinus = useCallback(() => {
     if (!editable) return;
-    const current = toNumericMeasurementValue(value) ?? 0;
-    onChange(-Math.abs(current));
+    onChange(withMeasurementSign(value, '-'));
   }, [editable, value, onChange]);
 
   const handlePlus = useCallback(() => {
     if (!editable) return;
-    const current = toNumericMeasurementValue(value) ?? 0;
-    const absVal = Math.abs(current);
-    // Store as string with leading "+" so the UI displays the plus sign (e.g. "+5" or "+5,5")
-    const withComma = String(absVal).replace('.', ',');
-    onChange('+' + withComma);
+    onChange(withMeasurementSign(value, '+'));
   }, [editable, value, onChange]);
 
   const handleDone = useCallback(() => {

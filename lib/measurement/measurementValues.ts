@@ -13,6 +13,25 @@ function isRelaxedNumberString(s: string): boolean {
   return RELAXED_NUMBER_INPUT.test(s);
 }
 
+/**
+ * Number → signed display string for size adjustments: 2 → "+2", -1.5 → "-1,5", 0 → "0".
+ * Used by the ± / ▲▼ controls so a value marked with "+" keeps it.
+ */
+export function toSignedMeasurementString(n: number): string {
+  const body = toCommaDecimal(String(Math.abs(n)));
+  if (n > 0) return '+' + body;
+  if (n < 0) return '-' + body;
+  return body;
+}
+
+/** Flip or set the sign of what is in the field. Empty → just the sign, so the next digit typed follows it. */
+export function withMeasurementSign(current: string | number | undefined, sign: '+' | '-'): string {
+  const s = String(current ?? '').trim().replace(/^[+-]/, '');
+  // A zero is treated like an empty field, so "−" then "2" gives "-2" instead of "-02".
+  if (s !== '' && Number(toDotDecimal(s)) === 0 && !/[.,]/.test(s)) return sign;
+  return sign + toCommaDecimal(s);
+}
+
 /** Normalize decimal separator to dot for Number() parsing. */
 function toDotDecimal(s: string): string {
   return s.replace(',', '.');
@@ -106,6 +125,8 @@ export function storageToMeasurementValue(
       const s = typeof raw === 'string' ? raw.trim() : String(raw).trim();
       if (s === '') return undefined;
       if (!isRelaxedNumberString(s)) return undefined;
+      // An explicit "+" marks an adjustment to a standard size (e.g. "+2"); converting to a number would drop it.
+      if (s.startsWith('+')) return toCommaDecimal(s);
       const n = Number(toDotDecimal(s));
       if (Number.isFinite(n)) return n;
       return toCommaDecimal(s);
