@@ -354,7 +354,11 @@ export async function refreshAccessToken(): Promise<string | null> {
       credentials: 'include',
       ...(refreshBody != null && { body: refreshBody }),
     });
-    if (!refreshRes.ok) return null;
+    if (!refreshRes.ok) {
+      // Only a server rejection ends the session; a network failure (offline, backend down) must not sign the user out.
+      if (refreshRes.status === HttpStatus.Unauthorized || refreshRes.status === 410) notifySessionExpired();
+      return null;
+    }
     const refreshData = (await refreshRes.json()) as { accessToken?: string; refreshToken?: string };
     if (!refreshData.accessToken) return null;
     await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, refreshData.accessToken);
@@ -455,7 +459,6 @@ export async function apiFetch<T = unknown>(
 
   if (res.status === HttpStatus.Unauthorized && authToken && !skipAuth && !pathOrUrl.includes('/auth/')) {
     const newAccessToken = await refreshAccessToken();
-    if (!newAccessToken) notifySessionExpired();
     if (newAccessToken) {
       reqHeaders.Authorization = `Bearer ${newAccessToken}`;
       try {

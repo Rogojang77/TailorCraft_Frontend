@@ -2,7 +2,7 @@
  * Classic PDF generation API.
  */
 
-import { api, getStoredAccessToken, ApiError, refreshAccessToken, notifySessionExpired } from '@/lib/api';
+import { api, getStoredAccessToken, ApiError, refreshAccessToken } from '@/lib/api';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
 
 /** Base64 decode that works in React Native (atob may be undefined in Hermes). */
@@ -85,7 +85,6 @@ async function fetchGeneratePdfInternal(
   if (res.status === 401 && token && !options?.accessToken) {
     const renewed = await refreshAccessToken();
     if (renewed) res = await send(renewed);
-    else notifySessionExpired();
   }
 
   if (!res.ok) {
