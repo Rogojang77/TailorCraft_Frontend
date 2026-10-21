@@ -88,7 +88,7 @@ export function CatalogSelectionsForm({
       .map((cat) => {
         const categoryTranslationKey = `catalog.categories.${cat.code}`;
         const translatedName = t(categoryTranslationKey);
-        const categoryLabel = translatedName !== categoryTranslationKey ? translatedName : cat.name;
+        const categoryLabel = cat.name || translatedName;
         const itemNames = (cat.items ?? []).map((i) => i.name);
         if (!matchesSearch(searchQuery, categoryLabel, itemNames)) return null;
         const filteredItems = (cat.items ?? []).filter(
@@ -131,7 +131,7 @@ export function CatalogSelectionsForm({
 
           const categoryTranslationKey = `catalog.categories.${category.code}`;
           const translatedName = t(categoryTranslationKey);
-          const categoryLabel = translatedName !== categoryTranslationKey ? translatedName : category.name;
+          const categoryLabel = category.name || translatedName;
 
           const isExpanded = showSearchAndCollapse ? expandedCategoryIds[category.id] !== false : true;
           const onToggle = showSearchAndCollapse ? () => toggleCategory(category.id) : undefined;
@@ -188,7 +188,7 @@ export function CatalogSelectionsForm({
                           >
                             <View style={styles.optionButtonContent}>
                               {item.imageUrl ? (
-                                <Image source={{ uri: item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE_URL}${item.imageUrl}` }} style={styles.optionButtonThumb} />
+                                <Image source={{ uri: item.imageUrl.startsWith('http') ? item.imageUrl : `${API_BASE_URL}${item.imageUrl}` }} style={[styles.optionButtonThumb, { backgroundColor: colors.paperDeep }]} />
                               ) : null}
                               {item.color && <ColorSwatch color={item.color} borderColor={colors.rule ?? colors.border} />}
                               <Text

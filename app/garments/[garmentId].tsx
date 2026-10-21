@@ -393,8 +393,8 @@ export default function GarmentDetailScreen() {
                         <Switch
                           value={garment.status === 'active'}
                           onValueChange={(v) => handleStatusToggle(v)}
-                          trackColor={{ false: colors.border, true: colors.primaryLight }}
-                          thumbColor={garment.status === 'active' ? colors.primary : colors.surface}
+                          trackColor={{ false: colors.border, true: colors.primary }}
+                          thumbColor={colors.surface}
                         />
                       </View>
                     )}
@@ -481,7 +481,7 @@ export default function GarmentDetailScreen() {
                         </Text>
                       )}
                       <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
-                        {def.required ? t('common.required') : t('common.optional')}
+                        {'· '}{def.required ? t('common.required') : t('common.optional')}
                       </Text>
                     </View>
                   </View>
@@ -527,8 +527,8 @@ export default function GarmentDetailScreen() {
                 <Switch
                   value={garment.status === 'active'}
                   onValueChange={(v) => handleStatusToggle(v)}
-                  trackColor={{ false: colors.border, true: colors.primaryLight }}
-                  thumbColor={garment.status === 'active' ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.surface}
                 />
               </View>
             )}
@@ -610,7 +610,7 @@ export default function GarmentDetailScreen() {
                           </Text>
                         )}
                         <Text style={[styles.defMetaText, { color: colors.textSecondary }]}>
-                          {def.required ? t('common.required') : t('common.optional')}
+                          {'· '}{def.required ? t('common.required') : t('common.optional')}
                         </Text>
                       </View>
                     </View>

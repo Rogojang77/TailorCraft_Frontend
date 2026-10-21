@@ -215,7 +215,7 @@ export default function CategoryItemsScreen() {
             <GripVertical size={20} color={colors.textTertiary} />
           </TouchableOpacity>
           {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+            <Image source={{ uri: item.imageUrl }} style={[styles.itemImage, { backgroundColor: colors.paperDeep }]} />
           ) : item.color ? (
             <View style={[styles.itemColorSwatch, { backgroundColor: item.color }]} />
           ) : (
@@ -315,10 +315,7 @@ export default function CategoryItemsScreen() {
               ListHeaderComponent={
                 <View style={[styles.headerCard, { backgroundColor: colors.surface }]}>
                   <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
-                    {t(`catalog.categories.${category.code}`) !==
-                    `catalog.categories.${category.code}`
-                      ? t(`catalog.categories.${category.code}`)
-                      : category.name}
+                    {category.name || t(`catalog.categories.${category.code}`)}
                   </Text>
                   {category.description && (
                     <Text style={[styles.categoryDescription, { color: colors.textSecondary }]}>

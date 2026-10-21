@@ -184,9 +184,7 @@ export function GarmentCatalogSection({
           )}
           <View style={styles.categoryMain}>
             <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
-              {t(`catalog.categories.${category.code}`) !== `catalog.categories.${category.code}`
-                ? t(`catalog.categories.${category.code}`)
-                : category.name}
+              {category.name || t(`catalog.categories.${category.code}`)}
             </Text>
             <Text style={[styles.categoryMeta, { color: colors.ink3 }]}>
               {t('catalog.itemCount', { count: category.itemCount })}
@@ -273,9 +271,7 @@ export function GarmentCatalogSection({
               >
                 <View style={styles.categoryMain}>
                   <Text style={[styles.categoryName, { color: colors.textPrimary }]}>
-                    {t(`catalog.categories.${category.code}`) !== `catalog.categories.${category.code}`
-                      ? t(`catalog.categories.${category.code}`)
-                      : category.name}
+                    {category.name || t(`catalog.categories.${category.code}`)}
                   </Text>
                   <Text style={[styles.categoryMeta, { color: colors.ink3 }]}>
                     {t('catalog.itemCount', { count: category.itemCount })}
