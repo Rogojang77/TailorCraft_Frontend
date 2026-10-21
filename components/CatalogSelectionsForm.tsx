@@ -197,7 +197,7 @@ export function CatalogSelectionsForm({
                                   { color: colors.ink3 },
                                   isSelected && { color: colors.paper ?? '#EFE9DC' },
                                 ]}
-                                numberOfLines={1}
+                                numberOfLines={2}
                               >
                                 {item.name}
                               </Text>

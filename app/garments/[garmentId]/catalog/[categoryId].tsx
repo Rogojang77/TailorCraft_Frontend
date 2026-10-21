@@ -229,7 +229,7 @@ export default function CategoryItemsScreen() {
             {item.description && (
               <Text
                 style={[styles.itemDescription, { color: colors.textSecondary }]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {item.description}
               </Text>

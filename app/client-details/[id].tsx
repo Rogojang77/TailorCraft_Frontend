@@ -508,7 +508,7 @@ export default function ClientDetailsScreen() {
           <View style={styles.clientHeaderRow}>
             <View style={styles.clientHeader}>
             <View style={[styles.avatar, { backgroundColor: colors.brassPale ?? colors.brass ?? colors.primary }]}>
-                <Text style={[styles.avatarText, { color: colors.brassDeep ?? colors.brass ?? '#9C7A3E' }]}>
+                <Text style={[styles.avatarText, { color: '#3F2E14' }]}>
                   {clientData.name.split(' ').map((n) => n[0]).join('').toUpperCase()}
                 </Text>
               </View>

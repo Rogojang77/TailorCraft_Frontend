@@ -306,7 +306,7 @@ export default function NewOrderScreen() {
                           </Text>
                         )}
                         {garment.description ? (
-                          <Text style={[styles.garmentDescription, { color: colors.ink3 }]} numberOfLines={1}>
+                          <Text style={[styles.garmentDescription, { color: colors.ink3 }]} numberOfLines={2}>
                             {garment.description}
                           </Text>
                         ) : null}
@@ -338,7 +338,7 @@ export default function NewOrderScreen() {
                               </Text>
                             )}
                             {garment.description ? (
-                              <Text style={[styles.garmentDescription, { color: colors.ink4 ?? colors.textTertiary }]} numberOfLines={1}>
+                              <Text style={[styles.garmentDescription, { color: colors.ink4 ?? colors.textTertiary }]} numberOfLines={2}>
                                 {garment.description}
                               </Text>
                             ) : null}
