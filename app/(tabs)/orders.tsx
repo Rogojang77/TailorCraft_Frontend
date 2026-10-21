@@ -818,7 +818,7 @@ export default function OrdersTab() {
                         ]}
                         onPress={() => applyPreset(preset)}
                       >
-                        <Text style={[styles.filterOptionText, { color: ink3 }, active && { color: '#FFF' }]}>
+                        <Text style={[styles.filterOptionText, { color: ink3 }, active && { color: colors.paper }]}>
                           {t('orders.filters.' + preset.labelKey)}
                         </Text>
                       </TouchableOpacity>
@@ -838,7 +838,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setOrderStatusFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, orderStatusFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, orderStatusFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + orderStatusLabelId(id))}
                       </Text>
                     </TouchableOpacity>
@@ -857,7 +857,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setPaymentStatusFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, paymentStatusFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, paymentStatusFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + (id === 'fully_paid' ? 'fullyPaid' : id === 'partially_paid' ? 'partiallyPaid' : 'unpaid'))}
                       </Text>
                     </TouchableOpacity>
@@ -876,7 +876,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setOrderDateRangeFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, orderDateRangeFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, orderDateRangeFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
@@ -895,7 +895,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setTotalAmountFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, totalAmountFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, totalAmountFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
@@ -914,7 +914,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setAdvanceAmountFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, advanceAmountFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, advanceAmountFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + amountRangeLabelId(id))}
                       </Text>
                     </TouchableOpacity>
@@ -935,7 +935,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setClientOrderFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, clientOrderFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, clientOrderFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + (id === 'all' ? 'all' : id === '0' ? 'noOrders' : id === '1' ? '1orders' : id === '5' ? '5orders' : '10orders'))}
                       </Text>
                     </TouchableOpacity>
@@ -954,7 +954,7 @@ export default function OrdersTab() {
                       ]}
                       onPress={() => setClientDateRangeFilter(id)}
                     >
-                      <Text style={[styles.filterOptionText, { color: ink3 }, clientDateRangeFilter === id && { color: '#FFF' }]}>
+                      <Text style={[styles.filterOptionText, { color: ink3 }, clientDateRangeFilter === id && { color: colors.paper }]}>
                         {t('orders.filters.' + id)}
                       </Text>
                     </TouchableOpacity>
@@ -974,7 +974,7 @@ export default function OrdersTab() {
                 style={[styles.applyButton, { backgroundColor: brassColor }]}
                 onPress={() => setShowFilterModal(false)}
               >
-                <Text style={[styles.applyButtonText, { color: '#FFF' }]}>{t('common.apply')}</Text>
+                <Text style={[styles.applyButtonText, { color: colors.paper }]}>{t('common.apply')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -1041,7 +1041,7 @@ const styles = StyleSheet.create({
   addClientButtonText: {
     fontFamily: FontFamily.sansSemiBold,
     fontSize: 14,
-    color: '#FFF',
+    color: '#EFE9DC',
   },
   addClientButtonDisabled: { opacity: 0.5 },
   addBtn: {
@@ -1222,6 +1222,6 @@ const styles = StyleSheet.create({
   applyButtonText: {
     fontFamily: FontFamily.sansSemiBold,
     fontSize: 14,
-    color: '#FFF',
+    color: '#EFE9DC',
   },
 });

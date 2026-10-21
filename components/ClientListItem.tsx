@@ -71,7 +71,7 @@ export const ClientListItem = memo(function ClientListItem({ client, onPress, on
 
       <View style={styles.content}>
         <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>{client.name}</Text>
-        <Text style={[styles.meta, { color: colors.ink3 }]} numberOfLines={1}>{metadata || '—'}</Text>
+        <Text style={[styles.meta, { color: colors.ink3 }]} numberOfLines={2}>{metadata || '—'}</Text>
       </View>
     </Button>
   );

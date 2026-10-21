@@ -554,14 +554,14 @@ export default function GalleryTab() {
             onPress={() => setViewMode('grid')}
             activeOpacity={0.7}
           >
-            <Grid3X3 size={16} color={viewMode === 'grid' ? '#FFF' : ink3} strokeWidth={2} />
+            <Grid3X3 size={16} color={viewMode === 'grid' ? colors.paper : ink3} strokeWidth={2} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.viewButton, { backgroundColor: viewMode === 'list' ? brassColor : cardBg, borderColor: ruleColor }]}
             onPress={() => setViewMode('list')}
             activeOpacity={0.7}
           >
-            <List size={16} color={viewMode === 'list' ? '#FFF' : ink3} strokeWidth={2} />
+            <List size={16} color={viewMode === 'list' ? colors.paper : ink3} strokeWidth={2} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity
@@ -734,7 +734,7 @@ export default function GalleryTab() {
                     ]}
                     onPress={() => setNewItemCategoryId(c.id)}
                   >
-                    <Text style={[styles.categoryOptionText, { color: newItemCategoryId === c.id ? '#FFF' : ink3 }]}>
+                    <Text style={[styles.categoryOptionText, { color: newItemCategoryId === c.id ? colors.paper : ink3 }]}>
                       {c.name}
                     </Text>
                   </TouchableOpacity>
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontFamily: FontFamily.sansSemiBold,
     fontSize: 14,
-    color: '#FFF',
+    color: '#EFE9DC',
   },
   centerContainer: {
     flex: 1,
