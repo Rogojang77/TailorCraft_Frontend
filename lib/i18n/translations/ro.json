@@ -563,7 +563,11 @@
       "clear": "Șterge tot",
       "drawFirst": "Desenează ceva înainte să salvezi schița.",
       "savedToDraft": "Schița a fost salvată în draft.",
-      "saveError": "Nu am putut salva schița."
+      "saveError": "Nu am putut salva schița.",
+      "penOnly": "Creion detectat: degetele sunt ignorate. Atinge pentru a permite degetele.",
+      "thickness": "Grosime linie {{size}}",
+      "color": "Culoare",
+      "eraser": "Radieră"
     },
     "title": "Comandă nouă",
     "selectGarments": "Selectează articole",

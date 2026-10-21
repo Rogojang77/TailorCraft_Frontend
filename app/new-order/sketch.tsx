@@ -1,14 +1,15 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  PanResponder,
   Alert,
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView, PointerType } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
+import { Eraser } from 'lucide-react-native';
 import { captureRef } from 'react-native-view-shot';
 import { ScreenContainer } from '@/components/ui/ScreenContainer';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,15 +17,51 @@ import { useOrderDraft } from '@/contexts/OrderDraftContext';
 import { useI18n } from '@/lib/i18n';
 import { FontFamily, AtelierSpacing, AtelierRadius } from '@/constants/atelierDesign';
 
-type Stroke = {
-  d: string;
-  color: string;
-  width: number;
-};
+type Point = { x: number; y: number };
+type Stroke = { d: string; color: string; width: number };
 
-const DEFAULT_COLOR = '#111111';
-const DEFAULT_WIDTH = 3;
-const BRIGHT_CANVAS_BACKGROUND = '#FFFFFF';
+const CANVAS_BACKGROUND = '#FFFFFF';
+const INKS = ['#1B1611', '#A23E2E', '#3C5772'];
+const WIDTHS = [2, 4, 8];
+const ERASER_WIDTH = 24;
+
+/** Smooth path through the points: quadratic curves between midpoints. */
+function pathFromPoints(points: Point[]): string {
+  if (points.length === 0) return '';
+  const [first] = points;
+  if (points.length < 3) {
+    // A tap still leaves a dot.
+    const last = points[points.length - 1];
+    return `M ${first.x} ${first.y} L ${last.x + 0.01} ${last.y + 0.01}`;
+  }
+  let d = `M ${first.x} ${first.y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const mx = (points[i].x + points[i + 1].x) / 2;
+    const my = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y} ${mx} ${my}`;
+  }
+  const last = points[points.length - 1];
+  return `${d} L ${last.x} ${last.y}`;
+}
+
+/** Finished strokes; memoised so the canvas doesn't redraw them on every pen move. */
+const FinishedStrokes = memo(function FinishedStrokes({ strokes }: { strokes: Stroke[] }) {
+  return (
+    <>
+      {strokes.map((stroke, index) => (
+        <Path
+          key={index}
+          d={stroke.d}
+          stroke={stroke.color}
+          strokeWidth={stroke.width}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </>
+  );
+});
 
 export default function NewOrderSketchScreen() {
   const router = useRouter();
@@ -34,60 +71,71 @@ export default function NewOrderSketchScreen() {
 
   const canvasRef = useRef<View | null>(null);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const currentStrokeRef = useRef('');
-  const currentPointsRef = useRef<{ x: number; y: number }[]>([]);
   const [redoStack, setRedoStack] = useState<Stroke[]>([]);
+  const [livePath, setLivePath] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [ink, setInk] = useState(INKS[0]);
+  const [width, setWidth] = useState(WIDTHS[1]);
+  const [erasing, setErasing] = useState(false);
+  // Once a stylus touches the canvas, fingers/palms are ignored (palm rejection) until the user allows them again.
+  const [penOnly, setPenOnly] = useState(false);
 
-  const pathStringFromPoints = (points: { x: number; y: number }[]): string => {
-    if (points.length === 0) return '';
-    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-    return points.reduce((acc, point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-      return `${acc} L ${point.x} ${point.y}`;
-    }, '');
-  };
+  const pointsRef = useRef<Point[]>([]);
+  const drawingRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
 
-  const panResponder = useMemo(
+  const strokeColor = erasing ? CANVAS_BACKGROUND : ink;
+  const strokeWidth = erasing ? ERASER_WIDTH : width;
+
+  const scheduleLiveRender = useCallback(() => {
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      setLivePath(pathFromPoints(pointsRef.current));
+    });
+  }, []);
+
+  const finishStroke = useCallback(() => {
+    if (!drawingRef.current) return;
+    drawingRef.current = false;
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    const d = pathFromPoints(pointsRef.current);
+    pointsRef.current = [];
+    setLivePath('');
+    if (d) setStrokes((prev) => [...prev, { d, color: strokeColor, width: strokeWidth }]);
+  }, [strokeColor, strokeWidth]);
+
+  const pan = useMemo(
     () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (event) => {
-          const { locationX, locationY } = event.nativeEvent;
-          currentPointsRef.current = [{ x: locationX, y: locationY }];
-          currentStrokeRef.current = pathStringFromPoints(currentPointsRef.current);
+      Gesture.Pan()
+        .runOnJS(true)
+        .minDistance(0)
+        .maxPointers(1)
+        .onBegin((e) => {
+          if (e.pointerType === PointerType.STYLUS) setPenOnly(true);
+          else if (penOnly) return;
+          drawingRef.current = true;
+          pointsRef.current = [{ x: e.x, y: e.y }];
           setRedoStack([]);
-        },
-        onPanResponderMove: (event) => {
-          const { locationX, locationY } = event.nativeEvent;
-          currentPointsRef.current.push({ x: locationX, y: locationY });
-          currentStrokeRef.current = pathStringFromPoints(currentPointsRef.current);
-          setStrokes((prev) => {
-            const next = [...prev];
-            const last = next[next.length - 1];
-            if (last && last.d === '__TEMP__') {
-              next[next.length - 1] = { ...last, d: currentStrokeRef.current };
-              return next;
-            }
-            return [...next, { d: currentStrokeRef.current, color: DEFAULT_COLOR, width: DEFAULT_WIDTH }];
-          });
-        },
-        onPanResponderRelease: () => {
-          const finalPath = currentStrokeRef.current;
-          if (!finalPath) return;
-          setStrokes((prev) => {
-            const next = [...prev];
-            const last = next[next.length - 1];
-            if (last) next[next.length - 1] = { ...last, d: finalPath };
-            else next.push({ d: finalPath, color: DEFAULT_COLOR, width: DEFAULT_WIDTH });
-            return next;
-          });
-          currentStrokeRef.current = '';
-          currentPointsRef.current = [];
-        },
-      }),
-    []
+          scheduleLiveRender();
+        })
+        .onUpdate((e) => {
+          if (!drawingRef.current) return;
+          pointsRef.current.push({ x: e.x, y: e.y });
+          scheduleLiveRender();
+        })
+        // Pen-up: record where the pen left the screen (moves alone miss it) and end the stroke.
+        // Also covers taps, which never activate the pan and so never reach onFinalize.
+        .onTouchesUp((e) => {
+          const touch = e.changedTouches[0];
+          if (drawingRef.current && touch) pointsRef.current.push({ x: touch.x, y: touch.y });
+          finishStroke();
+        })
+        .onFinalize(() => finishStroke()),
+    [penOnly, scheduleLiveRender, finishStroke]
   );
 
   const handleUndo = () => {
@@ -152,20 +200,80 @@ export default function NewOrderSketchScreen() {
           </View>
         </View>
 
-        <View style={[styles.canvasWrap, { backgroundColor: BRIGHT_CANVAS_BACKGROUND }]} ref={canvasRef} {...panResponder.panHandlers}>
-          <Svg width="100%" height="100%">
-            {strokes.map((stroke, index) => (
-              <Path
-                key={`${index}-${stroke.d.length}`}
-                d={stroke.d}
-                stroke={stroke.color}
-                strokeWidth={stroke.width}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ))}
-          </Svg>
+        <GestureHandlerRootView style={styles.canvasWrap}>
+          <GestureDetector gesture={pan}>
+            <View style={[styles.canvas, { backgroundColor: CANVAS_BACKGROUND }]} ref={canvasRef} collapsable={false}>
+              <Svg width="100%" height="100%" pointerEvents="none">
+                <FinishedStrokes strokes={strokes} />
+                {livePath ? (
+                  <Path
+                    d={livePath}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+              </Svg>
+            </View>
+          </GestureDetector>
+        </GestureHandlerRootView>
+
+        {penOnly ? (
+          <TouchableOpacity onPress={() => setPenOnly(false)} activeOpacity={0.7} style={styles.penOnlyRow}>
+            <Text style={[styles.penOnlyText, { color: colors.ink3 }]}>{t('newOrder.sketch.penOnly')}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        <View style={styles.tools}>
+          {WIDTHS.map((w) => {
+            const active = !erasing && width === w;
+            return (
+              <TouchableOpacity
+                key={w}
+                onPress={() => {
+                  setWidth(w);
+                  setErasing(false);
+                }}
+                style={[styles.toolChip, { borderColor: active ? colors.brass : colors.rule }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={t('newOrder.sketch.thickness', { size: String(w) })}
+              >
+                <View style={{ width: w + 4, height: w + 4, borderRadius: (w + 4) / 2, backgroundColor: ink }} />
+              </TouchableOpacity>
+            );
+          })}
+          <View style={[styles.toolDivider, { backgroundColor: colors.rule }]} />
+          {INKS.map((c) => {
+            const active = !erasing && ink === c;
+            return (
+              <TouchableOpacity
+                key={c}
+                onPress={() => {
+                  setInk(c);
+                  setErasing(false);
+                }}
+                style={[styles.toolChip, { borderColor: active ? colors.brass : colors.rule }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={t('newOrder.sketch.color')}
+              >
+                <View style={[styles.swatch, { backgroundColor: c }]} />
+              </TouchableOpacity>
+            );
+          })}
+          <View style={[styles.toolDivider, { backgroundColor: colors.rule }]} />
+          <TouchableOpacity
+            onPress={() => setErasing((e) => !e)}
+            style={[styles.toolChip, styles.eraserChip, { borderColor: erasing ? colors.brass : colors.rule }]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: erasing }}
+          >
+            <Eraser size={18} color={erasing ? colors.brass : colors.ink3} />
+            <Text style={[styles.eraserText, { color: erasing ? colors.brass : colors.ink3 }]}>{t('newOrder.sketch.eraser')}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.toolbar}>
@@ -184,7 +292,7 @@ export default function NewOrderSketchScreen() {
             activeOpacity={0.8}
             disabled={isSaving}
           >
-            <Text style={[styles.toolButtonText, { color: colors.paper ?? '#EFE9DC' }]}>{isSaving ? 'Saving...' : 'Save'}</Text>
+            <Text style={[styles.toolButtonText, { color: colors.paper ?? '#EFE9DC' }]}>{isSaving ? t('common.saving') : t('common.save')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -230,6 +338,58 @@ const styles = StyleSheet.create({
     margin: AtelierSpacing.md,
     borderRadius: AtelierRadius.lg,
     overflow: 'hidden',
+  },
+  canvas: {
+    flex: 1,
+  },
+  penOnlyRow: {
+    alignSelf: 'center',
+    marginTop: -AtelierSpacing.sm,
+    marginBottom: AtelierSpacing.xs,
+    paddingVertical: 4,
+    paddingHorizontal: AtelierSpacing.sm,
+  },
+  penOnlyText: {
+    fontFamily: FontFamily.mono,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  tools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: AtelierSpacing.sm,
+    paddingHorizontal: AtelierSpacing.md,
+    paddingBottom: AtelierSpacing.sm,
+  },
+  toolChip: {
+    minWidth: 40,
+    height: 40,
+    borderWidth: 1.5,
+    borderRadius: AtelierRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  toolDivider: {
+    width: 1,
+    height: 24,
+  },
+  eraserChip: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: AtelierSpacing.md,
+  },
+  eraserText: {
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   toolbar: {
     flexDirection: 'row',

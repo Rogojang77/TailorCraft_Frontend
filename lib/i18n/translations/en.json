@@ -563,7 +563,11 @@
       "clear": "Clear",
       "drawFirst": "Draw something before saving the sketch.",
       "savedToDraft": "The sketch was saved to the draft.",
-      "saveError": "Could not save the sketch."
+      "saveError": "Could not save the sketch.",
+      "penOnly": "Pen detected: fingers are ignored. Tap to allow fingers.",
+      "thickness": "Line thickness {{size}}",
+      "color": "Ink colour",
+      "eraser": "Eraser"
     },
     "title": "New order",
     "selectGarments": "Select garments",
