@@ -46,11 +46,11 @@
         "android.permission.RECORD_AUDIO"
       ],
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 21
+      "versionCode": 22
     },
     "ios": {
       "bundleIdentifier": "com.rogojang77.tailorcraft",
-      "buildNumber": "31",
+      "buildNumber": "32",
       "supportsTablet": true,
       "appleTeamId": "5Z9B528SHU"
     },
