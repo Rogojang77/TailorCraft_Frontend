@@ -46,7 +46,7 @@
         "android.permission.RECORD_AUDIO"
       ],
       "softwareKeyboardLayoutMode": "resize",
-      "versionCode": 22
+      "versionCode": 23
     },
     "ios": {
       "bundleIdentifier": "com.rogojang77.tailorcraft",
