@@ -206,8 +206,8 @@ export default function GeneralSettingsScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowRecentOrders(value);
                 }}
-                trackColor={{ false: colors.rule ?? colors.border, true: (colors.brassPale ?? colors.brass) + '1880' }}
-                thumbColor={showRecentOrders ? colors.brass ?? colors.primary : colors.ink4 ?? colors.textTertiary}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.surface}
               />
             </View>
           </View>
@@ -287,13 +287,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: FontFamily.serif,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 26,
   },
   sectionDescription: {
     fontFamily: FontFamily.sans,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 12,
+    lineHeight: 18,
     marginBottom: AtelierSpacing.md,
   },
   selectTrigger: {

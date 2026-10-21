@@ -237,7 +237,7 @@ export function MeasurementDefinitionEditorModal({
                     style={[
                       styles.typeChip,
                       { backgroundColor: colors.ruleSoft ?? colors.rule ?? colors.border },
-                      inputType === opt && { backgroundColor: (colors.brassPale ?? colors.brass) + '18' + '60', borderWidth: 1, borderColor: colors.brass ?? colors.primary }
+                      inputType === opt && { backgroundColor: (colors.brassPale ?? colors.brass) + '60', borderWidth: 1, borderColor: colors.brass ?? colors.primary }
                     ]}
                     onPress={() => setInputType(opt)}
                   >
