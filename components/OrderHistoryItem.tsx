@@ -107,6 +107,7 @@ export const OrderHistoryItem = memo(function OrderHistoryItem({ order, onPress,
           deliveryDate={order.deliveryDate}
           orderStatus={order.status}
           compact
+          style={styles.deadlineBar}
         />
       </TouchableOpacity>
       {onDelete ? (
@@ -192,10 +193,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
+  deadlineBar: {
+    marginTop: AtelierSpacing.md,
+    marginBottom: 0,
+  },
   deadlineAndFinancialRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: AtelierSpacing.md,
     gap: AtelierSpacing.md,
   },
   financialSection: {

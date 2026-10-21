@@ -119,9 +119,9 @@ export function OrderHeader({
           </>
         ) : (
           <View style={styles.paymentGrid}>
-            <View style={[styles.paymentItem, { backgroundColor: colors.pine + '18' }]}>
-              <Text style={[styles.paymentLabel, { color: colors.pine }]}>{t('orderDetails.totalOrder')}</Text>
-              <Text style={[styles.paymentValue, { color: colors.pine }]}>{orderData.total} {preferredCurrency}</Text>
+            <View style={[styles.paymentItem, { backgroundColor: colors.paperDeep }]}>
+              <Text style={[styles.paymentLabel, { color: colors.ink3 }]}>{t('orderDetails.totalOrder')}</Text>
+              <Text style={[styles.paymentValue, { color: colors.textPrimary }]}>{orderData.total} {preferredCurrency}</Text>
             </View>
             <View style={[styles.paymentItem, { backgroundColor: colors.pine + '18' }]}>
               <Text style={[styles.paymentLabel, { color: colors.pine }]}>{t('orderDetails.advancePaid')}</Text>
@@ -195,6 +195,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: AtelierSpacing.md,
+    marginHorizontal: AtelierSpacing.md,
     borderRadius: AtelierRadius.md,
     padding: AtelierSpacing.md,
     ...AtelierShadow.card,

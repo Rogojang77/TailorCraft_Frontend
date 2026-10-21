@@ -454,7 +454,6 @@ export function AiPreviewSection({ orderId, orderStatus }: AiPreviewSectionProps
                 <View style={[styles.emptyIcon, { backgroundColor: (colors.brassPale ?? colors.brass) + '18' }]}>
                   <Sparkles size={32} color={colors.brass ?? colors.primary} />
                 </View>
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{t('aiPreview.emptyTitle')}</Text>
                 <Text style={[styles.emptySubtitle, { color: colors.ink3 }]}>{t('aiPreview.emptySubtitle')}</Text>
 
                 <Button
@@ -644,13 +643,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: AtelierSpacing.lg,
-  },
-  emptyTitle: {
-    fontFamily: FontFamily.serif,
-    fontSize: 18,
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: AtelierSpacing.sm,
   },
   emptySubtitle: {
     fontFamily: FontFamily.mono,

@@ -79,35 +79,39 @@ export interface ThemeColors {
 /**
  * Light mode color palette
  */
+/**
+ * Legacy token names (primary, surface, textSecondary, status colours…) are mapped onto the atelier
+ * palette so older screens match the paper/ink/brass design without touching each one.
+ */
 export const LightColors: ThemeColors = {
   // Primary (reduced saturation by ~15%)
-  primary: '#C4A02D',
-  primaryDark: '#A88A1A',
-  primaryLight: '#E8D9A0',
+  primary: '#9C7A3E',
+  primaryDark: '#6E5326',
+  primaryLight: '#E9DCC0',
   
   // Neutral
-  background: '#F8F9FB',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
+  background: '#EFE9DC',
+  surface: '#F7F2E6',
+  surfaceElevated: '#FBF7EC',
   
   // Text (2026 standards)
-  textPrimary: '#111111',
-  textSecondary: '#6B7280',
-  textTertiary: '#9CA3AF',
+  textPrimary: '#1B1611',
+  textSecondary: '#5E5446',
+  textTertiary: '#8E8371',
   textInverse: '#FFFFFF',
   
   // Status
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  danger: '#F43F5E',
-  dangerDark: '#E11D48',
+  success: '#3D5C48',
+  warning: '#9C6B1E',
+  error: '#A23E2E',
+  danger: '#A23E2E',
+  dangerDark: '#7E2E22',
   dangerBg: 'rgba(244, 63, 94, 0.12)',
-  info: '#3B82F6',
+  info: '#3C5772',
   
   // Borders & Dividers
-  border: '#E5E7EB',
-  borderLight: '#F3F4F6',
+  border: '#D6CBB3',
+  borderLight: '#E3D9C2',
   
   // Overlays
   overlay: 'rgba(0, 0, 0, 0.5)',
@@ -117,28 +121,28 @@ export const LightColors: ThemeColors = {
   overlayGradientEnd: 'rgba(0, 0, 0, 0.98)',
 
   // Status backgrounds (tinted surfaces for alerts/cards)
-  successBg: '#ECFDF5',
-  successBorder: '#10B981',
-  successText: '#065F46',
-  errorBg: '#FEF2F2',
-  errorBorder: '#FECACA',
-  errorText: '#991B1B',
-  errorTextDark: '#B91C1C',
-  warningBg: '#FFFBEB',
-  warningBorder: '#FDE68A',
-  warningText: '#92400E',
-  warningTextDark: '#A16207',
-  infoBg: '#EFF6FF',
-  infoBorder: '#BFDBFE',
-  infoText: '#1E40AF',
+  successBg: '#E1E8DC',
+  successBorder: '#3D5C48',
+  successText: '#2C4434',
+  errorBg: '#F2DFD9',
+  errorBorder: '#D9A99F',
+  errorText: '#7E2E22',
+  errorTextDark: '#6A261C',
+  warningBg: '#F2E6CC',
+  warningBorder: '#D9C18B',
+  warningText: '#6E5326',
+  warningTextDark: '#5A4320',
+  infoBg: '#DFE5EA',
+  infoBorder: '#A9B9C8',
+  infoText: '#2C4256',
 
   // Icon/default accent
-  iconDefault: '#333333',
-  primaryLegacy: '#D4AF37',
+  iconDefault: '#3F362A',
+  primaryLegacy: '#9C7A3E',
 
   // Floating footer CTA
-  ctaGold: '#C9A227',
-  ctaGoldDisabled: '#E5D3A1',
+  ctaGold: '#9C7A3E',
+  ctaGoldDisabled: '#D9C9A5',
 
   transparent: 'transparent',
 
@@ -165,33 +169,33 @@ export const LightColors: ThemeColors = {
  */
 export const DarkColors: ThemeColors = {
   // Primary (slightly brighter for dark mode visibility)
-  primary: '#D4B94D',
-  primaryDark: '#B89F3A',
-  primaryLight: '#3D3520',
+  primary: '#C49640',
+  primaryDark: '#8A6830',
+  primaryLight: '#3A2F1E',
   
   // Neutral
-  background: '#0F0F0F',
-  surface: '#1A1A1A',
-  surfaceElevated: '#242424',
+  background: '#1E1A14',
+  surface: '#252018',
+  surfaceElevated: '#2A2419',
   
   // Text
-  textPrimary: '#F5F5F5',
-  textSecondary: '#A1A1A1',
-  textTertiary: '#6B6B6B',
+  textPrimary: '#EFE9DC',
+  textSecondary: '#C9C0AD',
+  textTertiary: '#8A8070',
   textInverse: '#111111',
   
   // Status (kept similar for recognition, slightly adjusted for dark bg)
-  success: '#34D399',
-  warning: '#FBBF24',
-  error: '#F87171',
-  danger: '#FB7185',
-  dangerDark: '#F43F5E',
+  success: '#7FA58A',
+  warning: '#D4A85A',
+  error: '#D9786A',
+  danger: '#D9786A',
+  dangerDark: '#C25A4A',
   dangerBg: 'rgba(251, 113, 133, 0.15)',
-  info: '#60A5FA',
+  info: '#86A3C0',
   
   // Borders & Dividers
-  border: '#333333',
-  borderLight: '#2A2A2A',
+  border: '#3A322A',
+  borderLight: '#302820',
   
   // Overlays
   overlay: 'rgba(0, 0, 0, 0.7)',
@@ -201,28 +205,28 @@ export const DarkColors: ThemeColors = {
   overlayGradientEnd: 'rgba(0, 0, 0, 0.98)',
 
   // Status backgrounds (darker tinted surfaces)
-  successBg: '#052E16',
-  successBorder: '#34D399',
-  successText: '#6EE7B7',
-  errorBg: '#450A0A',
-  errorBorder: '#F87171',
-  errorText: '#FCA5A5',
-  errorTextDark: '#F87171',
-  warningBg: '#451A03',
-  warningBorder: '#FBBF24',
-  warningText: '#FCD34D',
-  warningTextDark: '#FBBF24',
-  infoBg: '#1E3A5F',
-  infoBorder: '#60A5FA',
-  infoText: '#93C5FD',
+  successBg: '#1F2A22',
+  successBorder: '#7FA58A',
+  successText: '#A9C7B1',
+  errorBg: '#2E1C18',
+  errorBorder: '#D9786A',
+  errorText: '#E8A99F',
+  errorTextDark: '#D9786A',
+  warningBg: '#2E2516',
+  warningBorder: '#D4A85A',
+  warningText: '#E3C58C',
+  warningTextDark: '#D4A85A',
+  infoBg: '#1C2530',
+  infoBorder: '#86A3C0',
+  infoText: '#B5C7D9',
 
   // Icon/default accent
-  iconDefault: '#E5E5E5',
-  primaryLegacy: '#E5C85C',
+  iconDefault: '#C9C0AD',
+  primaryLegacy: '#C49640',
 
   // Floating footer CTA
-  ctaGold: '#D4B94D',
-  ctaGoldDisabled: '#5C5233',
+  ctaGold: '#C49640',
+  ctaGoldDisabled: '#4A3F2C',
 
   transparent: 'transparent',
 

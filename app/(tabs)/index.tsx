@@ -626,7 +626,8 @@ const styles = StyleSheet.create({
   },
   heroStats: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Top-align so a label that wraps ("Due this week") doesn't push its number out of line.
+    alignItems: 'flex-start',
     gap: AtelierSpacing.md,
   },
   heroStatItem: {
@@ -644,8 +645,10 @@ const styles = StyleSheet.create({
     ...AtelierType.monoSm,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    textAlign: 'center',
   },
   heroStatDivider: {
+    alignSelf: 'center',
     width: 1,
     height: 36,
     opacity: 0.3,
