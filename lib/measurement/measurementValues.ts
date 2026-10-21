@@ -86,8 +86,8 @@ export function normalizeMeasurementValue(
       if (isIntermediate) {
         return toCommaDecimal(trimmed);
       }
-      // Preserve explicit leading "+" so the input can display it when user tapped the + button
-      if (trimmed.startsWith('+') && Number.isFinite(n)) {
+      // Preserve explicit leading "+" (size adjustment), and "-0" so typing "-0,5" doesn't lose the minus
+      if (Number.isFinite(n) && (trimmed.startsWith('+') || (trimmed.startsWith('-') && n === 0))) {
         return toCommaDecimal(trimmed);
       }
       if (Number.isFinite(n)) {
@@ -149,6 +149,8 @@ export function storageToMeasurementValue(
 export function measurementValueToStorage(v: MeasurementValue): string {
   if (v === undefined) return '';
   if (typeof v === 'number') return String(v);
+  // A sign with no number after it is not a value; saving it fails the server's number check.
+  if (v.trim() === '+' || v.trim() === '-') return '';
   return v;
 }
 
