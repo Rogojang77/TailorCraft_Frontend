@@ -819,6 +819,7 @@ const styles = StyleSheet.create({
     marginHorizontal: AtelierSpacing.md,
     marginBottom: AtelierSpacing.md,
     borderRadius: AtelierRadius.md,
+    padding: AtelierSpacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',

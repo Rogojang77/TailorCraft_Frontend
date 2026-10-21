@@ -195,30 +195,34 @@ export function MeasurementForm({
     </View>
   );
 
-  const renderField = (def: MeasurementDefinition, index: number) => {
-    const isFullWidth = def.inputType === 'multiline' || def.multiline;
-    if (twoColumns && !isFullWidth) {
-      const next = sorted[index + 1];
-      const nextFullWidth = next && (next.inputType === 'multiline' || next.multiline);
-      if (index % 2 === 0 && next && !nextFullWidth) {
-        return (
-          <View style={fieldRowStyle} key={def.key}>
-            <View style={fieldHalfStyle}>{renderSingleField(def)}</View>
-            <View style={fieldHalfStyle}>{renderSingleField(next)}</View>
-          </View>
-        );
-      }
-      if (index % 2 === 1) {
-        return null;
-      }
-    }
+  // Text areas and choice chips need the full width; numbers and short fields go two per row.
+  const isFullWidth = (def: MeasurementDefinition) =>
+    def.inputType === 'multiline' || def.inputType === 'select' || !!def.multiline || !!def.sizeRange;
 
-    return <View key={def.key}>{renderSingleField(def)}</View>;
-  };
+  const rows: MeasurementDefinition[][] = [];
+  for (const def of sorted) {
+    const last = rows[rows.length - 1];
+    if (twoColumns && !isFullWidth(def) && last && last.length === 1 && !isFullWidth(last[0])) last.push(def);
+    else rows.push([def]);
+  }
 
   return (
     <View style={[styles.container, compact && styles.containerCompact]}>
-      {sorted.map((def, index) => renderField(def, index))}
+      {rows.map((row) =>
+        row.length === 2 ? (
+          <View style={fieldRowStyle} key={row[0].key}>
+            <View style={fieldHalfStyle}>{renderSingleField(row[0])}</View>
+            <View style={fieldHalfStyle}>{renderSingleField(row[1])}</View>
+          </View>
+        ) : twoColumns && !isFullWidth(row[0]) ? (
+          <View style={fieldRowStyle} key={row[0].key}>
+            <View style={fieldHalfStyle}>{renderSingleField(row[0])}</View>
+            <View style={fieldHalfStyle} />
+          </View>
+        ) : (
+          <View key={row[0].key}>{renderSingleField(row[0])}</View>
+        )
+      )}
     </View>
   );
 }

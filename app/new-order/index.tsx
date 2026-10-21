@@ -489,7 +489,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.sansMedium,
     fontSize: 15,
     lineHeight: 22,
-    flex: 1,
   },
   garmentMeta: {
     flexDirection: 'row',
