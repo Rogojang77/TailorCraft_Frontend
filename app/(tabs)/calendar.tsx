@@ -328,7 +328,7 @@ export default function CalendarTab() {
                   <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('calendar.legend.deliveryDate')}</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
+                  <View style={[styles.legendDot, { backgroundColor: colors.ocean }]} />
                   <Text style={[styles.legendText, { color: colors.textSecondary }]}>{t('calendar.legend.measurement')}</Text>
                 </View>
               </View>
@@ -399,14 +399,14 @@ export default function CalendarTab() {
                         <View style={styles.dotRow}>
                           {hasFitting ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}
                           {hasDelivery ? <View style={[styles.dot, { backgroundColor: colors.success }]} /> : null}
-                          {hasMeasurement ? <View style={[styles.dot, { backgroundColor: colors.warning }]} /> : null}
+                          {hasMeasurement ? <View style={[styles.dot, { backgroundColor: colors.ocean }]} /> : null}
                         </View>
                       </View>
                       <View style={styles.dayEventsContainer}>
                         {dayEventsPreview.map((event) => {
                           const isFitting = event.type === 'FITTING';
                           const isDelivery = event.type === 'DELIVERY';
-                          const accent = isFitting ? colors.primary : isDelivery ? colors.success : colors.warning;
+                          const accent = isFitting ? colors.primary : isDelivery ? colors.success : colors.ocean;
                           return (
                             <Text
                               key={event.id}
@@ -513,8 +513,8 @@ export default function CalendarTab() {
                 activeOpacity={0.75}
               >
                 <View style={styles.listItemTagRow}>
-                  <View style={[styles.listItemTypeTag, { backgroundColor: `${colors.warning}24` }]}>
-                    <Text style={[styles.listItemTypeTagText, { color: colors.warning }]}>
+                  <View style={[styles.listItemTypeTag, { backgroundColor: `${colors.ocean}24` }]}>
+                    <Text style={[styles.listItemTypeTagText, { color: colors.ocean }]}>
                       {t('calendar.measurementTagAtTime', { time: formatListItemTime(eventDate) })}
                     </Text>
                   </View>

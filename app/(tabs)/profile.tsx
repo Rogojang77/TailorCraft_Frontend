@@ -287,12 +287,17 @@ export default function ProfileTab() {
                   <View style={styles.logoGlow} />
                 </View>
               ) : (
-                <View style={[styles.logoPlaceholderReadOnlyModern, { backgroundColor: colors.brassPale + '22', borderColor: brassColor }]}>
+                <TouchableOpacity
+                  onPress={openEditModal}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  style={[styles.logoPlaceholderReadOnlyModern, { backgroundColor: colors.brassPale + '22', borderColor: brassColor }]}
+                >
                   <Text style={[styles.logoPlaceholderTitleReadOnly, { color: inkColor }]}>{t('profile.addCompanyLogoPlaceholder')}</Text>
                   <Text style={[styles.logoPlaceholderSubtitleReadOnly, { color: ink3 }]}>
                     {t('profile.logoPlaceholderSubtitle')}
                   </Text>
-                </View>
+                </TouchableOpacity>
               )}
             </View>
           </View>
