@@ -712,7 +712,7 @@ export default function GalleryTab() {
             />
 
             <Input
-              label={`${t('common.optional')} – ${t('gallery.descriptionLabel')}`}
+              label={`${t('gallery.descriptionLabel')} (${t('common.optional').toLowerCase()})`}
               placeholder={t('gallery.descriptionPlaceholder')}
               value={newItemDescription}
               onChangeText={setNewItemDescription}
@@ -720,7 +720,7 @@ export default function GalleryTab() {
               numberOfLines={4}
             />
 
-            <Text style={[styles.inputLabel, { color: ink3 }]}>{t('gallery.categoryLabel')}</Text>
+            <Text style={[styles.inputLabel, { color: inkColor }]}>{t('gallery.categoryLabel')}</Text>
             {categories.length === 0 ? (
               <>
                 <Text style={[styles.noCategoriesHint, { color: ink3 }]}>{t('gallery.createCategoryFirst')}</Text>
@@ -1156,8 +1156,8 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   inputLabel: {
-    fontFamily: FontFamily.monoMedium,
-    fontSize: 10,
+    fontFamily: FontFamily.monoSemiBold,
+    fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: AtelierSpacing.sm,
