@@ -50,7 +50,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.rogojang77.tailorcraft",
-      "buildNumber": "33",
+      "buildNumber": "34",
       "supportsTablet": true,
       "appleTeamId": "5Z9B528SHU"
     },
