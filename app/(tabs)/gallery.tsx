@@ -722,7 +722,22 @@ export default function GalleryTab() {
 
             <Text style={[styles.inputLabel, { color: ink3 }]}>{t('gallery.categoryLabel')}</Text>
             {categories.length === 0 ? (
-              <Text style={[styles.noCategoriesHint, { color: ink3 }]}>{t('gallery.createCategoryFirst')}</Text>
+              <>
+                <Text style={[styles.noCategoriesHint, { color: ink3 }]}>{t('gallery.createCategoryFirst')}</Text>
+                {/* Two page sheets can't stack on iOS, so close this one before opening categories. */}
+                <TouchableOpacity
+                  style={styles.cancelEditBtn}
+                  onPress={() => {
+                    setShowAddModal(false);
+                    fetchCategories();
+                    // shortcut: fixed delay so iOS finishes dismissing the first sheet; use onDismiss if it ever flakes.
+                    setTimeout(() => setShowCategoriesModal(true), 400);
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.cancelEditText, { color: brassColor }]}>+ {t('gallery.addCategory')}</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
                 {categories.map((c) => (
@@ -831,7 +846,7 @@ export default function GalleryTab() {
                       setCategoryNameInput(c.name);
                     }}
                   >
-                    <Text style={[styles.categoryRowNameText, { color: inkColor }]}>{c.name}</Text>
+                    <Text style={[styles.categoryRowNameText, { color: inkColor }]} numberOfLines={2}>{c.name}</Text>
                     {c.itemCount != null && c.itemCount > 0 && (
                       <Text style={[styles.categoryRowCount, { color: ink4 }]}>{c.itemCount}</Text>
                     )}

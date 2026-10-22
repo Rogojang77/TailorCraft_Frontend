@@ -87,7 +87,6 @@ export function CalendarAddFittingModal({
     return d;
   });
   const [saving, setSaving] = useState(false);
-  const [showIosTimePicker, setShowIosTimePicker] = useState(false);
 
   const selectedDay = useMemo(() => startOfDay(parseDateKey(selectedDateKey)), [selectedDateKey]);
 
@@ -107,7 +106,6 @@ export function CalendarAddFittingModal({
     const d = new Date(selectedDay);
     d.setHours(9, 0, 0, 0);
     setFittingDateTime(d);
-    setShowIosTimePicker(false);
   }, [visible, selectedDateKey, selectedDay]);
 
   useEffect(() => {
@@ -265,33 +263,16 @@ export function CalendarAddFittingModal({
           <Text style={[styles.timeButtonText, { color: colors.brass ?? colors.primary }]}>{formatTimeLabel(fittingDateTime)}</Text>
         </TouchableOpacity>
       ) : (
-        <>
-          <TouchableOpacity
-            style={[styles.timeButton, { borderColor: colors.rule ?? colors.border }]}
-            onPress={() => setShowIosTimePicker((prev) => !prev)}
-            activeOpacity={0.7}
-            disabled={saving}
-          >
-            <Text style={[styles.timeButtonText, { color: colors.brass ?? colors.primary }]}>{formatTimeLabel(fittingDateTime)}</Text>
-          </TouchableOpacity>
-          {showIosTimePicker ? (
-            <View style={styles.iosPickerWrap}>
-              <View style={styles.iosPickerDoneRow}>
-                <TouchableOpacity onPress={() => setShowIosTimePicker(false)} activeOpacity={0.7}>
-                  <Text style={[styles.iosPickerDone, { color: colors.brass ?? colors.primary }]}>{t('common.done')}</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={fittingDateTime}
-                mode="time"
-                display="spinner"
-                onChange={onIosTimeChange}
-                textColor={colors.textPrimary}
-                themeVariant={isDark ? 'dark' : 'light'}
-              />
-            </View>
-          ) : null}
-        </>
+        // Compact pill instead of a spinner: the spinner pushed the order list almost out of the card.
+        <DateTimePicker
+          value={fittingDateTime}
+          mode="time"
+          display="compact"
+          onChange={onIosTimeChange}
+          disabled={saving}
+          themeVariant={isDark ? 'dark' : 'light'}
+          style={styles.iosCompactPicker}
+        />
       )}
       <Text style={[styles.sectionLabel, { color: colors.textPrimary, marginTop: AtelierSpacing.md }]}>
         {t('calendar.addFittingSelectOrder')}
@@ -412,20 +393,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  iosPickerWrap: {
-    marginTop: AtelierSpacing.xs,
-  },
-  iosPickerDoneRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingVertical: AtelierSpacing.xs,
-  },
-  iosPickerDone: {
-    fontSize: 16,
-    fontWeight: '700',
+  iosCompactPicker: {
+    alignSelf: 'flex-start',
   },
   orderList: {
-    maxHeight: 280,
+    maxHeight: 380,
   },
   orderListContent: {
     paddingBottom: AtelierSpacing.sm,
