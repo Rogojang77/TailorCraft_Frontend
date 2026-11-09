@@ -90,7 +90,8 @@ export const api = {
     register: `${API_BASE_URL}/api/auth/register`,
     signup: `${API_BASE_URL}/api/auth/signup`,
     social: `${API_BASE_URL}/api/auth/social`,
-    verifyEmail: (token: string) => `${API_BASE_URL}/api/auth/verify-email?token=${token}`,
+    verifyEmail: (token: string) =>
+      `${API_BASE_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`,
     resendEmailVerification: `${API_BASE_URL}/api/auth/resend-email-verification`,
     forgotPassword: `${API_BASE_URL}/api/auth/forgot-password`,
     resetPassword: `${API_BASE_URL}/api/auth/reset-password`,
@@ -255,7 +256,14 @@ function signalWithTimeout(
   };
   timeoutAbortSignal.addEventListener('abort', onAbort);
   callerSignal.addEventListener('abort', onAbort);
-  return { signal: combined.signal, abort: clearTimeout };
+  // Drop the listener on the caller's signal so a long-lived signal doesn't collect one per request.
+  return {
+    signal: combined.signal,
+    abort: () => {
+      callerSignal.removeEventListener('abort', onAbort);
+      clearTimeout();
+    },
+  };
 }
 
 /**
@@ -341,7 +349,20 @@ export function notifySessionExpired() {
  * Returns the new access token, or null when the session can't be renewed.
  * Shared by apiFetch and raw fetches (PDF download) that need the same 401 → refresh → retry behaviour.
  */
-export async function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function refreshAccessToken(): Promise<string | null> {
+  // Single flight: requests that hit 401 together share one refresh instead of each firing their own.
+  if (!refreshInFlight) {
+    refreshInFlight = doRefreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function doRefreshAccessToken(): Promise<string | null> {
+  const { signal, abort } = timeoutSignal(REQUEST_TIMEOUT_MS);
   try {
     const storedRefresh = await SecureStore.getItemAsync('refreshToken');
     const refreshBody =
@@ -352,11 +373,19 @@ export async function refreshAccessToken(): Promise<string | null> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
+      signal,
       ...(refreshBody != null && { body: refreshBody }),
     });
     if (!refreshRes.ok) {
       // Only a server rejection ends the session; a network failure (offline, backend down) must not sign the user out.
-      if (refreshRes.status === HttpStatus.Unauthorized || refreshRes.status === 410) notifySessionExpired();
+      // 403 = email no longer verified, 410 = account scheduled for deletion.
+      if (
+        refreshRes.status === HttpStatus.Unauthorized ||
+        refreshRes.status === 403 ||
+        refreshRes.status === 410
+      ) {
+        notifySessionExpired();
+      }
       return null;
     }
     const refreshData = (await refreshRes.json()) as { accessToken?: string; refreshToken?: string };
@@ -369,6 +398,8 @@ export async function refreshAccessToken(): Promise<string | null> {
   } catch (refreshErr) {
     console.error('Token refresh failed:', refreshErr);
     return null;
+  } finally {
+    abort();
   }
 }
 
@@ -404,7 +435,10 @@ export async function apiFetch<T = unknown>(
   }
 
   const timeout = timeoutMs ?? REQUEST_TIMEOUT_MS;
-  const maxRetries = 2;
+  // A timed-out POST/PATCH may still have reached the server; retrying it can create duplicate orders, clients or payments.
+  const method = (rest.method ?? 'GET').toUpperCase();
+  const isIdempotent = method === 'GET' || method === 'HEAD' || method === 'PUT' || method === 'DELETE';
+  const maxRetries = isIdempotent ? 2 : 0;
   const retryDelaysMs = [1000, 2000];
 
   let res!: Response;
@@ -461,8 +495,10 @@ export async function apiFetch<T = unknown>(
     const newAccessToken = await refreshAccessToken();
     if (newAccessToken) {
       reqHeaders.Authorization = `Bearer ${newAccessToken}`;
+      const retryTimeout = signalWithTimeout(timeout, rest.signal);
       try {
-        const retryRes = await fetch(url, { ...rest, headers: reqHeaders });
+        const retryRes = await fetch(url, { ...rest, headers: reqHeaders, signal: retryTimeout.signal });
+        retryTimeout.abort();
         const retryData = (await retryRes.json().catch(() => ({}))) as T & ApiErrorPayload;
         if (!retryRes.ok) {
           const errorMessage = formatApiError(retryData, retryRes.status, retryRes.statusText, url);
@@ -478,6 +514,7 @@ export async function apiFetch<T = unknown>(
         }
         return retryData as T;
       } catch (retryErr) {
+        retryTimeout.abort();
         if (retryErr instanceof Error && retryErr.message.startsWith('Backend not reachable')) throw retryErr;
         if (retryErr instanceof Error && retryErr.message.startsWith('Validation failed')) throw retryErr;
         if (retryErr instanceof Error) throw retryErr;
@@ -640,13 +677,26 @@ export async function uploadImage(fileUri: string): Promise<string> {
         name: filename,
       } as any);
 
-      const uploadResponse = await fetch(uploadUrl, {
+      let uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           ...(authToken && { Authorization: `Bearer ${authToken}` }),
         },
         body: formData,
       });
+
+      // Access tokens last 15 minutes; renew once instead of telling the user to log in again.
+      if (uploadResponse.status === HttpStatus.Unauthorized && authToken) {
+        const renewed = await refreshAccessToken();
+        if (renewed) {
+          authToken = renewed;
+          uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${renewed}` },
+            body: formData,
+          });
+        }
+      }
 
       if (uploadResponse.ok) {
         responseData = await uploadResponse.json();

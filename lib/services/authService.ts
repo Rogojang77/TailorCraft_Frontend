@@ -89,11 +89,13 @@ export async function signup(data: SignupData): Promise<SignupResponse> {
   }
 }
 
-export async function logout(accessToken: string | null): Promise<void> {
+export async function logout(accessToken: string | null, refreshToken?: string | null): Promise<void> {
   try {
     await apiFetch(api.auth.logout, {
       method: 'POST',
       token: accessToken,
+      // Social logins keep the refresh token in SecureStore, not a cookie; send it so the server can revoke it.
+      ...(refreshToken ? { body: JSON.stringify({ refreshToken }) } : {}),
     });
   } catch (error) {
     console.error('Logout API error:', error);

@@ -100,16 +100,17 @@ export function NumericMeasurementInput({
     [value, step, min, max, onChange]
   );
 
-  const startRepeat = useCallback(
-    (direction: 1 | -1) => {
-      applyStep(direction);
-      initialTimeoutRef.current = setTimeout(() => {
-        initialTimeoutRef.current = null;
-        repeatTimerRef.current = setInterval(() => applyStep(direction), REPEAT_INTERVAL_MS);
-      }, INITIAL_REPEAT_DELAY_MS);
-    },
-    [applyStep]
-  );
+  // The interval reads the latest applyStep (and so the latest value); a captured one would repeat the same step.
+  const applyStepRef = useRef(applyStep);
+  applyStepRef.current = applyStep;
+
+  const startRepeat = useCallback((direction: 1 | -1) => {
+    applyStepRef.current(direction);
+    initialTimeoutRef.current = setTimeout(() => {
+      initialTimeoutRef.current = null;
+      repeatTimerRef.current = setInterval(() => applyStepRef.current(direction), REPEAT_INTERVAL_MS);
+    }, INITIAL_REPEAT_DELAY_MS);
+  }, []);
 
   const stopRepeat = useCallback(() => {
     if (initialTimeoutRef.current) {
@@ -305,6 +306,8 @@ export function NumericMeasurementInput({
 
   useEffect(() => {
     return () => {
+      if (initialTimeoutRef.current) clearTimeout(initialTimeoutRef.current);
+      if (repeatTimerRef.current) clearInterval(repeatTimerRef.current);
       if (focusedRef.current && setFocusedAccessoryRef.current && Platform.OS === 'android') {
         setFocusedAccessoryRef.current(null, null);
       }
