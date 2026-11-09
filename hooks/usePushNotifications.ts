@@ -27,7 +27,7 @@ export function usePushNotifications(isAuthenticated: boolean, accessToken: stri
       const data = response.notification.request.content.data as Record<string, unknown> | undefined;
       const orderId = getOrderIdFromNotificationData(data);
       if (orderId) {
-        router.push(`/order-details/${orderId}`);
+        router.push(`/order-details/${encodeURIComponent(orderId)}`);
       }
     });
     return () => sub.remove();
@@ -47,7 +47,7 @@ export function usePushNotifications(isAuthenticated: boolean, accessToken: stri
       const data = last.notification.request.content.data as Record<string, unknown> | undefined;
       const orderId = getOrderIdFromNotificationData(data);
       if (orderId) {
-        router.push(`/order-details/${orderId}`);
+        router.push(`/order-details/${encodeURIComponent(orderId)}`);
       }
     })();
   }, [isAuthenticated, router]);

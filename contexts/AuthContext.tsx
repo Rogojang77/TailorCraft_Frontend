@@ -189,7 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await deactivatePushDeviceWithBackend(accessToken);
-      await authService.logout(accessToken);
+      const storedRefresh = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY).catch(() => null);
+      await authService.logout(accessToken, storedRefresh);
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {

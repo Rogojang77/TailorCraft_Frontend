@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, Modal, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Edit3, Plus } from 'lucide-react-native';
 import { FittingStatusModal } from '@/components/FittingStatusModal';
@@ -117,19 +117,24 @@ export default function CalendarTab() {
     return { from, to };
   }, [currentMonth, selectedDateKey, viewMode]);
 
+  // Only the newest request may set events, so paging months quickly can't show a previous month's fittings.
+  const latestRequestRef = useRef(0);
   const fetchEvents = useCallback(
     async (isRefresh = false) => {
+      const requestId = ++latestRequestRef.current;
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       try {
         const query = `?from=${encodeURIComponent(range.from.toISOString())}&to=${encodeURIComponent(range.to.toISOString())}`;
         const response = await apiFetch<{ events: CalendarEvent[] }>(`${api.calendar.events}${query}`);
-        setEvents(response.events ?? []);
+        if (requestId === latestRequestRef.current) setEvents(response.events ?? []);
       } catch {
-        setEvents([]);
+        if (requestId === latestRequestRef.current) setEvents([]);
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (requestId === latestRequestRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [range.from, range.to]
@@ -137,8 +142,14 @@ export default function CalendarTab() {
 
   useEffect(() => {
     recordFeatureUsage('calendar.view');
-    fetchEvents();
-  }, [fetchEvents]);
+  }, []);
+
+  // Tabs stay mounted, so refetch on focus too: fittings added from an order show up without pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      fetchEvents();
+    }, [fetchEvents])
+  );
 
   const filteredEvents = useMemo(
     () =>

@@ -33,3 +33,6 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+# Firebase config (kept local; repo is public)
+google-services.json
+GoogleService-Info.plist
