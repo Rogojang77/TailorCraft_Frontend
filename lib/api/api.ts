@@ -235,10 +235,8 @@ function timeoutSignal(ms: number): { signal: AbortSignal; abort: () => void } {
   const id = setTimeout(() => controller.abort(), ms);
   return {
     signal: controller.signal,
-    abort: () => {
-      clearTimeout(id);
-      controller.abort();
-    },
+    // Only stop the timer: aborting after fetch resolves cancels the body read (res.json() fails on web).
+    abort: () => clearTimeout(id),
   };
 }
 
